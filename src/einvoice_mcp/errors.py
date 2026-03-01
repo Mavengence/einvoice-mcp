@@ -34,11 +34,11 @@ class KoSITConnectionError(EInvoiceError):
 class KoSITValidationError(EInvoiceError):
     """KoSIT validation processing failed."""
 
-    def __init__(self, detail: str = "") -> None:
+    def __init__(self, detail: str = "", *, controlled: bool = False) -> None:
         msg = f"KoSIT validation failed: {detail}" if detail else "KoSIT validation failed"
-        # Only embed detail if it's a controlled German message (e.g. HTTP status info)
-        # Otherwise use generic message
-        if detail and not detail.startswith(("http", "Connect", "Read", "Write", "Pool")):
+        # Only embed detail if explicitly marked as a controlled German message.
+        # Raw exception strings (from httpx etc.) are NEVER surfaced to callers.
+        if detail and controlled:
             msg_de = f"Fehler: KoSIT-Validierung fehlgeschlagen. {detail}"
         else:
             msg_de = "Fehler: KoSIT-Validierung fehlgeschlagen."

@@ -35,7 +35,8 @@ def build_xml(data: InvoiceData) -> bytes:
     except InvoiceGenerationError:
         raise
     except Exception as exc:
-        raise InvoiceGenerationError(str(exc)) from exc
+        logger.warning("XML build error: %s", exc, exc_info=True)
+        raise InvoiceGenerationError() from exc
 
 
 def _build_document(data: InvoiceData) -> bytes:

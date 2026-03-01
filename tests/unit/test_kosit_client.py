@@ -121,3 +121,15 @@ class TestResponseSizeGuard:
         with pytest.raises(KoSITValidationError, match="Größenlimit"):
             await client.validate(b"<Invoice/>")
         await client.close()
+
+    @respx.mock
+    async def test_non_numeric_content_length_header(self, client: KoSITClient) -> None:
+        """Non-numeric Content-Length must not crash — falls through to body check."""
+        respx.post(f"{BASE_URL}/").respond(
+            200,
+            text=MOCK_VALID_REPORT,
+            headers={"content-length": "chunked"},
+        )
+        result = await client.validate(b"<Invoice/>")
+        assert result is not None
+        await client.close()

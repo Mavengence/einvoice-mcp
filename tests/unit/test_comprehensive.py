@@ -211,7 +211,7 @@ class TestInvoiceBuilderErrors:
                 "einvoice_mcp.services.invoice_builder._build_document",
                 side_effect=RuntimeError("unexpected"),
             ),
-            pytest.raises(InvoiceGenerationError, match="unexpected"),
+            pytest.raises(InvoiceGenerationError, match="generation failed"),
         ):
             data = InvoiceData(
                 invoice_id="T",
@@ -480,6 +480,18 @@ class TestComplianceEdgeCases:
         result = await check_compliance("<xml/>", client, "TYPO_XRECHUNG")
         assert result["valid"] is False
         assert any("Ungültiges Zielprofil" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
+    async def test_invalid_target_profile_not_reflected(self) -> None:
+        """User-supplied target_profile must NOT be reflected in the output."""
+        client = KoSITClient(base_url=KOSIT_URL)
+        payload = "<script>alert('xss')</script>"
+        result = await check_compliance("<xml/>", client, payload)
+        assert result["valid"] is False
+        # The user input must not appear in any suggestion
+        for suggestion in result["suggestions"]:
+            assert payload not in suggestion
         await client.close()
 
     @respx.mock

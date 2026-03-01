@@ -156,13 +156,12 @@ async def check_compliance(
     Returns:
         Compliance result with field checks and German suggestions.
     """
-    profile_upper = target_profile.upper()
+    profile_upper = target_profile.upper().strip()
     if profile_upper not in _VALID_TARGET_PROFILES:
+        # Never reflect raw user input — use a generic message
         return ComplianceResult(
             valid=False,
-            suggestions=[
-                f"Fehler: Ungültiges Zielprofil '{target_profile}'. Erlaubt: XRECHNUNG, ZUGFERD."
-            ],
+            suggestions=["Fehler: Ungültiges Zielprofil. Erlaubt: XRECHNUNG, ZUGFERD."],
         ).model_dump()
 
     if len(xml_content) > MAX_XML_SIZE:

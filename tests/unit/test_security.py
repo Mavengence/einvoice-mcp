@@ -219,7 +219,7 @@ class TestErrorSanitization:
         from einvoice_mcp.errors import KoSITValidationError
 
         # Controlled German message (e.g. HTTP status info) should pass through
-        err = KoSITValidationError("Konfigurationsfehler im Validator (HTTP 422).")
+        err = KoSITValidationError("Konfigurationsfehler im Validator (HTTP 422).", controlled=True)
         assert "Konfigurationsfehler" in err.message_de
 
     def test_kosit_validation_error_blocks_raw_httpx_errors(self) -> None:
@@ -227,4 +227,12 @@ class TestErrorSanitization:
 
         err = KoSITValidationError("httpx.ReadTimeout: timed out after 30.0 seconds")
         assert "httpx" not in err.message_de
+        assert "fehlgeschlagen" in err.message_de
+
+    def test_kosit_validation_error_blocks_uncontrolled_detail(self) -> None:
+        from einvoice_mcp.errors import KoSITValidationError
+
+        # Without controlled=True, detail must NOT appear in message_de
+        err = KoSITValidationError("RemoteProtocolError: peer closed connection")
+        assert "RemoteProtocolError" not in err.message_de
         assert "fehlgeschlagen" in err.message_de

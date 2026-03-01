@@ -70,20 +70,29 @@ class KoSITClient:
 
         # Guard against oversized responses from a compromised/rogue KoSIT instance
         content_length = resp.headers.get("content-length")
-        if content_length and int(content_length) > MAX_RESPONSE_SIZE:
-            raise KoSITValidationError("Antwort des Validators überschreitet Größenlimit.")
+        try:
+            if content_length and int(content_length) > MAX_RESPONSE_SIZE:
+                raise KoSITValidationError(
+                    "Antwort des Validators überschreitet Größenlimit.", controlled=True
+                )
+        except ValueError:
+            pass  # Non-numeric Content-Length — fall through to body size check
 
         raw_report = resp.text
         if len(raw_report) > MAX_RESPONSE_SIZE:
-            raise KoSITValidationError("Antwort des Validators überschreitet Größenlimit.")
+            raise KoSITValidationError(
+                "Antwort des Validators überschreitet Größenlimit.", controlled=True
+            )
 
         if resp.status_code == 200:
             return self._parse_report(raw_report, valid=True)
         if resp.status_code == 406:
             return self._parse_report(raw_report, valid=False)
         if resp.status_code == 422:
-            raise KoSITValidationError("Konfigurationsfehler im Validator (HTTP 422).")
-        raise KoSITValidationError(f"Unerwarteter HTTP-Status: {resp.status_code}")
+            raise KoSITValidationError(
+                "Konfigurationsfehler im Validator (HTTP 422).", controlled=True
+            )
+        raise KoSITValidationError(f"Unerwarteter HTTP-Status: {resp.status_code}", controlled=True)
 
     def _parse_report(self, raw_xml: str, *, valid: bool) -> ValidationResult:
         errors: list[ValidationError] = []
