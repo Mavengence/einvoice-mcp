@@ -105,12 +105,12 @@ Every mandatory Business Term is tested in generated XML output:
 | `services/invoice_builder.py` | 109 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
 | `services/pdf_generator.py` | 70 | 1 | **99%** |
-| `services/xml_parser.py` | 159 | 23 | **86%** |
+| `services/xml_parser.py` | 161 | 23 | **86%** |
 | `tools/compliance.py` | 57 | 2 | **96%** |
-| `tools/generate.py` | 56 | 0 | **100%** |
+| `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 4 | **90%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **761** | **33** | **96%** |
+| **TOTAL** | **757** | **33** | **96%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
