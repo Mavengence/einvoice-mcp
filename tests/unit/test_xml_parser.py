@@ -96,5 +96,9 @@ class TestStrElement:
         assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
         assert _str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
 
+    def test_preserves_unicode_parens(self) -> None:
+        """German umlauts in parens must NOT be stripped (not ASCII schemeIDs)."""
+        assert _str_element("Artikel (3Ü)") == "Artikel (3Ü)"
+
     def test_none_returns_empty(self) -> None:
         assert _str_element(None) == ""

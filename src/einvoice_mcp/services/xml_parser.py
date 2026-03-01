@@ -104,9 +104,11 @@ def _extract_party(party_obj: object) -> Party | None:
         if tax_regs and hasattr(tax_regs, "children"):
             for reg in tax_regs.children:
                 id_elem = getattr(reg, "id", None)
-                if id_elem and hasattr(id_elem, "_text") and id_elem._text:
-                    tax_id = id_elem._text
-                    break
+                if id_elem:
+                    extracted = _str_element(id_elem)
+                    if extracted:
+                        tax_id = extracted
+                        break
 
         return Party(name=name, address=address, tax_id=tax_id)
     except Exception:
@@ -221,14 +223,21 @@ def _str_element(value: object) -> str:
     if value is None:
         return ""
     s = str(value).strip()
-    # Only strip trailing " (XX)" where XX is 1-10 alphanumeric chars without
-    # any lowercase letters.  This matches schemeID patterns like (VA), (EM),
-    # (9930) but NOT description text like "Reisekosten (pauschal)".
+    # Only strip trailing " (XX)" where XX is 1-10 ASCII alphanumeric chars
+    # without any lowercase letters.  This matches schemeID patterns like
+    # (VA), (EM), (9930) but NOT description text like "Reisekosten (pauschal)"
+    # or German abbreviations like "(3Ü)".
     if s.endswith(")"):
         paren_idx = s.rfind(" (")
         if paren_idx > 0:
             scheme = s[paren_idx + 2 : -1]
-            if scheme and len(scheme) <= 10 and scheme.isalnum() and scheme == scheme.upper():
+            if (
+                scheme
+                and len(scheme) <= 10
+                and scheme.isascii()
+                and scheme.isalnum()
+                and scheme == scheme.upper()
+            ):
                 s = s[:paren_idx]
     return s
 

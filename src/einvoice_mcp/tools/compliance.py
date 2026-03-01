@@ -112,13 +112,14 @@ _VALID_TARGET_PROFILES = frozenset({"XRECHNUNG", "ZUGFERD"})
 
 SUGGESTIONS_MAP = {
     "BT-1": "BT-1 (Rechnungsnummer) fehlt — jede Rechnung muss eindeutig nummeriert sein.",
-    "BT-2": "BT-2 (Rechnungsdatum) fehlt — Pflichtangabe nach §14 UStG.",
+    "BT-2": "BT-2 (Rechnungsdatum) fehlt — Pflichtangabe nach §14 Abs. 4 Nr. 3 UStG.",
     "BT-10": (
         "BT-10 (Leitweg-ID / Käuferreferenz) fehlt — "
         "für XRechnung an öffentliche Auftraggeber zwingend erforderlich."
     ),
     "BT-31": (
-        "BT-31 (USt-IdNr. des Verkäufers) fehlt — für den Vorsteuerabzug des Käufers erforderlich."
+        "BT-31 (USt-IdNr. des Verkäufers) fehlt — für den Vorsteuerabzug des Käufers "
+        "erforderlich (alternativ: Steuernummer als BT-32)."
     ),
     "BT-34": (
         "BT-34 (Elektronische Adresse des Verkäufers) fehlt — "

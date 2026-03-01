@@ -2,7 +2,7 @@
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
 
-The first MCP server that enables AI agents (Claude, Cursor, Copilot) to validate, generate, parse, and check compliance of electronic invoices per EN 16931 — without a single line of integration code.
+An MCP server that enables AI agents (Claude, Cursor, Copilot) to validate, generate, parse, and check compliance of electronic invoices per EN 16931 — without a single line of integration code.
 
 ---
 
@@ -264,7 +264,7 @@ make docker-up  # Start Docker stack
 ## Regulatory References
 
 - **EN 16931** — European standard for electronic invoicing
-- **XRechnung 3.0.2** — German CIUS (Core Invoice Usage Specification)
+- **XRechnung 3.0 (Szenarien 3.0.2)** — German CIUS (Core Invoice Usage Specification)
 - **ZUGFeRD 2.x / Factur-X 1.08** — Hybrid PDF/A-3 invoice format
 - **BMF 2024-11-15** — German Federal Ministry of Finance e-invoice mandate
 - **§14 UStG** — German VAT Act invoice requirements
