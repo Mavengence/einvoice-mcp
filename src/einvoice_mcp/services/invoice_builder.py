@@ -60,8 +60,23 @@ def _build_document(data: InvoiceData) -> bytes:
 
     if data.seller.tax_id:
         seller_tax = TaxRegistration()
-        seller_tax.id = (data.seller.tax_id, "VA")
+        seller_tax.id = ("VA", data.seller.tax_id)
         doc.trade.agreement.seller.tax_registrations.add(seller_tax)
+
+    # Seller electronic address (BT-34) — mandatory for XRechnung 3.0
+    if data.seller.electronic_address:
+        doc.trade.agreement.seller.electronic_address.uri_ID = (
+            data.seller.electronic_address_scheme,
+            data.seller.electronic_address,
+        )
+
+    # Seller contact (BR-DE-5, BR-DE-7)
+    if data.seller_contact_name:
+        doc.trade.agreement.seller.contact.person_name = data.seller_contact_name
+    if data.seller_contact_email:
+        doc.trade.agreement.seller.contact.email.address = data.seller_contact_email
+    if data.seller_contact_phone:
+        doc.trade.agreement.seller.contact.telephone.number = data.seller_contact_phone
 
     # Buyer
     doc.trade.agreement.buyer.name = data.buyer.name
@@ -72,8 +87,15 @@ def _build_document(data: InvoiceData) -> bytes:
 
     if data.buyer.tax_id:
         buyer_tax = TaxRegistration()
-        buyer_tax.id = (data.buyer.tax_id, "VA")
+        buyer_tax.id = ("VA", data.buyer.tax_id)
         doc.trade.agreement.buyer.tax_registrations.add(buyer_tax)
+
+    # Buyer electronic address (BT-49) — mandatory for XRechnung 3.0
+    if data.buyer.electronic_address:
+        doc.trade.agreement.buyer.electronic_address.uri_ID = (
+            data.buyer.electronic_address_scheme,
+            data.buyer.electronic_address,
+        )
 
     # Buyer reference (BT-10) — required for XRechnung
     buyer_ref = data.buyer_reference or data.leitweg_id

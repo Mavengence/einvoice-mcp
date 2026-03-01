@@ -74,6 +74,11 @@ def _build_invoice_data(
     leitweg_id: str = "",
     buyer_reference: str = "",
     profile: str = "XRECHNUNG",
+    seller_electronic_address: str = "",
+    buyer_electronic_address: str = "",
+    seller_contact_name: str = "",
+    seller_contact_email: str = "",
+    seller_contact_phone: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -101,6 +106,7 @@ def _build_invoice_data(
                 "country_code": seller_country_code,
             },
             "tax_id": seller_tax_id or None,
+            "electronic_address": seller_electronic_address or None,
         },
         buyer={
             "name": buyer_name,
@@ -111,6 +117,7 @@ def _build_invoice_data(
                 "country_code": buyer_country_code,
             },
             "tax_id": buyer_tax_id or None,
+            "electronic_address": buyer_electronic_address or None,
         },
         items=items_list,
         currency=currency,
@@ -118,6 +125,9 @@ def _build_invoice_data(
         leitweg_id=leitweg_id or None,
         buyer_reference=buyer_reference or None,
         profile=invoice_profile,
+        seller_contact_name=seller_contact_name or None,
+        seller_contact_email=seller_contact_email or None,
+        seller_contact_phone=seller_contact_phone or None,
     )
 
 
@@ -200,6 +210,11 @@ async def einvoice_generate_xrechnung(
     leitweg_id: str = "",
     buyer_reference: str = "",
     profile: str = "XRECHNUNG",
+    seller_electronic_address: str = "",
+    buyer_electronic_address: str = "",
+    seller_contact_name: str = "",
+    seller_contact_email: str = "",
+    seller_contact_phone: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -229,6 +244,11 @@ async def einvoice_generate_xrechnung(
         leitweg_id: Leitweg-ID für öffentliche Auftraggeber (optional).
         buyer_reference: Käuferreferenz / Bestellnummer BT-10 (optional).
         profile: Rechnungsprofil — XRECHNUNG, ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED.
+        seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34, z.B. E-Mail).
+        buyer_electronic_address: Elektronische Adresse des Käufers (BT-49, z.B. E-Mail).
+        seller_contact_name: Ansprechpartner des Verkäufers (BT-41, BR-DE-5).
+        seller_contact_email: E-Mail des Ansprechpartners (BT-43, BR-DE-7).
+        seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -251,6 +271,11 @@ async def einvoice_generate_xrechnung(
         leitweg_id=leitweg_id,
         buyer_reference=buyer_reference,
         profile=profile,
+        seller_electronic_address=seller_electronic_address,
+        buyer_electronic_address=buyer_electronic_address,
+        seller_contact_name=seller_contact_name,
+        seller_contact_email=seller_contact_email,
+        seller_contact_phone=seller_contact_phone,
     )
 
     if isinstance(data, str):
@@ -294,6 +319,11 @@ async def einvoice_generate_zugferd(
     leitweg_id: str = "",
     buyer_reference: str = "",
     profile: str = "ZUGFERD_EN16931",
+    seller_electronic_address: str = "",
+    buyer_electronic_address: str = "",
+    seller_contact_name: str = "",
+    seller_contact_email: str = "",
+    seller_contact_phone: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -318,6 +348,11 @@ async def einvoice_generate_zugferd(
         leitweg_id: Leitweg-ID (optional).
         buyer_reference: Käuferreferenz BT-10 (optional).
         profile: Profil — ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED, XRECHNUNG.
+        seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34).
+        buyer_electronic_address: Elektronische Adresse des Käufers (BT-49).
+        seller_contact_name: Ansprechpartner des Verkäufers (BT-41).
+        seller_contact_email: E-Mail des Ansprechpartners (BT-43).
+        seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -340,6 +375,11 @@ async def einvoice_generate_zugferd(
         leitweg_id=leitweg_id,
         buyer_reference=buyer_reference,
         profile=profile,
+        seller_electronic_address=seller_electronic_address,
+        buyer_electronic_address=buyer_electronic_address,
+        seller_contact_name=seller_contact_name,
+        seller_contact_email=seller_contact_email,
+        seller_contact_phone=seller_contact_phone,
     )
 
     if isinstance(data, str):

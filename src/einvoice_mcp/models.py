@@ -44,6 +44,16 @@ class Party(BaseModel):
     registration_id: str | None = Field(
         default=None, max_length=50, description="Handelsregisternummer oder GLN"
     )
+    electronic_address: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Elektronische Adresse (BT-34/BT-49), z.B. E-Mail oder Peppol-ID",
+    )
+    electronic_address_scheme: str = Field(
+        default="EM",
+        max_length=10,
+        description="EAS-Code für elektronische Adresse (EM=E-Mail, 9930=USt-IdNr.)",
+    )
 
 
 class LineItem(BaseModel):
@@ -78,6 +88,21 @@ class InvoiceData(BaseModel):
         default=None, max_length=100, description="Käuferreferenz / Bestellnummer (BT-10)"
     )
     profile: InvoiceProfile = Field(default=InvoiceProfile.XRECHNUNG, description="Rechnungsprofil")
+    seller_contact_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Ansprechpartner des Verkäufers (BT-41, BR-DE-5)",
+    )
+    seller_contact_email: str | None = Field(
+        default=None,
+        max_length=200,
+        description="E-Mail des Ansprechpartners (BT-43, BR-DE-7)",
+    )
+    seller_contact_phone: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Telefon des Ansprechpartners (BT-42)",
+    )
 
     def total_net(self) -> Decimal:
         return sum(item.quantity * item.unit_price for item in self.items)

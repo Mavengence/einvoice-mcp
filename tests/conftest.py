@@ -24,6 +24,7 @@ def sample_seller() -> Party:
             country_code="DE",
         ),
         tax_id="DE123456789",
+        electronic_address="rechnungen@techcorp.de",
     )
 
 
@@ -38,6 +39,7 @@ def sample_buyer() -> Party:
             country_code="DE",
         ),
         tax_id="DE987654321",
+        electronic_address="einkauf@clientcorp.de",
     )
 
 
@@ -79,6 +81,9 @@ def sample_invoice_data(
         payment_terms_days=30,
         buyer_reference="LEITWEG-123-456",
         profile=InvoiceProfile.XRECHNUNG,
+        seller_contact_name="Max Mustermann",
+        seller_contact_email="max@techcorp.de",
+        seller_contact_phone="+49 30 1234567",
     )
 
 

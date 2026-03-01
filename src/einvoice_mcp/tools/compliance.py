@@ -46,8 +46,8 @@ XRECHNUNG_FIELDS = [
     ),
     (
         "BT-34",
-        "Verkäufer Steuernummer",
-        ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
+        "Elektronische Adresse des Verkäufers",
+        ".//ram:SellerTradeParty/ram:URIUniversalCommunication/ram:URIID",
     ),
     ("BT-35", "Verkäufer Straße", ".//ram:SellerTradeParty/ram:PostalTradeAddress/ram:LineOne"),
     (
@@ -86,12 +86,30 @@ XRECHNUNG_FIELDS = [
         "Käufer Land",
         ".//ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID",
     ),
+    (
+        "BT-49",
+        "Elektronische Adresse des Käufers",
+        ".//ram:BuyerTradeParty/ram:URIUniversalCommunication/ram:URIID",
+    ),
+    (
+        "BT-41",
+        "Ansprechpartner des Verkäufers",
+        ".//ram:SellerTradeParty/ram:DefinedTradeContact/ram:PersonName",
+    ),
+    (
+        "BT-43",
+        "E-Mail des Ansprechpartners",
+        ".//ram:SellerTradeParty/ram:DefinedTradeContact"
+        "/ram:EmailURIUniversalCommunication/ram:URIID",
+    ),
 ]
 
 # BT-6 is not mandatory, mark it optional
 _OPTIONAL_FIELDS = {"BT-6"}
 
 SUGGESTIONS_MAP = {
+    "BT-1": "BT-1 (Rechnungsnummer) fehlt — jede Rechnung muss eindeutig nummeriert sein.",
+    "BT-2": "BT-2 (Rechnungsdatum) fehlt — Pflichtangabe nach §14 UStG.",
     "BT-10": (
         "BT-10 (Leitweg-ID / Käuferreferenz) fehlt — "
         "für XRechnung an öffentliche Auftraggeber zwingend erforderlich."
@@ -99,9 +117,22 @@ SUGGESTIONS_MAP = {
     "BT-31": (
         "BT-31 (USt-IdNr. des Verkäufers) fehlt — für den Vorsteuerabzug des Käufers erforderlich."
     ),
-    "BT-34": "BT-34 (Steuernummer des Verkäufers) fehlt — mindestens BT-31 oder BT-34 angeben.",
-    "BT-1": "BT-1 (Rechnungsnummer) fehlt — jede Rechnung muss eindeutig nummeriert sein.",
-    "BT-2": "BT-2 (Rechnungsdatum) fehlt — Pflichtangabe nach §14 UStG.",
+    "BT-34": (
+        "BT-34 (Elektronische Adresse des Verkäufers) fehlt — "
+        "seit XRechnung 3.0 Pflichtfeld (z.B. E-Mail-Adresse)."
+    ),
+    "BT-49": (
+        "BT-49 (Elektronische Adresse des Käufers) fehlt — "
+        "seit XRechnung 3.0 Pflichtfeld (z.B. E-Mail-Adresse)."
+    ),
+    "BT-41": (
+        "BT-41 (Ansprechpartner des Verkäufers) fehlt — "
+        "gemäß BR-DE-5 muss ein Kontaktname angegeben werden."
+    ),
+    "BT-43": (
+        "BT-43 (E-Mail des Ansprechpartners) fehlt — "
+        "gemäß BR-DE-7 ist die E-Mail-Adresse des Ansprechpartners Pflicht."
+    ),
 }
 
 

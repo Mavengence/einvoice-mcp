@@ -134,9 +134,7 @@ class TestModelFieldConstraints:
             )
 
     def test_max_1000_items(self) -> None:
-        items = [
-            LineItem(description="X", quantity="1", unit_price="1") for _ in range(1001)
-        ]
+        items = [LineItem(description="X", quantity="1", unit_price="1") for _ in range(1001)]
         with pytest.raises(ValidationError):
             InvoiceData(
                 invoice_id="T",
