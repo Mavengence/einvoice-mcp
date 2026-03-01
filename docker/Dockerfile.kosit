@@ -1,0 +1,30 @@
+FROM eclipse-temurin:17-jre-jammy
+
+ARG VALIDATOR_VERSION=1.5.0
+ARG XRECHNUNG_VERSION=2024-06-20
+ENV VALIDATOR_JAR=validationtool-${VALIDATOR_VERSION}-standalone.jar
+
+WORKDIR /opt/kosit
+
+# Install curl (needed for healthcheck) and unzip in a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download KoSIT Validator
+ADD https://github.com/itplr-kosit/validator/releases/download/v${VALIDATOR_VERSION}/validator-${VALIDATOR_VERSION}-distribution.zip /tmp/validator.zip
+RUN unzip /tmp/validator.zip -d /opt/kosit/validator && rm /tmp/validator.zip
+
+# Download XRechnung validation scenarios
+ADD https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/release-${XRECHNUNG_VERSION}/validator-configuration-xrechnung_3.0.2_${XRECHNUNG_VERSION}.zip /tmp/scenarios.zip
+RUN unzip /tmp/scenarios.zip -d /opt/kosit/scenarios && rm /tmp/scenarios.zip
+
+# Remove unzip after use
+RUN apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+    CMD curl -sf http://localhost:8081/server/health || exit 1
+
+# Shell form required for ENV variable expansion
+CMD java -jar validator/${VALIDATOR_JAR} -s scenarios/scenarios.xml -D -H 0.0.0.0 -P 8081

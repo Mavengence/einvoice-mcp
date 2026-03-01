@@ -1,0 +1,70 @@
+"""Validation tools for XRechnung and ZUGFeRD invoices."""
+
+import base64
+import logging
+
+from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_XML_SIZE
+from einvoice_mcp.errors import EInvoiceError
+from einvoice_mcp.services.kosit import KoSITClient
+from einvoice_mcp.services.xml_parser import extract_xml_from_pdf
+
+logger = logging.getLogger(__name__)
+
+
+async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict:
+    """Validate an XRechnung XML document against the KoSIT validator.
+
+    Args:
+        xml_content: The XRechnung XML as a string.
+        kosit: KoSIT client instance.
+
+    Returns:
+        Validation result with errors, warnings, and profile info.
+    """
+    if len(xml_content) > MAX_XML_SIZE:
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: XML-Inhalt überschreitet das Größenlimit (10 MB)."}],
+            "warnings": [],
+        }
+
+    try:
+        xml_bytes = xml_content.encode("utf-8")
+        result = await kosit.validate(xml_bytes)
+        return result.model_dump()
+    except EInvoiceError as exc:
+        return {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
+
+
+async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict:
+    """Validate a ZUGFeRD PDF by extracting and validating its embedded XML.
+
+    Args:
+        pdf_base64: The ZUGFeRD PDF encoded as base64.
+        kosit: KoSIT client instance.
+
+    Returns:
+        Validation result with errors, warnings, and profile info.
+    """
+    if len(pdf_base64) > MAX_PDF_BASE64_SIZE:
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: PDF-Datei überschreitet das Größenlimit (50 MB)."}],
+            "warnings": [],
+        }
+
+    try:
+        pdf_bytes = base64.b64decode(pdf_base64)
+    except Exception:
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: Ungültige Base64-Kodierung der PDF-Datei."}],
+            "warnings": [],
+        }
+
+    try:
+        xml_bytes = extract_xml_from_pdf(pdf_bytes)
+        result = await kosit.validate(xml_bytes)
+        return result.model_dump()
+    except EInvoiceError as exc:
+        return {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
