@@ -468,7 +468,7 @@ class TestComplianceEdgeCases:
 
     @respx.mock
     async def test_zugferd_profile_compliance(self) -> None:
-        """Test compliance with ZUGFERD target profile."""
+        """Test compliance with ZUGFERD target profile — should NOT flag BT-10, BT-34, etc."""
         xml = build_xml(
             InvoiceData(
                 invoice_id="Z-001",
@@ -476,12 +476,16 @@ class TestComplianceEdgeCases:
                 seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
                 buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
                 items=[LineItem(description="X", quantity="1", unit_price="10")],
-                buyer_reference="REF-123",
             )
         ).decode("utf-8")
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "ZUGFERD")
+        # ZUGFeRD should NOT flag BT-10/34/49/41/43 as missing
+        xrechnung_only = {"BT-10", "BT-34", "BT-49", "BT-41", "BT-43"}
+        missing = set(result["missing_fields"])
+        overlap = missing & xrechnung_only
+        assert not overlap, f"XRechnung-only fields wrongly flagged: {overlap}"
         # Should get ZUGFeRD-specific success message
         if result["valid"]:
             assert any("ZUGFeRD" in s for s in result["suggestions"])
@@ -591,6 +595,19 @@ class TestModelBoundaryValues:
         )
         xml = build_xml(data)
         assert b"Zahlbar" not in xml
+
+    def test_invoice_with_payment_terms_zero(self) -> None:
+        """payment_terms_days=0 is a valid value meaning 'due immediately'."""
+        data = InvoiceData(
+            invoice_id="T",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="10")],
+            payment_terms_days=0,
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "0 Tagen" in xml_str
 
     def test_invoice_with_payment_terms(self) -> None:
         data = InvoiceData(

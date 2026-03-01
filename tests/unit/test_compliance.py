@@ -47,3 +47,20 @@ class TestCheckFields:
     def test_invalid_xml_returns_empty(self) -> None:
         checks = _check_fields("not xml at all")
         assert checks == []
+
+    def test_zugferd_profile_omits_xrechnung_fields(self, sample_invoice_data: InvoiceData) -> None:
+        """ZUGFeRD compliance should NOT flag XRechnung-only fields (BT-10, BT-34, etc.)."""
+        xml_bytes = build_xml(sample_invoice_data)
+        xml_str = xml_bytes.decode("utf-8")
+        checks = _check_fields(xml_str, xrechnung=False)
+        xrechnung_only_bts = {"BT-10", "BT-34", "BT-49", "BT-41", "BT-43"}
+        checked_bts = {c.field for c in checks}
+        assert not checked_bts & xrechnung_only_bts
+
+    def test_xrechnung_profile_includes_all_fields(self, sample_invoice_data: InvoiceData) -> None:
+        """XRechnung compliance should include BT-10, BT-34, BT-49, BT-41, BT-43."""
+        xml_bytes = build_xml(sample_invoice_data)
+        xml_str = xml_bytes.decode("utf-8")
+        checks = _check_fields(xml_str, xrechnung=True)
+        checked_bts = {c.field for c in checks}
+        assert {"BT-10", "BT-34", "BT-49", "BT-41", "BT-43"}.issubset(checked_bts)

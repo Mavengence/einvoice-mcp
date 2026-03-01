@@ -36,7 +36,7 @@ def extract_xml_from_pdf(pdf_bytes: bytes) -> bytes:
         from facturx import get_xml_from_pdf
 
         _filename, xml_bytes = get_xml_from_pdf(pdf_bytes, check_xsd=False)
-        return xml_bytes
+        return bytes(xml_bytes)
     except ImportError as exc:
         raise InvoiceParsingError("factur-x library not installed") from exc
     except Exception as exc:

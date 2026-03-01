@@ -15,7 +15,6 @@ dependencies = [
     "lxml>=5.0",
     "defusedxml>=0.7.0",
     "reportlab>=4.0",
-    "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -63,5 +62,13 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["drafthorse.*", "factur_x.*", "reportlab.*"]
+module = ["drafthorse.*", "facturx.*", "reportlab.*", "defusedxml.*", "mcp.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["einvoice_mcp.server"]
+# server.py uses FastMCP decorators and Context with complex generics
+# that don't have full type stubs; excluded from strict checking.
+disable_error_code = ["type-arg"]
+disallow_untyped_defs = false
+warn_return_any = false

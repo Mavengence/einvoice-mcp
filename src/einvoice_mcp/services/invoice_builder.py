@@ -147,8 +147,14 @@ def _build_document(data: InvoiceData) -> bytes:
         doc.trade.settlement.trade_tax.add(trade_tax)
 
     # Monetary summation
+    # BR-CO-14: TaxTotalAmount MUST equal sum of ApplicableTradeTax.CalculatedAmount.
+    # Derive tax_total from per-group calculated amounts (same rounding as above)
+    # to avoid per-item vs per-group rounding divergence.
     net_total = data.total_net()
-    tax_total = data.total_tax().quantize(Decimal("0.01"))
+    tax_total = sum(
+        (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
+        for (_, rate), basis in tax_groups.items()
+    )
     gross_total = (net_total + tax_total).quantize(Decimal("0.01"))
 
     ms = doc.trade.settlement.monetary_summation
@@ -162,7 +168,7 @@ def _build_document(data: InvoiceData) -> bytes:
     ms.due_amount = gross_total
 
     # Payment terms
-    if data.payment_terms_days:
+    if data.payment_terms_days is not None:
         pt = PaymentTerms()
         pt.description = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen."
         doc.trade.settlement.terms.add(pt)

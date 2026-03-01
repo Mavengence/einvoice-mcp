@@ -17,11 +17,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    ports:
-      - "8000:8000"
+    # MCP uses stdio transport — no port mapping needed.
+    # Connect via: docker exec -i <container> python -m einvoice_mcp
+    stdin_open: true
     environment:
       - KOSIT_URL=http://kosit:8081
-      - MCP_PORT=8000
       - LOG_LEVEL=INFO
     depends_on:
       kosit:

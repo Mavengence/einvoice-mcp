@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from typing import Any
 
 from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_XML_SIZE
 from einvoice_mcp.errors import EInvoiceError
@@ -11,7 +12,7 @@ from einvoice_mcp.services.xml_parser import extract_xml_from_pdf
 logger = logging.getLogger(__name__)
 
 
-async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict:
+async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict[str, Any]:
     """Validate an XRechnung XML document against the KoSIT validator.
 
     Args:
@@ -36,7 +37,7 @@ async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict:
         return {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
 
 
-async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict:
+async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict[str, Any]:
     """Validate a ZUGFeRD PDF by extracting and validating its embedded XML.
 
     Args:

@@ -14,7 +14,9 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-*Run `make test` to verify — all tests pass with 96% code coverage.*
+**168 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
+
+*Run `make test` to verify.*
 
 ### EN 16931 / XRechnung 3.0 Field Coverage
 
@@ -37,6 +39,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-44 | Buyer name | `test_contains_buyer` | PASS |
 | BT-49 | Buyer electronic address (schemeID=EM) | `test_buyer_electronic_address_bt49` | PASS |
 | BT-50..55 | Buyer address | `test_contains_buyer` | PASS |
+
+### Calculation Rules
+
+| Rule | Description | Test | Result |
+|------|-------------|------|--------|
+| BR-CO-14 | TaxTotalAmount = sum of per-group CalculatedAmount | `test_br_co_14_tax_total_equals_sum_of_trade_tax` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -76,18 +84,18 @@ Every mandatory Business Term is tested in generated XML output:
 
 | Module | Stmts | Miss | Coverage |
 |--------|-------|------|----------|
-| `config.py` | 16 | 0 | **100%** |
+| `config.py` | 15 | 0 | **100%** |
 | `errors.py` | 24 | 0 | **100%** |
 | `models.py` | 101 | 0 | **100%** |
 | `services/invoice_builder.py` | 108 | 0 | **100%** |
 | `services/kosit.py` | 71 | 0 | **100%** |
 | `services/pdf_generator.py` | 68 | 1 | **99%** |
-| `services/xml_parser.py` | 131 | 15 | **89%** |
-| `tools/compliance.py` | 49 | 2 | **96%** |
-| `tools/generate.py` | 45 | 0 | **100%** |
-| `tools/parse.py` | 36 | 4 | **89%** |
-| `tools/validate.py` | 29 | 2 | **93%** |
-| **TOTAL** | **678** | **24** | **96%** |
+| `services/xml_parser.py` | 147 | 19 | **87%** |
+| `tools/compliance.py` | 53 | 2 | **96%** |
+| `tools/generate.py` | 46 | 0 | **100%** |
+| `tools/parse.py` | 37 | 4 | **89%** |
+| `tools/validate.py` | 30 | 2 | **93%** |
+| **TOTAL** | **700** | **28** | **96%** |
 
 ---
 
@@ -229,7 +237,7 @@ Prüfe ob diese Rechnung XRechnung-konform ist und gib Verbesserungsvorschläge.
 ```bash
 make install    # Install dependencies
 make test       # Run tests with coverage
-make lint       # Ruff linting
+make lint       # Ruff + mypy strict
 make fmt        # Format code
 make docker-up  # Start Docker stack
 ```
@@ -242,9 +250,10 @@ make docker-up  # Start Docker stack
 - **XRechnung 3.0.2** — German CIUS (Core Invoice Usage Specification)
 - **ZUGFeRD 2.x / Factur-X 1.08** — Hybrid PDF/A-3 invoice format
 - **BMF 2024-11-15** — German Federal Ministry of Finance e-invoice mandate
-- **14 UStG** — German VAT Act invoice requirements
-- **BR-DE-5** — Seller contact person (mandatory)
-- **BR-DE-7** — Seller contact email (mandatory)
+- **§14 UStG** — German VAT Act invoice requirements
+- **BR-DE-5** — Seller contact person (mandatory for XRechnung)
+- **BR-DE-7** — Seller contact email (mandatory for XRechnung)
+- **BR-CO-14** — Tax total must equal sum of per-group calculated amounts
 
 ---
 

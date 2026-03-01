@@ -3,6 +3,7 @@
 import base64
 import logging
 from decimal import Decimal
+from typing import Any
 
 from einvoice_mcp.errors import EInvoiceError
 from einvoice_mcp.models import InvoiceData
@@ -13,7 +14,7 @@ from einvoice_mcp.services.pdf_generator import embed_xml_in_pdf, generate_invoi
 logger = logging.getLogger(__name__)
 
 
-async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict:
+async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict[str, Any]:
     """Generate an XRechnung-compliant CII XML invoice.
 
     The generated XML is automatically validated against the KoSIT validator.
@@ -52,7 +53,7 @@ async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict:
     }
 
 
-async def generate_zugferd(data: InvoiceData, kosit: KoSITClient) -> dict:
+async def generate_zugferd(data: InvoiceData, kosit: KoSITClient) -> dict[str, Any]:
     """Generate a ZUGFeRD hybrid PDF (visual PDF + embedded CII XML).
 
     Args:

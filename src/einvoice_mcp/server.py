@@ -4,8 +4,10 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import ValidationError as PydanticValidationError
 
 from einvoice_mcp.config import settings
@@ -24,7 +26,7 @@ _VALID_PROFILES = ", ".join(p.value for p in InvoiceProfile)
 
 
 @asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[dict]:
+async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
     """Initialize and clean up the KoSIT client."""
     kosit = KoSITClient()
     healthy = await kosit.health_check()
@@ -96,40 +98,42 @@ def _build_invoice_data(
         return f"Fehler: Ungültiges Profil. Erlaubt: {_VALID_PROFILES}."
 
     try:
-        return InvoiceData(
-            invoice_id=invoice_id,
-            issue_date=issue_date,
-            seller={
-                "name": seller_name,
-                "address": {
-                    "street": seller_street,
-                    "city": seller_city,
-                    "postal_code": seller_postal_code,
-                    "country_code": seller_country_code,
+        return InvoiceData.model_validate(
+            {
+                "invoice_id": invoice_id,
+                "issue_date": issue_date,
+                "seller": {
+                    "name": seller_name,
+                    "address": {
+                        "street": seller_street,
+                        "city": seller_city,
+                        "postal_code": seller_postal_code,
+                        "country_code": seller_country_code,
+                    },
+                    "tax_id": seller_tax_id or None,
+                    "electronic_address": seller_electronic_address or None,
                 },
-                "tax_id": seller_tax_id or None,
-                "electronic_address": seller_electronic_address or None,
-            },
-            buyer={
-                "name": buyer_name,
-                "address": {
-                    "street": buyer_street,
-                    "city": buyer_city,
-                    "postal_code": buyer_postal_code,
-                    "country_code": buyer_country_code,
+                "buyer": {
+                    "name": buyer_name,
+                    "address": {
+                        "street": buyer_street,
+                        "city": buyer_city,
+                        "postal_code": buyer_postal_code,
+                        "country_code": buyer_country_code,
+                    },
+                    "tax_id": buyer_tax_id or None,
+                    "electronic_address": buyer_electronic_address or None,
                 },
-                "tax_id": buyer_tax_id or None,
-                "electronic_address": buyer_electronic_address or None,
-            },
-            items=items_list,
-            currency=currency,
-            payment_terms_days=payment_terms_days,
-            leitweg_id=leitweg_id or None,
-            buyer_reference=buyer_reference or None,
-            profile=invoice_profile,
-            seller_contact_name=seller_contact_name or None,
-            seller_contact_email=seller_contact_email or None,
-            seller_contact_phone=seller_contact_phone or None,
+                "items": items_list,
+                "currency": currency,
+                "payment_terms_days": payment_terms_days,
+                "leitweg_id": leitweg_id or None,
+                "buyer_reference": buyer_reference or None,
+                "profile": invoice_profile,
+                "seller_contact_name": seller_contact_name or None,
+                "seller_contact_email": seller_contact_email or None,
+                "seller_contact_phone": seller_contact_phone or None,
+            }
         )
     except PydanticValidationError as exc:
         errors = "; ".join(e["msg"] for e in exc.errors()[:3])
@@ -140,12 +144,12 @@ def _build_invoice_data(
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
 )
 async def einvoice_validate_xrechnung(xml_content: str, ctx: Context) -> str:
     """Validiert eine XRechnung (CII XML) gegen den KoSIT-Validator.
@@ -164,12 +168,12 @@ async def einvoice_validate_xrechnung(xml_content: str, ctx: Context) -> str:
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
 )
 async def einvoice_validate_zugferd(pdf_base64: str, ctx: Context) -> str:
     """Validiert eine ZUGFeRD-PDF, indem das eingebettete XML extrahiert und geprüft wird.
@@ -186,12 +190,12 @@ async def einvoice_validate_zugferd(pdf_base64: str, ctx: Context) -> str:
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    )
 )
 async def einvoice_generate_xrechnung(
     invoice_id: str,
@@ -295,12 +299,12 @@ async def einvoice_generate_xrechnung(
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    )
 )
 async def einvoice_generate_zugferd(
     invoice_id: str,
@@ -399,12 +403,12 @@ async def einvoice_generate_zugferd(
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    )
 )
 async def einvoice_parse(file_content: str, file_type: str = "xml") -> str:
     """Parst eine E-Rechnung (XML oder PDF) und gibt strukturierte Daten zurück.
@@ -421,12 +425,12 @@ async def einvoice_parse(file_content: str, file_type: str = "xml") -> str:
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
 )
 async def einvoice_check_compliance(
     xml_content: str,

@@ -1,8 +1,9 @@
 """Unit tests for invoice XML builder."""
 
+from decimal import Decimal
 from xml.etree import ElementTree as ET
 
-from einvoice_mcp.models import InvoiceData, InvoiceProfile
+from einvoice_mcp.models import Address, InvoiceData, InvoiceProfile, LineItem, Party
 from einvoice_mcp.services.invoice_builder import GUIDELINE_MAP, build_xml
 
 CII_NS = {
@@ -143,6 +144,46 @@ class TestBuildXml:
         )
         assert phone is not None
         assert phone.text == "+49 30 1234567"
+
+    def test_br_co_14_tax_total_equals_sum_of_trade_tax(self) -> None:
+        """BR-CO-14: TaxTotalAmount MUST equal sum of ApplicableTradeTax.CalculatedAmount.
+
+        Uses items with different tax rates where per-item vs per-group
+        rounding could diverge (e.g. 3 items at 7% with price 33.33).
+        """
+        data = InvoiceData(
+            invoice_id="BR-CO-14",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[
+                LineItem(description="A", quantity="3", unit_price="33.33", tax_rate="7"),
+                LineItem(description="B", quantity="1", unit_price="100.00", tax_rate="19"),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+
+        # Sum all ApplicableTradeTax CalculatedAmount values
+        ns = CII_NS
+        trade_taxes = root.findall(
+            ".//ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax", ns
+        )
+        calculated_sum = Decimal("0")
+        for tt in trade_taxes:
+            ca = tt.find("ram:CalculatedAmount", ns)
+            if ca is not None and ca.text:
+                calculated_sum += Decimal(ca.text)
+
+        # Get TaxTotalAmount
+        tax_total_el = root.find(
+            ".//ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:TaxTotalAmount", ns
+        )
+        assert tax_total_el is not None
+        tax_total = Decimal(tax_total_el.text)
+
+        # BR-CO-14: must match exactly
+        assert tax_total == calculated_sum
 
     def test_no_electronic_address_when_empty(self, sample_invoice_data: InvoiceData) -> None:
         """Electronic address elements should not appear when not set."""

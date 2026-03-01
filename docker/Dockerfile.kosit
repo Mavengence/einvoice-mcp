@@ -14,7 +14,10 @@ ADD https://github.com/itplr-kosit/validator/releases/download/v${VALIDATOR_VERS
 
 # Download XRechnung validation scenarios (v2026+ uses v-prefixed tags and new ZIP naming)
 ADD https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/v${XRECHNUNG_VERSION}/xrechnung-3.0.2-validator-configuration-${XRECHNUNG_VERSION}.zip /tmp/scenarios.zip
-RUN unzip /tmp/scenarios.zip -d /opt/kosit/scenarios && rm /tmp/scenarios.zip
+# ZIP extracts into a subdirectory — flatten so scenarios.xml is at scenarios/
+RUN unzip /tmp/scenarios.zip -d /tmp/scenarios-raw \
+    && mv /tmp/scenarios-raw/*/ /opt/kosit/scenarios \
+    && rm -rf /tmp/scenarios.zip /tmp/scenarios-raw
 
 # Remove unzip after use
 RUN apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*

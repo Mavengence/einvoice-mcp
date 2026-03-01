@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
     kosit_url: str = "http://localhost:8081"
-    mcp_port: int = 8000
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     @field_validator("kosit_url")

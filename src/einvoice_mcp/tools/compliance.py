@@ -1,6 +1,7 @@
 """Compliance checking tool for XRechnung/ZUGFeRD."""
 
 import logging
+from typing import Any
 
 from defusedxml import ElementTree
 from defusedxml.common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
@@ -18,8 +19,8 @@ CII_NS = {
     "udt": "urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100",
 }
 
-# Mandatory fields for XRechnung (BT references from EN 16931)
-XRECHNUNG_FIELDS = [
+# Common EN 16931 mandatory fields (shared by XRechnung and ZUGFeRD)
+_COMMON_FIELDS = [
     ("BT-1", "Rechnungsnummer", ".//rsm:ExchangedDocument/ram:ID"),
     ("BT-2", "Rechnungsdatum", ".//rsm:ExchangedDocument/ram:IssueDateTime"),
     ("BT-3", "Rechnungsart", ".//rsm:ExchangedDocument/ram:TypeCode"),
@@ -28,26 +29,11 @@ XRECHNUNG_FIELDS = [
         "Währung",
         ".//ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode",
     ),
-    (
-        "BT-6",
-        "Abrechnungswährung",
-        ".//ram:ApplicableHeaderTradeSettlement/ram:TaxCurrencyCode",
-    ),
-    (
-        "BT-10",
-        "Käuferreferenz / Leitweg-ID",
-        ".//ram:ApplicableHeaderTradeAgreement/ram:BuyerReference",
-    ),
     ("BT-27", "Verkäufername", ".//ram:SellerTradeParty/ram:Name"),
     (
         "BT-31",
         "Verkäufer USt-IdNr.",
         ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
-    ),
-    (
-        "BT-34",
-        "Elektronische Adresse des Verkäufers",
-        ".//ram:SellerTradeParty/ram:URIUniversalCommunication/ram:URIID",
     ),
     ("BT-35", "Verkäufer Straße", ".//ram:SellerTradeParty/ram:PostalTradeAddress/ram:LineOne"),
     (
@@ -86,6 +72,20 @@ XRECHNUNG_FIELDS = [
         "Käufer Land",
         ".//ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID",
     ),
+]
+
+# XRechnung-specific CIUS fields (NOT required for ZUGFeRD)
+_XRECHNUNG_ONLY_FIELDS = [
+    (
+        "BT-10",
+        "Käuferreferenz / Leitweg-ID",
+        ".//ram:ApplicableHeaderTradeAgreement/ram:BuyerReference",
+    ),
+    (
+        "BT-34",
+        "Elektronische Adresse des Verkäufers",
+        ".//ram:SellerTradeParty/ram:URIUniversalCommunication/ram:URIID",
+    ),
     (
         "BT-49",
         "Elektronische Adresse des Käufers",
@@ -104,7 +104,7 @@ XRECHNUNG_FIELDS = [
     ),
 ]
 
-# BT-6 is not mandatory, mark it optional
+# Optional fields (informational, not flagged as missing)
 _OPTIONAL_FIELDS = {"BT-6"}
 
 SUGGESTIONS_MAP = {
@@ -140,7 +140,7 @@ async def check_compliance(
     xml_content: str,
     kosit: KoSITClient,
     target_profile: str = "XRECHNUNG",
-) -> dict:
+) -> dict[str, Any]:
     """Check e-invoice compliance against XRechnung or ZUGFeRD requirements.
 
     Performs both KoSIT validation and mandatory field checks.
@@ -159,7 +159,8 @@ async def check_compliance(
             suggestions=["Fehler: XML-Inhalt überschreitet das Größenlimit (10 MB)."],
         ).model_dump()
 
-    field_checks = _check_fields(xml_content)
+    is_xrechnung = target_profile.upper() == "XRECHNUNG"
+    field_checks = _check_fields(xml_content, xrechnung=is_xrechnung)
     missing_fields = [fc.field for fc in field_checks if fc.required and not fc.present]
     suggestions = [SUGGESTIONS_MAP[f] for f in missing_fields if f in SUGGESTIONS_MAP]
 
@@ -192,14 +193,15 @@ async def check_compliance(
     return compliance.model_dump()
 
 
-def _check_fields(xml_content: str) -> list[FieldCheck]:
+def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldCheck]:
     checks: list[FieldCheck] = []
     try:
         root = ElementTree.fromstring(xml_content.encode("utf-8"))
     except (ElementTree.ParseError, EntitiesForbidden, DTDForbidden, ExternalReferenceForbidden):
         return checks
 
-    for bt, name, xpath in XRECHNUNG_FIELDS:
+    fields = _COMMON_FIELDS + (_XRECHNUNG_ONLY_FIELDS if xrechnung else [])
+    for bt, name, xpath in fields:
         required = bt not in _OPTIONAL_FIELDS
         el = root.find(xpath, CII_NS)
         # Element is present if it has text or child elements (e.g. IssueDateTime)
