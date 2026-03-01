@@ -664,6 +664,16 @@ class TestFullRoundtrip:
         # Tax breakdown
         assert len(inv["tax_breakdown"]) >= 1
 
+        # Type code (BT-3) — should be default 380
+        assert inv["type_code"] == "380"
+
+        # Delivery date (BT-71) — set on sample_invoice_data fixture
+        assert "2026-03-01" in inv["delivery_date"]
+
+        # Electronic addresses (BT-34 / BT-49)
+        assert inv["seller"]["electronic_address"] == "rechnungen@techcorp.de"
+        assert inv["buyer"]["electronic_address"] == "einkauf@clientcorp.de"
+
         # Compliance
         comp_result = await check_compliance(xml, client, "XRECHNUNG")
         assert comp_result["kosit_valid"] is True
@@ -1679,3 +1689,199 @@ class TestBT71ComplianceCheck:
         result = await check_compliance(xml, client, "XRECHNUNG")
         assert "BT-71/73/74" not in result["missing_fields"]
         await client.close()
+
+
+# ============================================================================
+# 24. Parse tool — XML error path (covers parse.py:50-51)
+# ============================================================================
+
+
+class TestParseToolXmlErrorPath:
+    async def test_parse_xml_einvoice_error(self) -> None:
+        """When parse_xml raises InvoiceParsingError, return German error message."""
+        with patch(
+            "einvoice_mcp.tools.parse.parse_xml",
+            side_effect=InvoiceParsingError("test detail"),
+        ):
+            result = await parse_einvoice("<xml>valid</xml>", "xml")
+            assert result["success"] is False
+            assert "gelesen werden" in result["error"]
+
+    async def test_parse_pdf_xml_error_after_extraction(self) -> None:
+        """When extract_xml succeeds but parse_xml fails, return German error."""
+        valid_b64 = base64.b64encode(b"fake-pdf-bytes").decode("ascii")
+        with (
+            patch(
+                "einvoice_mcp.tools.parse.extract_xml_from_pdf",
+                return_value=b"<invalid-xml/>",
+            ),
+            patch(
+                "einvoice_mcp.tools.parse.parse_xml",
+                side_effect=InvoiceParsingError("corrupt XML"),
+            ),
+        ):
+            result = await parse_einvoice(valid_b64, "pdf")
+            assert result["success"] is False
+            assert "gelesen werden" in result["error"]
+
+
+# ============================================================================
+# 25. XML parser exception handlers (covers xml_parser.py lines)
+# ============================================================================
+
+
+class TestParserExceptionHandlers:
+    def test_party_extraction_error_returns_none(self) -> None:
+        """If _extract_party fails internally, returns None (not crash)."""
+        from einvoice_mcp.services.xml_parser import _extract_party
+
+        class BrokenParty:
+            name = "Valid Name"
+
+            @property
+            def address(self) -> None:
+                raise RuntimeError("address boom")
+
+        result = _extract_party(BrokenParty())
+        assert result is None
+
+    def test_empty_tax_registration_value_skipped(self) -> None:
+        """Tax registration with valid schemeID but empty value is skipped."""
+        from einvoice_mcp.services.xml_parser import _extract_party
+
+        class FakeIDEmpty:
+            _scheme_id = "VA"
+
+            def __str__(self) -> str:
+                return ""
+
+        class FakeReg:
+            id = FakeIDEmpty()
+
+        class FakeRegs:
+            children = (FakeReg(),)
+
+        class FakeAddress:
+            line_one = "Str. 1"
+            city_name = "Berlin"
+            postcode = "10115"
+            country_id = "DE"
+
+        class FakePartyObj:
+            name = "TestName"
+            address = FakeAddress()
+            tax_registrations = FakeRegs()
+            electronic_address = None
+
+        result = _extract_party(FakePartyObj())
+        assert result is not None
+        assert result.name == "TestName"
+        assert result.tax_id is None  # empty value skipped
+
+    def test_tax_breakdown_no_children(self) -> None:
+        """Trade tax container without children returns empty breakdown."""
+        from unittest.mock import MagicMock
+
+        from einvoice_mcp.services.xml_parser import _extract_tax_breakdown
+
+        fake_doc = MagicMock()
+        # trade_tax container has no "children" attribute
+        del fake_doc.trade.settlement.trade_tax.children
+        result = _extract_tax_breakdown(fake_doc)
+        assert result == []
+
+
+# ============================================================================
+# 26. Server _build_invoice_data error paths
+# ============================================================================
+
+
+class TestBuildInvoiceDataErrors:
+    def test_invalid_json_items(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        result = _build_invoice_data(
+            invoice_id="T",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json="not valid json",
+        )
+        assert isinstance(result, str)
+        assert "JSON" in result
+
+    def test_invalid_profile(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        result = _build_invoice_data(
+            invoice_id="T",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            profile="INVALID_PROFILE",
+        )
+        assert isinstance(result, str)
+        assert "Ungültiges Profil" in result
+
+    def test_pydantic_validation_error(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        result = _build_invoice_data(
+            invoice_id="",  # empty → validation error
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+        )
+        assert isinstance(result, str)
+        assert "Ungültige Rechnungsdaten" in result
+
+    def test_invalid_date_format(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        result = _build_invoice_data(
+            invoice_id="T",
+            issue_date="not-a-date",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+        )
+        assert isinstance(result, str)
+        assert "Fehler" in result
