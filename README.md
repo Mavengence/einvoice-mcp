@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**169 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**179 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -50,7 +50,7 @@ Every mandatory Business Term is tested in generated XML output:
 
 | Category | Code | Description | Result |
 |----------|------|-------------|--------|
-| Standard | S | 19% / 7% MwSt | PASS |
+| Standard | S | 19% / 7% USt | PASS |
 | Zero | Z | 0% rated | PASS |
 | Exempt | E | Exempt | PASS |
 | Reverse charge | AE | Reverse charge (Umkehr der Steuerschuld) | PASS |
@@ -64,12 +64,17 @@ Every mandatory Business Term is tested in generated XML output:
 
 | Attack Vector | Protection | Test | Result |
 |---------------|-----------|------|--------|
-| XXE entity expansion | defusedxml | `test_compliance_rejects_xxe_attempt` | PASS |
-| DTD injection | defusedxml | `test_compliance_rejects_xxe_attempt` | PASS |
+| XXE entity expansion | defusedxml pre-screen | `test_parse_xml_blocks_xxe` | PASS |
+| External entity injection | defusedxml pre-screen | `test_parse_xml_blocks_external_entity` | PASS |
 | XML bomb (>10 MB) | Size limit | `test_validate_rejects_oversized_xml` | PASS |
-| PDF bomb (>50 MB) | Size limit | `test_validate_rejects_oversized_pdf` | PASS |
+| PDF bomb (>50 MB base64) | Size limit | `test_validate_rejects_oversized_pdf` | PASS |
+| Decoded PDF bomb (>50 MB) | Post-decode guard | `test_validate_rejects_oversized_decoded_pdf` | PASS |
+| KoSIT response bomb | 10 MB + 512 KB cap | `test_oversized_content_length_header` | PASS |
 | Input reflection in errors | Sanitized | `test_parse_rejects_unknown_file_type` | PASS |
-| KoSIT report bloat | 512 KB cap | `test_kosit_report_capped_at_512kb` | PASS |
+| Error detail leakage | Generic messages | `test_connection_error_no_hostname_in_message_de` | PASS |
+| SSRF via redirect | `follow_redirects=False` | Defense-in-depth | HARDENED |
+| Supply chain (Docker) | SHA-256 checksum verification | `Dockerfile.kosit` | HARDENED |
+| Container privilege | Non-root user (both containers) | `Dockerfile`, `Dockerfile.kosit` | HARDENED |
 
 ### Profile Coverage
 
@@ -84,18 +89,18 @@ Every mandatory Business Term is tested in generated XML output:
 
 | Module | Stmts | Miss | Coverage |
 |--------|-------|------|----------|
-| `config.py` | 15 | 0 | **100%** |
-| `errors.py` | 24 | 0 | **100%** |
+| `config.py` | 16 | 0 | **100%** |
+| `errors.py` | 36 | 0 | **100%** |
 | `models.py` | 101 | 0 | **100%** |
 | `services/invoice_builder.py` | 108 | 0 | **100%** |
-| `services/kosit.py` | 71 | 0 | **100%** |
-| `services/pdf_generator.py` | 68 | 1 | **99%** |
-| `services/xml_parser.py` | 147 | 19 | **87%** |
+| `services/kosit.py` | 77 | 1 | **99%** |
+| `services/pdf_generator.py` | 70 | 1 | **99%** |
+| `services/xml_parser.py` | 157 | 23 | **85%** |
 | `tools/compliance.py` | 57 | 2 | **96%** |
 | `tools/generate.py` | 56 | 0 | **100%** |
-| `tools/parse.py` | 37 | 4 | **89%** |
-| `tools/validate.py` | 30 | 2 | **93%** |
-| **TOTAL** | **714** | **28** | **96%** |
+| `tools/parse.py` | 39 | 4 | **90%** |
+| `tools/validate.py` | 33 | 2 | **94%** |
+| **TOTAL** | **750** | **33** | **96%** |
 
 ---
 
@@ -202,7 +207,7 @@ Add to `.cursor/mcp.json`:
 Validiere diese XRechnung: [XML einfügen]
 
 Erstelle eine Rechnung von TechCorp GmbH (DE123456789) an ClientCorp GmbH
-für 40 Stunden Software-Beratung à 150€/Stunde mit 19% MwSt.
+für 40 Stunden Software-Beratung à 150€/Stunde mit 19% USt.
 
 Parse diese E-Rechnung und zeig mir die Positionen.
 
@@ -218,7 +223,7 @@ Prüfe ob diese Rechnung XRechnung-konform ist und gib Verbesserungsvorschläge.
                               |-- drafthorse (CII XML generation/parsing)
                               |-- factur-x (PDF/A-3 embedding/extraction)
                               |-- reportlab (Visual PDF rendering)
-                              |-- defusedxml (XXE protection)
+                              |-- defusedxml (XXE protection on all parse paths)
                               '-- httpx --> [KoSIT Validator :8081]
 ```
 
@@ -226,8 +231,8 @@ Prüfe ob diese Rechnung XRechnung-konform ist und gib Verbesserungsvorschläge.
 
 | Component | Version | Source |
 |-----------|---------|--------|
-| KoSIT Validator | v1.6.2 | [itplr-kosit/validator](https://github.com/itplr-kosit/validator) |
-| XRechnung Scenarios | v2026-01-31 | [itplr-kosit/validator-configuration-xrechnung](https://github.com/itplr-kosit/validator-configuration-xrechnung) |
+| KoSIT Validator | v1.6.2 (SHA-256 verified) | [itplr-kosit/validator](https://github.com/itplr-kosit/validator) |
+| XRechnung Scenarios | v2026-01-31 (SHA-256 verified) | [itplr-kosit/validator-configuration-xrechnung](https://github.com/itplr-kosit/validator-configuration-xrechnung) |
 | Java Runtime | Eclipse Temurin 17 | OpenJDK |
 
 ---

@@ -4,7 +4,7 @@ import base64
 import logging
 from typing import Any
 
-from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_XML_SIZE
+from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_PDF_DECODED_SIZE, MAX_XML_SIZE
 from einvoice_mcp.errors import EInvoiceError
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.services.xml_parser import extract_xml_from_pdf
@@ -55,13 +55,17 @@ async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict[str, Any
         }
 
     try:
-        pdf_bytes = base64.b64decode(pdf_base64)
+        pdf_bytes = base64.b64decode(pdf_base64, validate=True)
     except Exception:
         return {
             "valid": False,
             "errors": [{"message": "Fehler: Ungültige Base64-Kodierung der PDF-Datei."}],
             "warnings": [],
         }
+
+    if len(pdf_bytes) > MAX_PDF_DECODED_SIZE:
+        msg = "Fehler: Dekodierte PDF überschreitet das Größenlimit (50 MB)."
+        return {"valid": False, "errors": [{"message": msg}], "warnings": []}
 
     try:
         xml_bytes = extract_xml_from_pdf(pdf_bytes)

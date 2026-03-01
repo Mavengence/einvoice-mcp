@@ -3,6 +3,8 @@
 import logging
 from decimal import Decimal, InvalidOperation
 
+from defusedxml import ElementTree
+from defusedxml.common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
 from drafthorse.models.document import Document
 
 from einvoice_mcp.errors import InvoiceParsingError
@@ -20,14 +22,27 @@ logger = logging.getLogger(__name__)
 
 
 def parse_xml(xml_bytes: bytes) -> ParsedInvoice:
-    """Parse CII XML bytes into a ParsedInvoice."""
+    """Parse CII XML bytes into a ParsedInvoice.
+
+    Pre-screens with defusedxml to block XXE/DTD attacks before
+    passing to drafthorse (which uses lxml without entity protection).
+    """
+    # Pre-screen for XXE, DTD, and entity expansion attacks
+    try:
+        ElementTree.fromstring(xml_bytes)
+    except (EntitiesForbidden, DTDForbidden, ExternalReferenceForbidden) as exc:
+        raise InvoiceParsingError() from exc
+    except ElementTree.ParseError as exc:
+        raise InvoiceParsingError() from exc
+
     try:
         doc = Document.parse(xml_bytes)
         return _extract_invoice(doc)
     except InvoiceParsingError:
         raise
     except Exception as exc:
-        raise InvoiceParsingError(str(exc)) from exc
+        logger.warning("XML parsing error: %s", exc, exc_info=True)
+        raise InvoiceParsingError() from exc
 
 
 def extract_xml_from_pdf(pdf_bytes: bytes) -> bytes:
@@ -40,7 +55,8 @@ def extract_xml_from_pdf(pdf_bytes: bytes) -> bytes:
     except ImportError as exc:
         raise InvoiceParsingError("factur-x library not installed") from exc
     except Exception as exc:
-        raise InvoiceParsingError(f"PDF-Extraktion fehlgeschlagen: {exc}") from exc
+        logger.warning("PDF XML extraction failed: %s", exc, exc_info=True)
+        raise InvoiceParsingError() from exc
 
 
 def _extract_invoice(doc: Document) -> ParsedInvoice:

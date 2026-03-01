@@ -22,7 +22,8 @@ def generate_invoice_pdf(data: InvoiceData) -> bytes:
     except InvoiceGenerationError:
         raise
     except Exception as exc:
-        raise InvoiceGenerationError(f"PDF-Erstellung fehlgeschlagen: {exc}") from exc
+        logger.warning("PDF generation failed: %s", exc, exc_info=True)
+        raise InvoiceGenerationError() from exc
 
 
 _PROFILE_LEVEL_MAP = {
@@ -55,7 +56,8 @@ def embed_xml_in_pdf(
     except ImportError as exc:
         raise InvoiceGenerationError("factur-x library not installed") from exc
     except Exception as exc:
-        raise InvoiceGenerationError(f"PDF/XML-Einbettung fehlgeschlagen: {exc}") from exc
+        logger.warning("PDF/XML embedding failed: %s", exc, exc_info=True)
+        raise InvoiceGenerationError() from exc
 
 
 def _build_pdf(data: InvoiceData) -> bytes:
@@ -92,7 +94,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
 
     # Seller / Buyer
     party_data = [
-        ["Von:", "An:"],
+        ["Verkäufer:", "Käufer:"],
         [data.seller.name, data.buyer.name],
         [data.seller.address.street, data.buyer.address.street],
         [
@@ -101,7 +103,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
         ],
     ]
     if data.seller.tax_id:
-        party_data.append([f"USt-IdNr: {data.seller.tax_id}", ""])
+        party_data.append([f"USt-IdNr.: {data.seller.tax_id}", ""])
 
     party_table = Table(party_data, colWidths=[85 * mm, 85 * mm])
     party_table.setStyle(
@@ -117,7 +119,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elements.append(Spacer(1, 10 * mm))
 
     # Line items table
-    items_header = ["Pos.", "Beschreibung", "Menge", "Einheit", "Einzelpreis", "MwSt %", "Netto"]
+    items_header = ["Pos.", "Beschreibung", "Menge", "Einheit", "Einzelpreis", "USt %", "Netto"]
     items_data = [items_header]
 
     for idx, item in enumerate(data.items, 1):
@@ -162,7 +164,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
 
     totals_data = [
         ["", "Nettobetrag:", f"{net_total:.2f} {data.currency}"],
-        ["", "MwSt:", f"{tax_total:.2f} {data.currency}"],
+        ["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"],
         ["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"],
     ]
     totals_table = Table(totals_data, colWidths=[100 * mm, 35 * mm, 35 * mm])
@@ -179,7 +181,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elements.append(totals_table)
 
     # Payment terms
-    if data.payment_terms_days:
+    if data.payment_terms_days is not None:
         elements.append(Spacer(1, 8 * mm))
         terms_data = [[f"Zahlungsziel: {data.payment_terms_days} Tage"]]
         terms_table = Table(terms_data, colWidths=[170 * mm])

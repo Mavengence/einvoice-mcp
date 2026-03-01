@@ -5,7 +5,7 @@ import pytest
 import respx
 
 from einvoice_mcp.errors import KoSITConnectionError, KoSITValidationError
-from einvoice_mcp.services.kosit import KoSITClient
+from einvoice_mcp.services.kosit import MAX_RESPONSE_SIZE, KoSITClient
 
 MOCK_VALID_REPORT = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -98,5 +98,26 @@ class TestValidate:
     async def test_connection_refused(self, client: KoSITClient) -> None:
         respx.post(f"{BASE_URL}/").mock(side_effect=httpx.ConnectError("refused"))
         with pytest.raises(KoSITConnectionError):
+            await client.validate(b"<Invoice/>")
+        await client.close()
+
+
+class TestResponseSizeGuard:
+    @respx.mock
+    async def test_oversized_content_length_header(self, client: KoSITClient) -> None:
+        respx.post(f"{BASE_URL}/").respond(
+            200,
+            text="<small/>",
+            headers={"content-length": str(MAX_RESPONSE_SIZE + 1)},
+        )
+        with pytest.raises(KoSITValidationError, match="Größenlimit"):
+            await client.validate(b"<Invoice/>")
+        await client.close()
+
+    @respx.mock
+    async def test_oversized_response_body(self, client: KoSITClient) -> None:
+        huge_body = "x" * (MAX_RESPONSE_SIZE + 1)
+        respx.post(f"{BASE_URL}/").respond(200, text=huge_body)
+        with pytest.raises(KoSITValidationError, match="Größenlimit"):
             await client.validate(b"<Invoice/>")
         await client.close()

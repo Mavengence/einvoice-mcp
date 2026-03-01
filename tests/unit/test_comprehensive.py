@@ -73,7 +73,9 @@ class TestErrorExceptions:
 
     def test_invoice_generation_error_with_detail(self) -> None:
         err = InvoiceGenerationError("bad data")
-        assert "bad data" in err.message_de
+        # Security: detail must NOT leak into user-facing message_de
+        assert "bad data" not in err.message_de
+        assert "fehlgeschlagen" in err.message_de
         assert "bad data" in str(err)
 
     def test_invoice_parsing_error_default(self) -> None:
@@ -82,7 +84,10 @@ class TestErrorExceptions:
 
     def test_invoice_parsing_error_with_detail(self) -> None:
         err = InvoiceParsingError("corrupt PDF")
-        assert "corrupt PDF" in err.message_de
+        # Security: detail must NOT leak into user-facing message_de
+        assert "corrupt PDF" not in err.message_de
+        assert "gelesen werden" in err.message_de
+        assert "corrupt PDF" in str(err)
 
     def test_kosit_connection_error_default(self) -> None:
         err = KoSITConnectionError()
@@ -108,7 +113,8 @@ class TestXmlParserEdgeCases:
             parse_xml(b"")
 
     def test_extract_xml_from_pdf_invalid_pdf(self) -> None:
-        with pytest.raises(InvoiceParsingError, match="PDF-Extraktion"):
+        # Security: error message must NOT contain raw exception detail
+        with pytest.raises(InvoiceParsingError, match="parsing failed"):
             extract_xml_from_pdf(b"not a real PDF")
 
     def test_extract_xml_from_pdf_empty(self) -> None:
@@ -246,7 +252,7 @@ class TestPdfGeneratorErrors:
                 "einvoice_mcp.services.pdf_generator._build_pdf",
                 side_effect=RuntimeError("boom"),
             ),
-            pytest.raises(InvoiceGenerationError, match="PDF-Erstellung"),
+            pytest.raises(InvoiceGenerationError, match="generation failed"),
         ):
             data = InvoiceData(
                 invoice_id="T",
@@ -258,7 +264,8 @@ class TestPdfGeneratorErrors:
             generate_invoice_pdf(data)
 
     def test_embed_xml_failure(self) -> None:
-        with pytest.raises(InvoiceGenerationError, match="Einbettung"):
+        # Security: error message must NOT contain raw exception detail
+        with pytest.raises(InvoiceGenerationError, match="generation failed"):
             embed_xml_in_pdf(b"not-a-pdf", b"<xml/>")
 
 

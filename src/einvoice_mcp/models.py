@@ -36,7 +36,7 @@ class Address(BaseModel):
 
 
 class Party(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200, description="Firmenname")
+    name: str = Field(..., min_length=1, max_length=200, description="Vollständiger Name")
     address: Address
     tax_id: str | None = Field(
         default=None, max_length=30, description="USt-IdNr. (z.B. DE123456789)"

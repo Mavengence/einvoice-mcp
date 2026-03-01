@@ -4,7 +4,7 @@ import base64
 import logging
 from typing import Any
 
-from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_XML_SIZE
+from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_PDF_DECODED_SIZE, MAX_XML_SIZE
 from einvoice_mcp.errors import EInvoiceError
 from einvoice_mcp.services.xml_parser import extract_xml_from_pdf, parse_xml
 
@@ -59,11 +59,17 @@ async def _parse_pdf(pdf_base64: str) -> dict[str, Any]:
         }
 
     try:
-        pdf_bytes = base64.b64decode(pdf_base64)
+        pdf_bytes = base64.b64decode(pdf_base64, validate=True)
     except Exception:
         return {
             "success": False,
             "error": "Fehler: Ungültige Base64-Kodierung der PDF-Datei.",
+        }
+
+    if len(pdf_bytes) > MAX_PDF_DECODED_SIZE:
+        return {
+            "success": False,
+            "error": "Fehler: Dekodierte PDF überschreitet das Größenlimit (50 MB).",
         }
 
     try:

@@ -21,6 +21,7 @@ KOSIT_NS = {
 
 
 MAX_REPORT_SIZE = 512 * 1024  # 512 KB cap on raw KoSIT reports
+MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB hard cap on KoSIT response body
 
 
 class KoSITClient:
@@ -37,6 +38,7 @@ class KoSITClient:
                 self._client = httpx.AsyncClient(
                     base_url=self.base_url,
                     timeout=30.0,
+                    follow_redirects=False,  # SSRF defense: prevent redirect to internal services
                     limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
                 )
             return self._client
@@ -66,7 +68,14 @@ class KoSITClient:
         except httpx.HTTPError as exc:
             raise KoSITValidationError(str(exc)) from exc
 
+        # Guard against oversized responses from a compromised/rogue KoSIT instance
+        content_length = resp.headers.get("content-length")
+        if content_length and int(content_length) > MAX_RESPONSE_SIZE:
+            raise KoSITValidationError("Antwort des Validators überschreitet Größenlimit.")
+
         raw_report = resp.text
+        if len(raw_report) > MAX_RESPONSE_SIZE:
+            raise KoSITValidationError("Antwort des Validators überschreitet Größenlimit.")
 
         if resp.status_code == 200:
             return self._parse_report(raw_report, valid=True)

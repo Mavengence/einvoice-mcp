@@ -3,17 +3,26 @@ FROM eclipse-temurin:17-jre-jammy
 ARG VALIDATOR_VERSION=1.6.2
 ARG XRECHNUNG_VERSION=2026-01-31
 
+# SHA-256 checksums for supply-chain integrity verification
+ARG VALIDATOR_SHA256=244978514ad48f67c7573acfffc8f4fd73d81feda6f276710033f9913579857e
+ARG SCENARIOS_SHA256=6a5a5911a421b25fbc423f62f93f894df7b236f5d73ca4f84bb222a945082704
+
 WORKDIR /opt/kosit
 
-# Install curl (needed for healthcheck)
+# Install curl (needed for healthcheck) and unzip
 RUN apt-get update && apt-get install -y --no-install-recommends curl unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Download KoSIT Validator standalone JAR (v1.6.x renamed from validationtool → validator)
-ADD https://github.com/itplr-kosit/validator/releases/download/v${VALIDATOR_VERSION}/validator-${VALIDATOR_VERSION}-standalone.jar /opt/kosit/validator.jar
+# Download and verify KoSIT Validator standalone JAR
+RUN curl -fsSL -o /opt/kosit/validator.jar \
+      "https://github.com/itplr-kosit/validator/releases/download/v${VALIDATOR_VERSION}/validator-${VALIDATOR_VERSION}-standalone.jar" \
+    && echo "${VALIDATOR_SHA256}  /opt/kosit/validator.jar" | sha256sum --check
 
-# Download XRechnung validation scenarios (v2026+ uses v-prefixed tags and new ZIP naming)
-ADD https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/v${XRECHNUNG_VERSION}/xrechnung-3.0.2-validator-configuration-${XRECHNUNG_VERSION}.zip /tmp/scenarios.zip
+# Download and verify XRechnung validation scenarios
+RUN curl -fsSL -o /tmp/scenarios.zip \
+      "https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/v${XRECHNUNG_VERSION}/xrechnung-3.0.2-validator-configuration-${XRECHNUNG_VERSION}.zip" \
+    && echo "${SCENARIOS_SHA256}  /tmp/scenarios.zip" | sha256sum --check
+
 # ZIP extracts into a subdirectory — flatten so scenarios.xml is at scenarios/
 RUN unzip /tmp/scenarios.zip -d /tmp/scenarios-raw \
     && mv /tmp/scenarios-raw/*/ /opt/kosit/scenarios \
@@ -21,6 +30,12 @@ RUN unzip /tmp/scenarios.zip -d /tmp/scenarios-raw \
 
 # Remove unzip after use
 RUN apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+# Run as non-root user
+RUN groupadd -r kosit && useradd -r -g kosit -d /opt/kosit kosit \
+    && chown -R kosit:kosit /opt/kosit
+
+USER kosit
 
 EXPOSE 8081
 
