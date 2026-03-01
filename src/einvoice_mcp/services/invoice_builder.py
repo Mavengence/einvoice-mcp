@@ -49,8 +49,8 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Header
     doc.header.id = data.invoice_id
-    doc.header.type_code = "380"
-    doc.header.name = "RECHNUNG"
+    doc.header.type_code = data.type_code
+    doc.header.name = "GUTSCHRIFT" if data.type_code == "381" else "RECHNUNG"
     doc.header.issue_date_time = data.issue_date
     doc.header.languages.add("de")
 
@@ -65,6 +65,12 @@ def _build_document(data: InvoiceData) -> bytes:
         seller_tax = TaxRegistration()
         seller_tax.id = ("VA", data.seller.tax_id)
         doc.trade.agreement.seller.tax_registrations.add(seller_tax)
+
+    # BT-32: Steuernummer (schemeID=FC) — alternative to USt-IdNr. per §14 Abs. 4 Nr. 2 UStG
+    if data.seller.tax_number:
+        seller_tax_num = TaxRegistration()
+        seller_tax_num.id = ("FC", data.seller.tax_number)
+        doc.trade.agreement.seller.tax_registrations.add(seller_tax_num)
 
     # Seller electronic address (BT-34) — mandatory for XRechnung 3.0
     if data.seller.electronic_address:
@@ -104,6 +110,16 @@ def _build_document(data: InvoiceData) -> bytes:
     buyer_ref = data.buyer_reference or data.leitweg_id
     if buyer_ref:
         doc.trade.agreement.buyer_reference = buyer_ref
+
+    # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
+    if data.delivery_date:
+        doc.trade.delivery.event.occurrence = data.delivery_date
+
+    # Billing period (BT-73/BT-74) — service period
+    if data.service_period_start:
+        doc.trade.settlement.period.start = data.service_period_start
+    if data.service_period_end:
+        doc.trade.settlement.period.end = data.service_period_end
 
     # Line items
     for idx, item in enumerate(data.items, 1):

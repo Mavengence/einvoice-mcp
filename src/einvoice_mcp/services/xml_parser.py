@@ -74,6 +74,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
 
     return ParsedInvoice(
         invoice_id=_str_element(doc.header.id),
+        type_code=_str_element(doc.header.type_code) or "380",
         issue_date=issue_date,
         seller=seller,
         buyer=buyer,
@@ -100,20 +101,42 @@ def _extract_party(party_obj: object) -> Party | None:
         )
 
         tax_id = None
+        tax_number = None
         tax_regs = getattr(party_obj, "tax_registrations", None)
         if tax_regs and hasattr(tax_regs, "children"):
             for reg in tax_regs.children:
                 id_elem = getattr(reg, "id", None)
                 if id_elem:
+                    # drafthorse IDElement stores schemeID: check raw tuple/attr
+                    scheme_id = _extract_scheme_id(id_elem)
                     extracted = _str_element(id_elem)
-                    if extracted:
+                    if not extracted:
+                        continue
+                    if scheme_id == "FC":
+                        tax_number = extracted
+                    else:
+                        # VA or unknown schemeID → treat as USt-IdNr.
                         tax_id = extracted
-                        break
 
-        return Party(name=name, address=address, tax_id=tax_id)
+        return Party(name=name, address=address, tax_id=tax_id, tax_number=tax_number)
     except Exception:
         logger.warning("Failed to extract party data", exc_info=True)
         return None
+
+
+def _extract_scheme_id(id_elem: object) -> str:
+    """Extract schemeID from a drafthorse IDElement."""
+    # drafthorse stores schemeID in _scheme_id attribute
+    scheme = getattr(id_elem, "_scheme_id", None)
+    if scheme:
+        return str(scheme)
+    # Fallback: check the string representation for " (XX)" pattern
+    s = str(id_elem).strip()
+    if s.endswith(")"):
+        paren_idx = s.rfind(" (")
+        if paren_idx > 0:
+            return s[paren_idx + 2 : -1]
+    return ""
 
 
 def _extract_items(doc: Document) -> list[LineItem]:

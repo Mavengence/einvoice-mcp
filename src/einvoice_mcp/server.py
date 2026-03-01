@@ -85,6 +85,11 @@ def _build_invoice_data(
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
+    type_code: str = "380",
+    seller_tax_number: str = "",
+    delivery_date: str = "",
+    service_period_start: str = "",
+    service_period_end: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -105,6 +110,7 @@ def _build_invoice_data(
             {
                 "invoice_id": invoice_id,
                 "issue_date": issue_date,
+                "type_code": type_code,
                 "seller": {
                     "name": seller_name,
                     "address": {
@@ -114,6 +120,7 @@ def _build_invoice_data(
                         "country_code": seller_country_code,
                     },
                     "tax_id": seller_tax_id or None,
+                    "tax_number": seller_tax_number or None,
                     "electronic_address": seller_electronic_address or None,
                 },
                 "buyer": {
@@ -139,6 +146,9 @@ def _build_invoice_data(
                 "seller_iban": seller_iban or None,
                 "seller_bic": seller_bic or None,
                 "seller_bank_name": seller_bank_name or None,
+                "delivery_date": delivery_date or None,
+                "service_period_start": service_period_start or None,
+                "service_period_end": service_period_end or None,
             }
         )
     except PydanticValidationError as exc:
@@ -233,6 +243,11 @@ async def einvoice_generate_xrechnung(
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
+    type_code: str = "380",
+    seller_tax_number: str = "",
+    delivery_date: str = "",
+    service_period_start: str = "",
+    service_period_end: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -270,6 +285,11 @@ async def einvoice_generate_xrechnung(
         seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
         seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
         seller_bank_name: Name der Bank des Verkäufers (optional).
+        type_code: Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung.
+        seller_tax_number: Steuernummer des Verkäufers (BT-32, alternativ zu USt-IdNr.).
+        delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
+        service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
+        service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -300,6 +320,11 @@ async def einvoice_generate_xrechnung(
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
+        type_code=type_code,
+        seller_tax_number=seller_tax_number,
+        delivery_date=delivery_date,
+        service_period_start=service_period_start,
+        service_period_end=service_period_end,
     )
 
     if isinstance(data, str):
@@ -351,6 +376,11 @@ async def einvoice_generate_zugferd(
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
+    type_code: str = "380",
+    seller_tax_number: str = "",
+    delivery_date: str = "",
+    service_period_start: str = "",
+    service_period_end: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -383,6 +413,11 @@ async def einvoice_generate_zugferd(
         seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
         seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
         seller_bank_name: Name der Bank des Verkäufers (optional).
+        type_code: Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung.
+        seller_tax_number: Steuernummer des Verkäufers (BT-32, alternativ zu USt-IdNr.).
+        delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
+        service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
+        service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -413,6 +448,11 @@ async def einvoice_generate_zugferd(
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
+        type_code=type_code,
+        seller_tax_number=seller_tax_number,
+        delivery_date=delivery_date,
+        service_period_start=service_period_start,
+        service_period_end=service_period_end,
     )
 
     if isinstance(data, str):

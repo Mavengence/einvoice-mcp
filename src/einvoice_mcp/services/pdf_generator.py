@@ -74,10 +74,16 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elements: list[object] = []
 
     # Header
+    doc_title = "GUTSCHRIFT" if data.type_code == "381" else "RECHNUNG"
     header_data = [
-        ["RECHNUNG", "", f"Nr. {data.invoice_id}"],
+        [doc_title, "", f"Nr. {data.invoice_id}"],
         ["", "", f"Datum: {data.issue_date.isoformat()}"],
     ]
+    if data.delivery_date:
+        header_data.append(["", "", f"Lieferdatum: {data.delivery_date.isoformat()}"])
+    elif data.service_period_start and data.service_period_end:
+        period = f"{data.service_period_start.isoformat()} — {data.service_period_end.isoformat()}"
+        header_data.append(["", "", f"Leistungszeitraum: {period}"])
     header_table = Table(header_data, colWidths=[60 * mm, 50 * mm, 60 * mm])
     header_table.setStyle(
         TableStyle(
@@ -103,7 +109,10 @@ def _build_pdf(data: InvoiceData) -> bytes:
         ],
     ]
     if data.seller.tax_id:
-        party_data.append([f"USt-IdNr.: {data.seller.tax_id}", ""])
+        buyer_tax = f"USt-IdNr.: {data.buyer.tax_id}" if data.buyer.tax_id else ""
+        party_data.append([f"USt-IdNr.: {data.seller.tax_id}", buyer_tax])
+    elif data.seller.tax_number:
+        party_data.append([f"Steuernummer: {data.seller.tax_number}", ""])
 
     party_table = Table(party_data, colWidths=[85 * mm, 85 * mm])
     party_table.setStyle(

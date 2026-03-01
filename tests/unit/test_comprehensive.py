@@ -128,6 +128,9 @@ class TestXmlParserEdgeCases:
         # Empty parens are NOT a schemeID pattern — preserve them
         assert _str_element("DE123 ()") == "DE123 ()"
 
+    def test_strips_numeric_scheme(self) -> None:
+        assert _str_element("4000000000098 (9930)") == "4000000000098"
+
     def test_str_element_strips_scheme_id(self) -> None:
         # SchemeID patterns: short uppercase alphanumeric in parens
         assert _str_element("DE123456789 (VA)") == "DE123456789"
@@ -194,6 +197,81 @@ class TestXmlParserEdgeCases:
 
     def test_safe_decimal_with_scheme_suffix(self) -> None:
         assert _safe_decimal("100 ()") == Decimal("100")
+
+    def test_parse_xml_wraps_extraction_error(self) -> None:
+        """If drafthorse parse succeeds but extraction fails, wrap in InvoiceParsingError."""
+        from unittest.mock import patch
+
+        from einvoice_mcp.errors import InvoiceParsingError
+
+        # Valid XML that passes defusedxml but causes drafthorse to fail
+        valid_xml = (
+            b'<?xml version="1.0"?>'
+            b"<rsm:CrossIndustryInvoice"
+            b' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
+            b"</rsm:CrossIndustryInvoice>"
+        )
+        with (
+            patch(
+                "einvoice_mcp.services.xml_parser._extract_invoice",
+                side_effect=RuntimeError("extraction boom"),
+            ),
+            pytest.raises(InvoiceParsingError),
+        ):
+            parse_xml(valid_xml)
+
+    def test_parse_xml_reraises_invoice_parsing_error(self) -> None:
+        """If _extract_invoice raises InvoiceParsingError, re-raise directly."""
+        from unittest.mock import patch
+
+        from einvoice_mcp.errors import InvoiceParsingError
+
+        valid_xml = (
+            b'<?xml version="1.0"?>'
+            b"<rsm:CrossIndustryInvoice"
+            b' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
+            b"</rsm:CrossIndustryInvoice>"
+        )
+        with (
+            patch(
+                "einvoice_mcp.services.xml_parser._extract_invoice",
+                side_effect=InvoiceParsingError("controlled"),
+            ),
+            pytest.raises(InvoiceParsingError, match="controlled"),
+        ):
+            parse_xml(valid_xml)
+
+    def test_extract_scheme_id_from_string_fallback(self) -> None:
+        """_extract_scheme_id falls back to string pattern matching."""
+        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+
+        class FakeID:
+            def __str__(self) -> str:
+                return "123/456/78901 (FC)"
+
+        assert _extract_scheme_id(FakeID()) == "FC"
+
+    def test_extract_scheme_id_no_scheme(self) -> None:
+        """_extract_scheme_id returns empty for no scheme."""
+        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+
+        class FakeID:
+            def __str__(self) -> str:
+                return "plain text"
+
+        assert _extract_scheme_id(FakeID()) == ""
+
+    def test_extract_scheme_id_with_attr(self) -> None:
+        """_extract_scheme_id uses _scheme_id attribute when available."""
+        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+
+        class FakeID:
+            _scheme_id = "VA"
+
+            def __str__(self) -> str:
+                return "DE123456789 (VA)"
+
+        assert _extract_scheme_id(FakeID()) == "VA"
 
 
 # ============================================================================
@@ -854,3 +932,377 @@ class TestConfigValidation:
 
         s = Settings(kosit_url="http://localhost:8081", log_level="DEBUG")
         assert s.log_level == "DEBUG"
+
+
+# ============================================================================
+# 14. BT-32 Steuernummer — roundtrip (generate → parse)
+# ============================================================================
+
+
+class TestBT32Steuernummer:
+    def test_steuernummer_roundtrip(self) -> None:
+        """Generate with BT-32, parse it back, verify tax_number is preserved."""
+        data = InvoiceData(
+            invoice_id="BT32-RT",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Kleinunternehmer GmbH",
+                address=Address(street="Str. 1", city="Berlin", postal_code="10115"),
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.tax_number == "123/456/78901"
+        # No USt-IdNr. set → tax_id should be None
+        assert parsed.seller.tax_id is None
+
+    def test_both_va_and_fc_roundtrip(self) -> None:
+        """Generate with both BT-31 and BT-32, parse back both."""
+        data = InvoiceData(
+            invoice_id="BOTH-RT",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE999999999",
+                tax_number="99/999/99999",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.tax_id == "DE999999999"
+        assert parsed.seller.tax_number == "99/999/99999"
+
+    def test_preserves_unicode_parens(self) -> None:
+        """Unicode in parenthetical text must NOT be stripped (e.g. Ü)."""
+        assert _str_element("Artikel (3Ü)") == "Artikel (3Ü)"
+
+    def test_preserves_lowercase_parens(self) -> None:
+        """Lowercase text in parentheses must be preserved."""
+        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+
+
+# ============================================================================
+# 15. TypeCode — generation and parsing
+# ============================================================================
+
+
+class TestTypeCode:
+    def test_type_code_381_roundtrip(self) -> None:
+        """TypeCode 381 (Gutschrift) roundtrip."""
+        data = InvoiceData(
+            invoice_id="GS-001",
+            issue_date="2026-01-01",
+            type_code="381",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.type_code == "381"
+
+    def test_type_code_384_roundtrip(self) -> None:
+        """TypeCode 384 (Korrekturrechnung) roundtrip."""
+        data = InvoiceData(
+            invoice_id="KR-001",
+            issue_date="2026-01-01",
+            type_code="384",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.type_code == "384"
+
+    def test_type_code_pdf_gutschrift_header(self) -> None:
+        """TypeCode 381 produces GUTSCHRIFT PDF header."""
+        data = InvoiceData(
+            invoice_id="GS-PDF",
+            issue_date="2026-01-01",
+            type_code="381",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        pdf = generate_invoice_pdf(data)
+        assert len(pdf) > 0
+
+    def test_valid_type_codes_constant(self) -> None:
+        """VALID_TYPE_CODES frozenset contains expected values."""
+        from einvoice_mcp.models import VALID_TYPE_CODES
+
+        assert "380" in VALID_TYPE_CODES
+        assert "381" in VALID_TYPE_CODES
+        assert "384" in VALID_TYPE_CODES
+        assert "389" in VALID_TYPE_CODES
+        assert "999" not in VALID_TYPE_CODES
+
+
+# ============================================================================
+# 16. Delivery date and service period — generation and parsing
+# ============================================================================
+
+
+class TestDeliveryDateServicePeriod:
+    def test_delivery_date_in_pdf(self) -> None:
+        """Delivery date appears in the visual PDF."""
+        data = InvoiceData(
+            invoice_id="DEL-PDF",
+            issue_date="2026-01-01",
+            delivery_date="2026-01-15",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        pdf = generate_invoice_pdf(data)
+        assert len(pdf) > 0
+
+    def test_service_period_in_pdf(self) -> None:
+        """Service period appears in the visual PDF."""
+        data = InvoiceData(
+            invoice_id="SVC-PDF",
+            issue_date="2026-01-01",
+            service_period_start="2026-01-01",
+            service_period_end="2026-01-31",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        pdf = generate_invoice_pdf(data)
+        assert len(pdf) > 0
+
+
+# ============================================================================
+# 17. BT-84 IBAN compliance check
+# ============================================================================
+
+
+class TestBT84IBANCompliance:
+    @respx.mock
+    async def test_iban_missing_flags_bt84(self) -> None:
+        """When PaymentMeansCode=58 and IBAN is absent, BT-84 must be flagged."""
+        data = InvoiceData(
+            invoice_id="NO-IBAN",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-84" in result["missing_fields"]
+        assert any("IBAN" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
+    async def test_iban_present_passes_bt84(self) -> None:
+        """When PaymentMeansCode=58 and IBAN is present, BT-84 must pass."""
+        data = InvoiceData(
+            invoice_id="HAS-IBAN",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123",
+                electronic_address="s@s.de",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+                electronic_address="b@b.de",
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            buyer_reference="REF-1",
+            seller_contact_name="Name",
+            seller_contact_email="e@e.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-84" not in result["missing_fields"]
+        await client.close()
+
+
+# ============================================================================
+# 18. BT-31/BT-32 alternative compliance check
+# ============================================================================
+
+
+class TestBT31BT32AlternativeCompliance:
+    @respx.mock
+    async def test_neither_bt31_nor_bt32_flags_missing(self) -> None:
+        """Neither USt-IdNr. nor Steuernummer → BT-31/32 flagged."""
+        data = InvoiceData(
+            invoice_id="NO-TAX",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-31/32" in result["missing_fields"]
+        assert any("Steuernummer" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
+    async def test_only_bt32_passes(self) -> None:
+        """Only Steuernummer (BT-32) without USt-IdNr. → BT-31/32 passes."""
+        data = InvoiceData(
+            invoice_id="FC-ONLY",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-31/32" not in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_only_bt31_passes(self) -> None:
+        """Only USt-IdNr. (BT-31) → BT-31/32 passes."""
+        data = InvoiceData(
+            invoice_id="VA-ONLY",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-31/32" not in result["missing_fields"]
+        await client.close()
+
+
+# ============================================================================
+# 19. Server helper _build_invoice_data — new parameters
+# ============================================================================
+
+
+class TestBuildInvoiceDataNewParams:
+    def test_type_code_parameter(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="TC-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            type_code="381",
+        )
+        assert isinstance(data, InvoiceData)
+        assert data.type_code == "381"
+
+    def test_seller_tax_number_parameter(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="TN-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            seller_tax_number="123/456/78901",
+        )
+        assert isinstance(data, InvoiceData)
+        assert data.seller.tax_number == "123/456/78901"
+
+    def test_delivery_date_parameter(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="DD-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            delivery_date="2026-01-15",
+        )
+        assert isinstance(data, InvoiceData)
+        assert str(data.delivery_date) == "2026-01-15"
+
+    def test_service_period_parameters(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="SP-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            service_period_start="2026-01-01",
+            service_period_end="2026-01-31",
+        )
+        assert isinstance(data, InvoiceData)
+        assert str(data.service_period_start) == "2026-01-01"
+        assert str(data.service_period_end) == "2026-01-31"

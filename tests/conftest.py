@@ -84,6 +84,9 @@ def sample_invoice_data(
         seller_contact_name="Max Mustermann",
         seller_contact_email="max@techcorp.de",
         seller_contact_phone="+49 30 1234567",
+        seller_iban="DE89370400440532013000",
+        seller_bic="COBADEFFXXX",
+        seller_bank_name="Commerzbank",
     )
 
 

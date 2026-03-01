@@ -1,3 +1,4 @@
+# Pin to specific tag for reproducibility; update regularly.
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
@@ -6,6 +7,7 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir .
 
+# Pin to same specific tag for reproducibility.
 FROM python:3.11-slim
 
 RUN groupadd -r mcp && useradd -r -g mcp mcp

@@ -252,3 +252,133 @@ class TestBuildXml:
         root = ET.fromstring(xml_bytes)
         uri = root.find(".//ram:SellerTradeParty/ram:URIUniversalCommunication/ram:URIID", CII_NS)
         assert uri is None
+
+    def test_steuernummer_bt32_scheme_fc(self) -> None:
+        """BT-32: Steuernummer with schemeID='FC' per §14 Abs. 4 Nr. 2 UStG."""
+        data = InvoiceData(
+            invoice_id="BT32-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Kleinunternehmer GmbH",
+                address=Address(street="Str. 1", city="Berlin", postal_code="10115"),
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        tax_ids = root.findall(
+            ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID", CII_NS
+        )
+        fc_found = False
+        for tid in tax_ids:
+            if tid.get("schemeID") == "FC":
+                assert tid.text == "123/456/78901"
+                fc_found = True
+        assert fc_found, "BT-32 TaxRegistration with schemeID=FC not found"
+
+    def test_both_tax_id_and_tax_number(self) -> None:
+        """Both BT-31 (VA) and BT-32 (FC) should appear when both are set."""
+        data = InvoiceData(
+            invoice_id="BOTH-TAX",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        tax_ids = root.findall(
+            ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID", CII_NS
+        )
+        schemes = {tid.get("schemeID") for tid in tax_ids}
+        assert "VA" in schemes
+        assert "FC" in schemes
+
+    def test_type_code_380_rechnung(self) -> None:
+        """TypeCode 380 produces RECHNUNG header."""
+        data = InvoiceData(
+            invoice_id="TC-380",
+            issue_date="2026-01-01",
+            type_code="380",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        tc = root.find(".//rsm:ExchangedDocument/ram:TypeCode", CII_NS)
+        assert tc is not None
+        assert tc.text == "380"
+        name = root.find(".//rsm:ExchangedDocument/ram:Name", CII_NS)
+        assert name is not None
+        assert name.text == "RECHNUNG"
+
+    def test_type_code_381_gutschrift(self) -> None:
+        """TypeCode 381 produces GUTSCHRIFT header."""
+        data = InvoiceData(
+            invoice_id="TC-381",
+            issue_date="2026-01-01",
+            type_code="381",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        tc = root.find(".//rsm:ExchangedDocument/ram:TypeCode", CII_NS)
+        assert tc is not None
+        assert tc.text == "381"
+        name = root.find(".//rsm:ExchangedDocument/ram:Name", CII_NS)
+        assert name is not None
+        assert name.text == "GUTSCHRIFT"
+
+    def test_type_code_384_korrekturrechnung(self) -> None:
+        """TypeCode 384 produces RECHNUNG header (not Gutschrift)."""
+        data = InvoiceData(
+            invoice_id="TC-384",
+            issue_date="2026-01-01",
+            type_code="384",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        tc = root.find(".//rsm:ExchangedDocument/ram:TypeCode", CII_NS)
+        assert tc is not None
+        assert tc.text == "384"
+
+    def test_delivery_date_bt71(self) -> None:
+        """BT-71: Delivery date appears in XML."""
+        data = InvoiceData(
+            invoice_id="DEL-001",
+            issue_date="2026-01-01",
+            delivery_date="2026-01-15",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "20260115" in xml_str  # CII date format YYYYMMDD
+
+    def test_service_period_bt73_bt74(self) -> None:
+        """BT-73/BT-74: Service period appears in XML."""
+        data = InvoiceData(
+            invoice_id="SVC-001",
+            issue_date="2026-01-01",
+            service_period_start="2026-01-01",
+            service_period_end="2026-01-31",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "20260101" in xml_str
+        assert "20260131" in xml_str

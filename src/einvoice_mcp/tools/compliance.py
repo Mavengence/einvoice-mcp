@@ -30,11 +30,6 @@ _COMMON_FIELDS = [
         ".//ram:ApplicableHeaderTradeSettlement/ram:InvoiceCurrencyCode",
     ),
     ("BT-27", "Verkäufer-Name", ".//ram:SellerTradeParty/ram:Name"),
-    (
-        "BT-31",
-        "Verkäufer-USt-IdNr.",
-        ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
-    ),
     ("BT-35", "Verkäufer-Straße", ".//ram:SellerTradeParty/ram:PostalTradeAddress/ram:LineOne"),
     (
         "BT-37",
@@ -117,9 +112,9 @@ SUGGESTIONS_MAP = {
         "BT-10 (Leitweg-ID / Käuferreferenz) fehlt — "
         "für XRechnung an öffentliche Auftraggeber zwingend erforderlich."
     ),
-    "BT-31": (
-        "BT-31 (USt-IdNr. des Verkäufers) fehlt — für den Vorsteuerabzug des Käufers "
-        "erforderlich (alternativ: Steuernummer als BT-32)."
+    "BT-31/32": (
+        "Weder USt-IdNr. (BT-31) noch Steuernummer (BT-32) des Verkäufers vorhanden — "
+        "mindestens eine Angabe ist gemäß §14 Abs. 4 Nr. 2 UStG erforderlich."
     ),
     "BT-34": (
         "BT-34 (Elektronische Adresse des Verkäufers) fehlt — "
@@ -136,6 +131,10 @@ SUGGESTIONS_MAP = {
     "BT-43": (
         "BT-43 (E-Mail des Ansprechpartners) fehlt — "
         "gemäß BR-DE-7 ist die E-Mail-Adresse des Ansprechpartners Pflicht."
+    ),
+    "BT-84": (
+        "BT-84 (IBAN) fehlt — bei Zahlungsart SEPA-Überweisung (Code 58) "
+        "ist die IBAN gemäß BR-DE-23 Pflicht."
     ),
 }
 
@@ -229,6 +228,55 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 present=present,
                 value=value,
                 required=required,
+            )
+        )
+
+    # BT-31/BT-32 alternative check (§14 Abs. 4 Nr. 2 UStG):
+    # At least one of USt-IdNr. (BT-31, schemeID=VA) or Steuernummer (BT-32, schemeID=FC)
+    # must be present for the seller.
+    tax_regs = root.findall(
+        ".//ram:SellerTradeParty/ram:SpecifiedTaxRegistration/ram:ID", CII_NS
+    )
+    has_va = any(el.get("schemeID") == "VA" and el.text for el in tax_regs)
+    has_fc = any(el.get("schemeID") == "FC" and el.text for el in tax_regs)
+    bt31_or_32_present = has_va or has_fc
+    va_value = next((el.text for el in tax_regs if el.get("schemeID") == "VA" and el.text), "")
+    fc_value = next((el.text for el in tax_regs if el.get("schemeID") == "FC" and el.text), "")
+    checks.append(
+        FieldCheck(
+            field="BT-31/32",
+            name="USt-IdNr. oder Steuernummer des Verkäufers",
+            present=bt31_or_32_present,
+            value=va_value or fc_value,
+            required=True,
+        )
+    )
+
+    # BT-84 IBAN check (BR-DE-23): when PaymentMeansCode=58 (SEPA), IBAN is mandatory.
+    pm_code_el = root.find(
+        ".//ram:ApplicableHeaderTradeSettlement"
+        "/ram:SpecifiedTradeSettlementPaymentMeans/ram:TypeCode",
+        CII_NS,
+    )
+    pm_code = pm_code_el.text.strip() if pm_code_el is not None and pm_code_el.text else ""
+    if pm_code == "58":
+        iban_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:SpecifiedTradeSettlementPaymentMeans"
+            "/ram:PayeePartyCreditorFinancialAccount/ram:IBANID",
+            CII_NS,
+        )
+        iban_present = iban_el is not None and bool(iban_el.text and iban_el.text.strip())
+        iban_value = ""
+        if iban_present and iban_el is not None and iban_el.text:
+            iban_value = iban_el.text.strip()
+        checks.append(
+            FieldCheck(
+                field="BT-84",
+                name="IBAN (SEPA-Überweisung)",
+                present=iban_present,
+                value=iban_value,
+                required=True,
             )
         )
 

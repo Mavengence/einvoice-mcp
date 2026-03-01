@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**194 tests | 95% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**236 tests | 98% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -26,11 +26,12 @@ Every mandatory Business Term is tested in generated XML output:
 |----|-------|------|--------|
 | BT-1 | Invoice number | `test_contains_invoice_id` | PASS |
 | BT-2 | Issue date | `test_produces_valid_xml` | PASS |
-| BT-3 | Invoice type code (380) | `test_produces_valid_xml` | PASS |
+| BT-3 | Invoice type code (380/381/384) | `test_type_code_380_rechnung`, `test_type_code_381_gutschrift` | PASS |
 | BT-5 | Currency code (EUR) | `test_currency_eur` | PASS |
 | BT-10 | Buyer reference / Leitweg-ID | `test_buyer_reference_set` | PASS |
 | BT-27 | Seller name | `test_contains_seller` | PASS |
 | BT-31 | Seller VAT ID (schemeID=VA) | `test_tax_registration_scheme_id_correct` | PASS |
+| BT-32 | Seller tax number (schemeID=FC) | `test_steuernummer_bt32_scheme_fc` | PASS |
 | BT-34 | Seller electronic address (schemeID=EM) | `test_seller_electronic_address_bt34` | PASS |
 | BT-35..40 | Seller address | `test_contains_seller` | PASS |
 | BT-41 | Seller contact name (BR-DE-5) | `test_seller_contact_br_de_5` | PASS |
@@ -39,6 +40,8 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-44 | Buyer name | `test_contains_buyer` | PASS |
 | BT-49 | Buyer electronic address (schemeID=EM) | `test_buyer_electronic_address_bt49` | PASS |
 | BT-50..55 | Buyer address | `test_contains_buyer` | PASS |
+| BT-71 | Delivery date (§14 Abs. 4 Nr. 6 UStG) | `test_delivery_date_bt71` | PASS |
+| BT-73/74 | Service period start/end | `test_service_period_bt73_bt74` | PASS |
 | BT-84 | IBAN (SEPA credit transfer) | `test_iban_in_xml` | PASS |
 
 ### Calculation Rules
@@ -48,6 +51,8 @@ Every mandatory Business Term is tested in generated XML output:
 | BR-CO-14 | TaxTotalAmount = sum of per-group CalculatedAmount | `test_br_co_14_tax_total_equals_sum_of_trade_tax` | PASS |
 | BR-CO-14 | PDF/XML/API totals use identical per-group rounding | `test_total_tax_uses_per_group_rounding` | PASS |
 | BR-CO-10 | Line item LineTotalAmount quantized to 0.01 | `test_line_item_net_amount_quantized` | PASS |
+| BR-DE-23 | IBAN mandatory when PaymentMeansCode=58 | `test_iban_missing_flags_bt84` | PASS |
+| §14/4/2 | BT-31 or BT-32 must be present | `test_neither_bt31_nor_bt32_flags_missing` | PASS |
 
 ### Parsing Fidelity
 
@@ -57,6 +62,8 @@ Every mandatory Business Term is tested in generated XML output:
 | Numeric schemeID | `4000000000098 (9930)` → `4000000000098` | `test_strips_numeric_scheme` | PASS |
 | Description text | `Reisekosten (pauschal)` preserved | `test_preserves_lowercase_parens` | PASS |
 | Unicode safety | `Artikel (3Ü)` preserved (not stripped) | `test_preserves_unicode_parens` | PASS |
+| BT-32 roundtrip | Steuernummer FC generate → parse | `test_steuernummer_roundtrip` | PASS |
+| TypeCode roundtrip | 381 Gutschrift generate → parse | `test_type_code_381_roundtrip` | PASS |
 | Roundtrip invoice | Generate → Parse → Verify key fields | `test_xrechnung_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
@@ -89,6 +96,8 @@ Every mandatory Business Term is tested in generated XML output:
 | SSRF via redirect | `follow_redirects=False` | Defense-in-depth | HARDENED |
 | Supply chain (Docker) | SHA-256 checksum verification | `Dockerfile.kosit` | HARDENED |
 | Container privilege | Non-root user (both containers) | `Dockerfile`, `Dockerfile.kosit` | HARDENED |
+| Port exposure | KoSIT bound to 127.0.0.1 only | `docker-compose.yml` | HARDENED |
+| Supply chain (Python) | `uv.lock` for reproducible builds | `uv.lock` | HARDENED |
 
 ### Profile Coverage
 
@@ -107,16 +116,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 109 | 0 | **100%** |
-| `services/invoice_builder.py` | 115 | 0 | **100%** |
+| `models.py` | 116 | 0 | **100%** |
+| `services/invoice_builder.py` | 125 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
-| `services/pdf_generator.py` | 81 | 1 | **99%** |
-| `services/xml_parser.py` | 166 | 26 | **84%** |
-| `tools/compliance.py` | 57 | 2 | **96%** |
+| `services/pdf_generator.py` | 90 | 2 | **98%** |
+| `services/xml_parser.py` | 180 | 7 | **96%** |
+| `tools/compliance.py` | 73 | 2 | **97%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 4 | **90%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **782** | **36** | **95%** |
+| **TOTAL** | **838** | **18** | **98%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -269,9 +278,6 @@ make docker-up  # Start Docker stack
 
 ## Limitations
 
-- **Credit notes (TypeCode 381)**: Not yet supported for generation. Parsing preserves absolute quantity values with a logged warning for negative quantities.
-- **BT-71/72/73 (Delivery date / service period)**: Not yet modeled. The issue date is used implicitly as the service date, which is a common German practice.
-- **BT-32 (Steuernummer)**: Only USt-IdNr. (BT-31, schemeID=VA) is currently supported for generation. Kleinunternehmer (§19 UStG) who use a Steuernummer instead need to provide it manually as `tax_id`.
 - **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are only tested for XRechnung 3.0 and ZUGFeRD EN16931.
 
 ---
@@ -286,6 +292,9 @@ make docker-up  # Start Docker stack
 - **BR-DE-5** — Seller contact person (mandatory for XRechnung)
 - **BR-DE-7** — Seller contact email (mandatory for XRechnung)
 - **BR-CO-14** — Tax total must equal sum of per-group calculated amounts
+- **BR-DE-23** — IBAN mandatory when PaymentMeansCode = 58 (SEPA)
+- **§14 Abs. 4 Nr. 2 UStG** — Steuernummer or USt-IdNr. required (BT-31 / BT-32)
+- **§14 Abs. 4 Nr. 6 UStG** — Delivery date or service period required (BT-71 / BT-73/74)
 
 ---
 

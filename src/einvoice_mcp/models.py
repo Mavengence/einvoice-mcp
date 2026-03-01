@@ -39,7 +39,12 @@ class Party(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Vollständiger Name")
     address: Address
     tax_id: str | None = Field(
-        default=None, max_length=30, description="USt-IdNr. (z.B. DE123456789)"
+        default=None, max_length=30, description="USt-IdNr. (BT-31, z.B. DE123456789)"
+    )
+    tax_number: str | None = Field(
+        default=None,
+        max_length=30,
+        description="Steuernummer (BT-32, z.B. 123/456/78901) — alternativ zu USt-IdNr.",
     )
     registration_id: str | None = Field(
         default=None, max_length=50, description="Handelsregisternummer oder GLN"
@@ -67,9 +72,17 @@ class LineItem(BaseModel):
     tax_category: TaxCategory = Field(default=TaxCategory.S, description="Steuerkategorie")
 
 
+# Valid EN 16931 invoice type codes
+VALID_TYPE_CODES = frozenset({"380", "381", "384", "389", "875", "876", "877"})
+
+
 class InvoiceData(BaseModel):
     invoice_id: str = Field(..., min_length=1, max_length=100, description="Rechnungsnummer")
     issue_date: date = Field(..., description="Rechnungsdatum (YYYY-MM-DD)")
+    type_code: str = Field(
+        default="380",
+        description="Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung",
+    )
     seller: Party = Field(..., description="Verkäufer / Rechnungssteller")
     buyer: Party = Field(..., description="Käufer / Rechnungsempfänger")
     items: list[LineItem] = Field(
@@ -117,6 +130,18 @@ class InvoiceData(BaseModel):
         default=None,
         max_length=200,
         description="Name der Bank des Verkäufers (optional)",
+    )
+    delivery_date: date | None = Field(
+        default=None,
+        description="Lieferdatum / Leistungsdatum (BT-71, §14 Abs. 4 Nr. 6 UStG)",
+    )
+    service_period_start: date | None = Field(
+        default=None,
+        description="Beginn des Leistungszeitraums (BT-73)",
+    )
+    service_period_end: date | None = Field(
+        default=None,
+        description="Ende des Leistungszeitraums (BT-74)",
     )
 
     def total_net(self) -> Decimal:
@@ -180,6 +205,7 @@ class Totals(BaseModel):
 
 class ParsedInvoice(BaseModel):
     invoice_id: str = Field(default="", description="Rechnungsnummer")
+    type_code: str = Field(default="380", description="Rechnungsartcode (BT-3)")
     issue_date: str = Field(default="", description="Rechnungsdatum")
     seller: Party | None = Field(default=None, description="Verkäufer")
     buyer: Party | None = Field(default=None, description="Käufer")
