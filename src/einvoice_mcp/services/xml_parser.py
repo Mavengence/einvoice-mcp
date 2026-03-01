@@ -163,15 +163,36 @@ def _extract_tax_breakdown(doc: Document) -> list[TaxBreakdown]:
 def _extract_totals(doc: Document) -> Totals | None:
     try:
         ms = doc.trade.settlement.monetary_summation
+
+        # drafthorse routes TaxTotalAmount to tax_total_other_currency (MultiCurrencyField)
+        # instead of tax_total (CurrencyField) — check both sources.
+        tax_total = _safe_decimal(getattr(ms, "tax_total", "0"))
+        if tax_total == Decimal("0"):
+            tax_total = _extract_tax_total_fallback(ms)
+
         return Totals(
             net_total=_safe_decimal(getattr(ms, "tax_basis_total", "0")),
-            tax_total=_safe_decimal(getattr(ms, "tax_total", "0")),
+            tax_total=tax_total,
             gross_total=_safe_decimal(getattr(ms, "grand_total", "0")),
             due_payable=_safe_decimal(getattr(ms, "due_amount", "0")),
         )
     except Exception:
         logger.warning("Failed to extract totals", exc_info=True)
         return None
+
+
+def _extract_tax_total_fallback(ms: object) -> Decimal:
+    """Extract tax total from tax_total_other_currency (MultiCurrencyField fallback)."""
+    container = getattr(ms, "tax_total_other_currency", None)
+    if container is None:
+        return Decimal("0")
+    for child in getattr(container, "children", []):
+        if isinstance(child, tuple) and len(child) >= 1:
+            try:
+                return Decimal(str(child[0]))
+            except (InvalidOperation, ValueError):
+                continue
+    return Decimal("0")
 
 
 def _str_element(value: object) -> str:

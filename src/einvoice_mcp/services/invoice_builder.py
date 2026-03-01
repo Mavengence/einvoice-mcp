@@ -155,9 +155,10 @@ def _build_document(data: InvoiceData) -> bytes:
     ms.line_total = net_total
     ms.charge_total = Decimal("0.00")
     ms.allowance_total = Decimal("0.00")
-    ms.tax_basis_total = net_total
-    ms.tax_total = tax_total
-    ms.grand_total = gross_total
+    # CurrencyField values require (amount, currencyID) tuple for CII conformance
+    ms.tax_basis_total = (net_total, data.currency)
+    ms.tax_total = (tax_total, data.currency)
+    ms.grand_total = (gross_total, data.currency)
     ms.due_amount = gross_total
 
     # Payment terms

@@ -46,6 +46,16 @@ class TestParseXml:
         assert parsed.totals.net_total > 0
         assert parsed.totals.gross_total > parsed.totals.net_total
 
+    def test_roundtrip_tax_total_not_zero(self, sample_invoice_data: InvoiceData) -> None:
+        """Tax total must roundtrip correctly (was bug: drafthorse MultiCurrencyField)."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals is not None
+        assert parsed.totals.tax_total > 0
+        # Model and parsed should match
+        expected = sample_invoice_data.total_tax()
+        assert parsed.totals.tax_total == expected
+
     def test_roundtrip_seller_tax_id_no_scheme_suffix(
         self, sample_invoice_data: InvoiceData
     ) -> None:
