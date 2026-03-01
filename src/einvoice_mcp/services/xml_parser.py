@@ -72,6 +72,36 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
 
     profile = _str_element(doc.context.guideline_parameter.id)
 
+    # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
+    delivery_date = ""
+    try:
+        event = doc.trade.delivery.event
+        occurrence = getattr(event, "occurrence", None)
+        if occurrence:
+            val = str(occurrence).strip()
+            if val and val != "None":
+                delivery_date = val
+    except Exception:
+        pass
+
+    # Service period (BT-73/BT-74)
+    service_period_start = ""
+    service_period_end = ""
+    try:
+        period = doc.trade.settlement.period
+        period_start = getattr(period, "start", None)
+        if period_start:
+            val = str(period_start).strip()
+            if val and val != "None":
+                service_period_start = val
+        period_end = getattr(period, "end", None)
+        if period_end:
+            val = str(period_end).strip()
+            if val and val != "None":
+                service_period_end = val
+    except Exception:
+        pass
+
     return ParsedInvoice(
         invoice_id=_str_element(doc.header.id),
         type_code=_str_element(doc.header.type_code) or "380",
@@ -83,6 +113,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         tax_breakdown=tax_breakdown,
         currency=_str_element(doc.trade.settlement.currency_code) or "EUR",
         profile=profile,
+        delivery_date=delivery_date,
+        service_period_start=service_period_start,
+        service_period_end=service_period_end,
     )
 
 
@@ -118,7 +151,29 @@ def _extract_party(party_obj: object) -> Party | None:
                         # VA or unknown schemeID → treat as USt-IdNr.
                         tax_id = extracted
 
-        return Party(name=name, address=address, tax_id=tax_id, tax_number=tax_number)
+        # Electronic address (BT-34/BT-49)
+        electronic_address = None
+        electronic_address_scheme = "EM"
+        ea_obj = getattr(party_obj, "electronic_address", None)
+        if ea_obj:
+            uri_id = getattr(ea_obj, "uri_ID", None)
+            if uri_id:
+                ea_str = _str_element(uri_id)
+                # Filter out empty/placeholder values like "()" or "None"
+                if ea_str and ea_str not in ("()", "None"):
+                    electronic_address = ea_str
+                    ea_scheme = _extract_scheme_id(uri_id)
+                    if ea_scheme:
+                        electronic_address_scheme = ea_scheme
+
+        return Party(
+            name=name,
+            address=address,
+            tax_id=tax_id,
+            tax_number=tax_number,
+            electronic_address=electronic_address,
+            electronic_address_scheme=electronic_address_scheme,
+        )
     except Exception:
         logger.warning("Failed to extract party data", exc_info=True)
         return None

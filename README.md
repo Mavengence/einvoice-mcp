@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**236 tests | 98% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**251 tests | 98% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -53,6 +53,8 @@ Every mandatory Business Term is tested in generated XML output:
 | BR-CO-10 | Line item LineTotalAmount quantized to 0.01 | `test_line_item_net_amount_quantized` | PASS |
 | BR-DE-23 | IBAN mandatory when PaymentMeansCode=58 | `test_iban_missing_flags_bt84` | PASS |
 | §14/4/2 | BT-31 or BT-32 must be present | `test_neither_bt31_nor_bt32_flags_missing` | PASS |
+| §14/4/6 | BT-71 or BT-73/74 must be present | `test_no_delivery_date_or_period_flags_missing` | PASS |
+| BT-3 | TypeCode validated against EN 16931 codes | `test_invalid_type_code_rejected` | PASS |
 
 ### Parsing Fidelity
 
@@ -64,6 +66,9 @@ Every mandatory Business Term is tested in generated XML output:
 | Unicode safety | `Artikel (3Ü)` preserved (not stripped) | `test_preserves_unicode_parens` | PASS |
 | BT-32 roundtrip | Steuernummer FC generate → parse | `test_steuernummer_roundtrip` | PASS |
 | TypeCode roundtrip | 381 Gutschrift generate → parse | `test_type_code_381_roundtrip` | PASS |
+| Delivery date roundtrip | BT-71 generate → parse | `test_delivery_date_roundtrip` | PASS |
+| Service period roundtrip | BT-73/74 generate → parse | `test_service_period_roundtrip` | PASS |
+| Electronic address roundtrip | BT-34 generate → parse | `test_seller_electronic_address_roundtrip` | PASS |
 | Roundtrip invoice | Generate → Parse → Verify key fields | `test_xrechnung_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
@@ -116,16 +121,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 116 | 0 | **100%** |
+| `models.py` | 126 | 0 | **100%** |
 | `services/invoice_builder.py` | 125 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
 | `services/pdf_generator.py` | 90 | 2 | **98%** |
-| `services/xml_parser.py` | 180 | 7 | **96%** |
-| `tools/compliance.py` | 73 | 2 | **97%** |
+| `services/xml_parser.py` | 218 | 11 | **95%** |
+| `tools/compliance.py` | 80 | 2 | **98%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 4 | **90%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **838** | **18** | **98%** |
+| **TOTAL** | **893** | **22** | **98%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 

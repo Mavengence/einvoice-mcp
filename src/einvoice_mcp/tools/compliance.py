@@ -136,6 +136,10 @@ SUGGESTIONS_MAP = {
         "BT-84 (IBAN) fehlt — bei Zahlungsart SEPA-Überweisung (Code 58) "
         "ist die IBAN gemäß BR-DE-23 Pflicht."
     ),
+    "BT-71/73/74": (
+        "Weder Lieferdatum (BT-71) noch Leistungszeitraum (BT-73/BT-74) angegeben — "
+        "gemäß §14 Abs. 4 Nr. 6 UStG ist mindestens eine Angabe erforderlich."
+    ),
 }
 
 
@@ -279,5 +283,50 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 required=True,
             )
         )
+
+    # BT-71/73/74 check (§14 Abs. 4 Nr. 6 UStG):
+    # Either delivery date (BT-71) or service period (BT-73/BT-74) must be present.
+    delivery_el = root.find(
+        ".//ram:ApplicableHeaderTradeDelivery"
+        "/ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime",
+        CII_NS,
+    )
+    period_start_el = root.find(
+        ".//ram:ApplicableHeaderTradeSettlement"
+        "/ram:BillingSpecifiedPeriod/ram:StartDateTime",
+        CII_NS,
+    )
+    period_end_el = root.find(
+        ".//ram:ApplicableHeaderTradeSettlement"
+        "/ram:BillingSpecifiedPeriod/ram:EndDateTime",
+        CII_NS,
+    )
+    has_delivery = delivery_el is not None and (
+        bool(delivery_el.text and delivery_el.text.strip())
+        or len(list(delivery_el)) > 0
+    )
+    has_period = (
+        period_start_el is not None
+        and (
+            bool(period_start_el.text and period_start_el.text.strip())
+            or len(list(period_start_el)) > 0
+        )
+    ) or (
+        period_end_el is not None
+        and (
+            bool(period_end_el.text and period_end_el.text.strip())
+            or len(list(period_end_el)) > 0
+        )
+    )
+    bt71_or_period_present = has_delivery or has_period
+    checks.append(
+        FieldCheck(
+            field="BT-71/73/74",
+            name="Lieferdatum oder Leistungszeitraum",
+            present=bt71_or_period_present,
+            value="",
+            required=True,
+        )
+    )
 
     return checks

@@ -78,7 +78,9 @@ def _build_invoice_data(
     buyer_reference: str = "",
     profile: str = "XRECHNUNG",
     seller_electronic_address: str = "",
+    seller_electronic_address_scheme: str = "EM",
     buyer_electronic_address: str = "",
+    buyer_electronic_address_scheme: str = "EM",
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
@@ -122,6 +124,7 @@ def _build_invoice_data(
                     "tax_id": seller_tax_id or None,
                     "tax_number": seller_tax_number or None,
                     "electronic_address": seller_electronic_address or None,
+                    "electronic_address_scheme": seller_electronic_address_scheme,
                 },
                 "buyer": {
                     "name": buyer_name,
@@ -133,6 +136,7 @@ def _build_invoice_data(
                     },
                     "tax_id": buyer_tax_id or None,
                     "electronic_address": buyer_electronic_address or None,
+                    "electronic_address_scheme": buyer_electronic_address_scheme,
                 },
                 "items": items_list,
                 "currency": currency,
@@ -236,7 +240,9 @@ async def einvoice_generate_xrechnung(
     buyer_reference: str = "",
     profile: str = "XRECHNUNG",
     seller_electronic_address: str = "",
+    seller_electronic_address_scheme: str = "EM",
     buyer_electronic_address: str = "",
+    buyer_electronic_address_scheme: str = "EM",
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
@@ -278,7 +284,9 @@ async def einvoice_generate_xrechnung(
         buyer_reference: Käuferreferenz / Bestellnummer BT-10 (optional).
         profile: Rechnungsprofil — XRECHNUNG, ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED.
         seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34, z.B. E-Mail).
+        seller_electronic_address_scheme: EAS-Code für Verkäufer (EM=E-Mail, 9930=USt-IdNr.).
         buyer_electronic_address: Elektronische Adresse des Käufers (BT-49, z.B. E-Mail).
+        buyer_electronic_address_scheme: EAS-Code für Käufer (EM=E-Mail, 9930=USt-IdNr.).
         seller_contact_name: Ansprechpartner des Verkäufers (BT-41, BR-DE-5).
         seller_contact_email: E-Mail des Ansprechpartners (BT-43, BR-DE-7).
         seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
@@ -313,7 +321,9 @@ async def einvoice_generate_xrechnung(
         buyer_reference=buyer_reference,
         profile=profile,
         seller_electronic_address=seller_electronic_address,
+        seller_electronic_address_scheme=seller_electronic_address_scheme,
         buyer_electronic_address=buyer_electronic_address,
+        buyer_electronic_address_scheme=buyer_electronic_address_scheme,
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,
@@ -369,7 +379,9 @@ async def einvoice_generate_zugferd(
     buyer_reference: str = "",
     profile: str = "ZUGFERD_EN16931",
     seller_electronic_address: str = "",
+    seller_electronic_address_scheme: str = "EM",
     buyer_electronic_address: str = "",
+    buyer_electronic_address_scheme: str = "EM",
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
@@ -406,7 +418,9 @@ async def einvoice_generate_zugferd(
         buyer_reference: Käuferreferenz BT-10 (optional).
         profile: Profil — ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED, XRECHNUNG.
         seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34).
+        seller_electronic_address_scheme: EAS-Code für Verkäufer (EM=E-Mail, 9930=USt-IdNr.).
         buyer_electronic_address: Elektronische Adresse des Käufers (BT-49).
+        buyer_electronic_address_scheme: EAS-Code für Käufer (EM=E-Mail, 9930=USt-IdNr.).
         seller_contact_name: Ansprechpartner des Verkäufers (BT-41).
         seller_contact_email: E-Mail des Ansprechpartners (BT-43).
         seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
@@ -441,7 +455,9 @@ async def einvoice_generate_zugferd(
         buyer_reference=buyer_reference,
         profile=profile,
         seller_electronic_address=seller_electronic_address,
+        seller_electronic_address_scheme=seller_electronic_address_scheme,
         buyer_electronic_address=buyer_electronic_address,
+        buyer_electronic_address_scheme=buyer_electronic_address_scheme,
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,

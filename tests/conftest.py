@@ -87,6 +87,7 @@ def sample_invoice_data(
         seller_iban="DE89370400440532013000",
         seller_bic="COBADEFFXXX",
         seller_bank_name="Commerzbank",
+        delivery_date="2026-03-01",
     )
 
 

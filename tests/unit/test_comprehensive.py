@@ -1306,3 +1306,376 @@ class TestBuildInvoiceDataNewParams:
         assert isinstance(data, InvoiceData)
         assert str(data.service_period_start) == "2026-01-01"
         assert str(data.service_period_end) == "2026-01-31"
+
+    def test_electronic_address_scheme_parameters(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="EAS-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            seller_electronic_address="DE123456789",
+            seller_electronic_address_scheme="9930",
+            buyer_electronic_address="buyer@example.de",
+            buyer_electronic_address_scheme="EM",
+        )
+        assert isinstance(data, InvoiceData)
+        assert data.seller.electronic_address == "DE123456789"
+        assert data.seller.electronic_address_scheme == "9930"
+        assert data.buyer.electronic_address == "buyer@example.de"
+        assert data.buyer.electronic_address_scheme == "EM"
+
+
+# ============================================================================
+# 20. Type code validation — Pydantic field_validator
+# ============================================================================
+
+
+class TestTypeCodeValidation:
+    def test_valid_type_codes_accepted(self) -> None:
+        """All valid type codes are accepted by the validator."""
+        from einvoice_mcp.models import VALID_TYPE_CODES
+
+        for code in VALID_TYPE_CODES:
+            data = InvoiceData(
+                invoice_id="T",
+                issue_date="2026-01-01",
+                type_code=code,
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="S", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="B", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="10")],
+            )
+            assert data.type_code == code
+
+    def test_invalid_type_code_rejected(self) -> None:
+        """Invalid type code '999' is rejected by the validator."""
+        with pytest.raises(ValidationError, match="Ungültiger Rechnungsartcode"):
+            InvoiceData(
+                invoice_id="T",
+                issue_date="2026-01-01",
+                type_code="999",
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="S", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="B", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="10")],
+            )
+
+    def test_empty_type_code_rejected(self) -> None:
+        """Empty type code is rejected."""
+        with pytest.raises(ValidationError):
+            InvoiceData(
+                invoice_id="T",
+                issue_date="2026-01-01",
+                type_code="",
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="S", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="B", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="10")],
+            )
+
+    def test_invalid_type_code_via_server(self) -> None:
+        """_build_invoice_data returns error string for invalid type code."""
+        from einvoice_mcp.server import _build_invoice_data
+
+        result = _build_invoice_data(
+            invoice_id="T",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":1,"unit_price":100}]',
+            type_code="999",
+        )
+        assert isinstance(result, str)
+        assert "Fehler" in result
+
+
+# ============================================================================
+# 21. Delivery date / service period — parser roundtrip
+# ============================================================================
+
+
+class TestDeliveryDateParsing:
+    def test_delivery_date_roundtrip(self) -> None:
+        """BT-71 delivery date roundtrips through generate → parse."""
+        data = InvoiceData(
+            invoice_id="DD-RT",
+            issue_date="2026-01-01",
+            delivery_date="2026-01-15",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert "2026-01-15" in parsed.delivery_date
+
+    def test_service_period_roundtrip(self) -> None:
+        """BT-73/BT-74 service period roundtrips through generate → parse."""
+        data = InvoiceData(
+            invoice_id="SP-RT",
+            issue_date="2026-01-01",
+            service_period_start="2026-01-01",
+            service_period_end="2026-01-31",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert "2026-01-01" in parsed.service_period_start
+        assert "2026-01-31" in parsed.service_period_end
+
+    def test_no_delivery_date_returns_empty(self) -> None:
+        """Without delivery date, parsed delivery_date is empty."""
+        data = InvoiceData(
+            invoice_id="NO-DD",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_date == ""
+        assert parsed.service_period_start == ""
+        assert parsed.service_period_end == ""
+
+
+# ============================================================================
+# 22. Electronic address — parser roundtrip
+# ============================================================================
+
+
+class TestElectronicAddressParsing:
+    def test_seller_electronic_address_roundtrip(self) -> None:
+        """BT-34 seller electronic address roundtrips through generate → parse."""
+        data = InvoiceData(
+            invoice_id="EA-RT",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                electronic_address="rechnungen@firma.de",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.electronic_address == "rechnungen@firma.de"
+
+    def test_buyer_electronic_address_roundtrip(self) -> None:
+        """BT-49 buyer electronic address roundtrips through generate → parse."""
+        data = InvoiceData(
+            invoice_id="EA-BUY-RT",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+                electronic_address="einkauf@buyer.de",
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer is not None
+        assert parsed.buyer.electronic_address == "einkauf@buyer.de"
+
+    def test_no_electronic_address_returns_none(self) -> None:
+        """Without electronic address, parsed value is None."""
+        data = InvoiceData(
+            invoice_id="NO-EA",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.electronic_address is None
+
+    def test_electronic_address_with_peppol_scheme(self) -> None:
+        """Electronic address with 9930 scheme roundtrips correctly."""
+        data = InvoiceData(
+            invoice_id="EA-9930",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                electronic_address="DE123456789",
+                electronic_address_scheme="9930",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.electronic_address == "DE123456789"
+
+
+# ============================================================================
+# 23. BT-71/73/74 compliance check
+# ============================================================================
+
+
+class TestBT71ComplianceCheck:
+    @respx.mock
+    async def test_no_delivery_date_or_period_flags_missing(self) -> None:
+        """Neither BT-71 nor BT-73/74 → flagged as missing."""
+        data = InvoiceData(
+            invoice_id="NO-DEL",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-71/73/74" in result["missing_fields"]
+        assert any("Lieferdatum" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
+    async def test_delivery_date_passes_bt71(self) -> None:
+        """With delivery date (BT-71) → BT-71/73/74 passes."""
+        data = InvoiceData(
+            invoice_id="HAS-DEL",
+            issue_date="2026-01-01",
+            delivery_date="2026-01-15",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123",
+                electronic_address="s@s.de",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+                electronic_address="b@b.de",
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            buyer_reference="REF-1",
+            seller_contact_name="Name",
+            seller_contact_email="e@e.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-71/73/74" not in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_service_period_passes_bt71(self) -> None:
+        """With service period (BT-73/BT-74) → BT-71/73/74 passes."""
+        data = InvoiceData(
+            invoice_id="HAS-SP",
+            issue_date="2026-01-01",
+            service_period_start="2026-01-01",
+            service_period_end="2026-01-31",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123",
+                electronic_address="s@s.de",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="B", postal_code="00000"),
+                electronic_address="b@b.de",
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            buyer_reference="REF-1",
+            seller_contact_name="Name",
+            seller_contact_email="e@e.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "BT-71/73/74" not in result["missing_fields"]
+        await client.close()

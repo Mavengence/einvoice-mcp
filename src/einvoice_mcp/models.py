@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class InvoiceProfile(StrEnum):
@@ -83,6 +83,15 @@ class InvoiceData(BaseModel):
         default="380",
         description="Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung",
     )
+
+    @field_validator("type_code")
+    @classmethod
+    def validate_type_code(cls, v: str) -> str:
+        if v not in VALID_TYPE_CODES:
+            allowed = ", ".join(sorted(VALID_TYPE_CODES))
+            raise ValueError(f"Ungültiger Rechnungsartcode '{v}'. Erlaubt: {allowed}")
+        return v
+
     seller: Party = Field(..., description="Verkäufer / Rechnungssteller")
     buyer: Party = Field(..., description="Käufer / Rechnungsempfänger")
     items: list[LineItem] = Field(
@@ -216,6 +225,9 @@ class ParsedInvoice(BaseModel):
     )
     currency: str = Field(default="EUR", description="Währung")
     profile: str = Field(default="", description="Erkanntes Profil")
+    delivery_date: str = Field(default="", description="Lieferdatum (BT-71)")
+    service_period_start: str = Field(default="", description="Leistungszeitraum Beginn (BT-73)")
+    service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
 
 
 class FieldCheck(BaseModel):
