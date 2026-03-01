@@ -2300,3 +2300,21 @@ class TestPdfOutputEnhancements:
         pdf_bytes = generate_invoice_pdf(data)
         assert isinstance(pdf_bytes, bytes)
         assert len(pdf_bytes) > 100
+
+    def test_embed_xml_facturx_import_error(self) -> None:
+        """embed_xml_in_pdf raises InvoiceGenerationError on ImportError."""
+        with patch(
+            "einvoice_mcp.services.pdf_generator.generate_from_binary",
+            side_effect=ImportError("not installed"),
+            create=True,
+        ):
+            # Trigger the actual import error path by hiding facturx
+            with patch.dict("sys.modules", {"facturx": None}):
+                with pytest.raises(InvoiceGenerationError, match="factur-x"):
+                    embed_xml_in_pdf(b"pdf", b"xml")
+
+    def test_extract_xml_from_pdf_import_error(self) -> None:
+        """extract_xml_from_pdf raises InvoiceParsingError on ImportError."""
+        with patch.dict("sys.modules", {"facturx": None}):
+            with pytest.raises(InvoiceParsingError, match="factur-x"):
+                extract_xml_from_pdf(b"fake-pdf")
