@@ -299,9 +299,67 @@ make docker-up  # Start Docker stack
 
 ---
 
+## Supported Business Terms (EN 16931)
+
+| BT | Field | Generate | Parse | Compliance |
+|----|-------|----------|-------|------------|
+| BT-1 | Invoice number | Yes | Yes | Yes |
+| BT-2 | Issue date | Yes | Yes | Yes |
+| BT-3 | Type code (380/381/384) | Yes | Yes | Yes |
+| BT-5 | Currency code | Yes | Yes | Yes |
+| BT-10 | Buyer reference / Leitweg-ID | Yes | Yes | Yes |
+| BT-11 | Project reference | Yes | Yes | — |
+| BT-12 | Contract reference | Yes | Yes | — |
+| BT-13 | Purchase order reference | Yes | Yes | — |
+| BT-20 | Payment terms text | Yes | Yes | — |
+| BT-22 | Invoice note | Yes | Yes | — |
+| BT-25 | Preceding invoice (credit notes) | Yes | Yes | Yes |
+| BT-27..40 | Seller party + address | Yes | Yes | Yes |
+| BT-31 | Seller VAT ID (schemeID=VA) | Yes | Yes | Yes |
+| BT-32 | Seller tax number (schemeID=FC) | Yes | Yes | Yes |
+| BT-34 | Seller electronic address | Yes | Yes | Yes |
+| BT-41 | Seller contact name | Yes | — | Yes |
+| BT-42 | Seller contact phone | Yes | — | — |
+| BT-43 | Seller contact email | Yes | — | Yes |
+| BT-44..55 | Buyer party + address | Yes | Yes | Yes |
+| BT-49 | Buyer electronic address | Yes | Yes | Yes |
+| BT-71 | Delivery date | Yes | Yes | Yes |
+| BT-73/74 | Service period | Yes | Yes | Yes |
+| BT-81 | Payment means type code | Yes | — | — |
+| BT-83 | Remittance information | Yes | Yes | — |
+| BT-84 | IBAN | Yes | — | Yes |
+| BT-86 | BIC | Yes | — | — |
+
+---
+
+## Gutschrift (Credit Note) Support
+
+For credit notes (TypeCode 381), the server:
+- Sets XML header name to "GUTSCHRIFT" and PDF title accordingly
+- Requires BT-25 (preceding invoice number) in compliance checks
+- Shows "Bezug: [Rechnungsnummer]" in the PDF header
+- Validates against EN 16931 type code whitelist (380, 381, 384, 389, 875, 876, 877)
+
+Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
+
+---
+
+## Profile Selection Guide
+
+| Profile | Use Case | Guideline URI |
+|---------|----------|---------------|
+| `XRECHNUNG` | German public sector (B2G), Leitweg-ID required | `urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0` |
+| `ZUGFERD_EN16931` | B2B invoices (default for ZUGFeRD PDF) | `urn:cen.eu:en16931:2017` |
+| `ZUGFERD_BASIC` | Simplified B2B invoices | `urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic` |
+| `ZUGFERD_EXTENDED` | Extended B2B invoices with additional fields | `urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended` |
+
+---
+
 ## Limitations
 
-- **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are only tested for XRechnung 3.0 and ZUGFeRD EN16931.
+- **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are tested for XRechnung 3.0 and ZUGFeRD EN16931 only.
+- **Document-level allowances/charges**: BT-128..131 (invoice-wide discounts/surcharges) are not yet supported. Line-item prices should include any adjustments.
+- **Batch processing**: Each tool call processes one invoice. For bulk operations, call the tools in sequence.
 
 ---
 
@@ -312,12 +370,12 @@ make docker-up  # Start Docker stack
 - **ZUGFeRD 2.x / Factur-X 1.08** — Hybrid PDF/A-3 invoice format
 - **BMF 2024-11-15** — German Federal Ministry of Finance e-invoice mandate
 - **§14 UStG** — German VAT Act invoice requirements
-- **BR-DE-5** — Seller contact person (mandatory for XRechnung)
-- **BR-DE-7** — Seller contact email (mandatory for XRechnung)
-- **BR-CO-14** — Tax total must equal sum of per-group calculated amounts
-- **BR-DE-23** — IBAN mandatory when PaymentMeansCode = 58 (SEPA)
 - **§14 Abs. 4 Nr. 2 UStG** — Steuernummer or USt-IdNr. required (BT-31 / BT-32)
 - **§14 Abs. 4 Nr. 6 UStG** — Delivery date or service period required (BT-71 / BT-73/74)
+- **BR-CO-14** — Tax total must equal sum of per-group calculated amounts
+- **BR-DE-5** — Seller contact person (mandatory for XRechnung)
+- **BR-DE-7** — Seller contact email (mandatory for XRechnung)
+- **BR-DE-23** — IBAN mandatory when PaymentMeansCode = 58 (SEPA)
 
 ---
 
