@@ -1885,3 +1885,112 @@ class TestBuildInvoiceDataErrors:
         )
         assert isinstance(result, str)
         assert "Fehler" in result
+
+
+# ============================================================================
+# 27. Invoice note (BT-22) and payment terms text (BT-20)
+# ============================================================================
+
+
+class TestInvoiceNoteAndPaymentTerms:
+    """Roundtrip and generation tests for BT-22 / BT-20."""
+
+    def test_invoice_note_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
+        """BT-22: invoice_note survives generate → parse roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={"invoice_note": "Bitte Rechnungsnr. bei Zahlung angeben."}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoice_note == "Bitte Rechnungsnr. bei Zahlung angeben."
+
+    def test_payment_terms_text_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
+        """BT-20: payment_terms_text survives generate → parse roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "payment_terms_text": "2% Skonto bei Zahlung innerhalb 10 Tagen.",
+                "payment_terms_days": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_terms == "2% Skonto bei Zahlung innerhalb 10 Tagen."
+
+    def test_payment_terms_text_overrides_days(self, sample_invoice_data: InvoiceData) -> None:
+        """BT-20: payment_terms_text takes priority over payment_terms_days."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "payment_terms_text": "Sofort fällig.",
+                "payment_terms_days": 30,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_terms == "Sofort fällig."
+
+    def test_payment_terms_days_fallback(self, sample_invoice_data: InvoiceData) -> None:
+        """When only payment_terms_days is set, auto-generate text."""
+        data = sample_invoice_data.model_copy(
+            update={"payment_terms_text": None, "payment_terms_days": 14}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert "14 Tagen" in parsed.payment_terms
+
+    def test_no_note_or_terms(self, sample_invoice_data: InvoiceData) -> None:
+        """When neither note nor terms are set, both parse as empty."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "invoice_note": None,
+                "payment_terms_text": None,
+                "payment_terms_days": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoice_note == ""
+        assert parsed.payment_terms == ""
+
+    def test_pdf_includes_invoice_note(self, sample_invoice_data: InvoiceData) -> None:
+        """PDF generation with invoice_note doesn't crash and produces bytes."""
+        data = sample_invoice_data.model_copy(
+            update={"invoice_note": "Testnotiz für die PDF."}
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 100
+
+    def test_pdf_includes_payment_terms_text(self, sample_invoice_data: InvoiceData) -> None:
+        """PDF generation with payment_terms_text doesn't crash."""
+        data = sample_invoice_data.model_copy(
+            update={"payment_terms_text": "3% Skonto bei Zahlung innerhalb 7 Tagen."}
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 100
+
+    def test_build_invoice_data_with_note_and_terms(self) -> None:
+        """Server _build_invoice_data correctly passes BT-22 / BT-20."""
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="NOTE-001",
+            issue_date="2026-03-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="10115",
+            seller_country_code="DE",
+            seller_tax_id="DE123456789",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="80999",
+            buyer_country_code="DE",
+            items_json='[{"description":"Test","quantity":1,"unit_price":100}]',
+            invoice_note="Wichtiger Hinweis",
+            payment_terms_text="Sofort zahlbar.",
+        )
+        assert isinstance(data, InvoiceData)
+        assert data.invoice_note == "Wichtiger Hinweis"
+        assert data.payment_terms_text == "Sofort zahlbar."

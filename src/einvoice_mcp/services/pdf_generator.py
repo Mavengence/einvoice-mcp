@@ -210,13 +210,32 @@ def _build_pdf(data: InvoiceData) -> bytes:
         )
         elements.append(bank_table)
 
-    # Payment terms
-    if data.payment_terms_days is not None:
+    # Payment terms (BT-20)
+    payment_text = data.payment_terms_text
+    if not payment_text and data.payment_terms_days is not None:
+        payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
+    if payment_text:
         elements.append(Spacer(1, 8 * mm))
-        terms_data = [[f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."]]
+        terms_data = [[payment_text]]
         terms_table = Table(terms_data, colWidths=[170 * mm])
         terms_table.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 8)]))
         elements.append(terms_table)
+
+    # Invoice note (BT-22)
+    if data.invoice_note:
+        elements.append(Spacer(1, 6 * mm))
+        note_data = [["Bemerkung:", data.invoice_note]]
+        note_table = Table(note_data, colWidths=[30 * mm, 140 * mm])
+        note_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+        )
+        elements.append(note_table)
 
     doc.build(elements)
     return buf.getvalue()

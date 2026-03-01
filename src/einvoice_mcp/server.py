@@ -92,6 +92,8 @@ def _build_invoice_data(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    invoice_note: str = "",
+    payment_terms_text: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -153,6 +155,8 @@ def _build_invoice_data(
                 "delivery_date": delivery_date or None,
                 "service_period_start": service_period_start or None,
                 "service_period_end": service_period_end or None,
+                "invoice_note": invoice_note or None,
+                "payment_terms_text": payment_terms_text or None,
             }
         )
     except PydanticValidationError as exc:
@@ -254,6 +258,8 @@ async def einvoice_generate_xrechnung(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    invoice_note: str = "",
+    payment_terms_text: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -298,6 +304,8 @@ async def einvoice_generate_xrechnung(
         delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
         service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
         service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
+        invoice_note: Freitext-Bemerkung zur Rechnung (BT-22, optional).
+        payment_terms_text: Zahlungsbedingungen als Freitext (BT-20).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -335,6 +343,8 @@ async def einvoice_generate_xrechnung(
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        invoice_note=invoice_note,
+        payment_terms_text=payment_terms_text,
     )
 
     if isinstance(data, str):
@@ -393,6 +403,8 @@ async def einvoice_generate_zugferd(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    invoice_note: str = "",
+    payment_terms_text: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -432,6 +444,8 @@ async def einvoice_generate_zugferd(
         delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
         service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
         service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
+        invoice_note: Freitext-Bemerkung zur Rechnung (BT-22, optional).
+        payment_terms_text: Zahlungsbedingungen als Freitext (BT-20).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -469,6 +483,8 @@ async def einvoice_generate_zugferd(
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        invoice_note=invoice_note,
+        payment_terms_text=payment_terms_text,
     )
 
     if isinstance(data, str):

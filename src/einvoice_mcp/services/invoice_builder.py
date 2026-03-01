@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from drafthorse.models.accounting import ApplicableTradeTax
 from drafthorse.models.document import Document
+from drafthorse.models.note import IncludedNote
 from drafthorse.models.party import TaxRegistration
 from drafthorse.models.payment import PaymentMeans, PaymentTerms
 from drafthorse.models.tradelines import LineItem as DHLineItem
@@ -53,6 +54,12 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.header.name = "GUTSCHRIFT" if data.type_code == "381" else "RECHNUNG"
     doc.header.issue_date_time = data.issue_date
     doc.header.languages.add("de")
+
+    # Invoice note (BT-22)
+    if data.invoice_note:
+        note = IncludedNote()
+        note.content = data.invoice_note
+        doc.header.notes.add(note)
 
     # Seller
     doc.trade.agreement.seller.name = data.seller.name
@@ -192,10 +199,13 @@ def _build_document(data: InvoiceData) -> bytes:
     ms.grand_total = (gross_total, data.currency)
     ms.due_amount = gross_total
 
-    # Payment terms
-    if data.payment_terms_days is not None:
+    # Payment terms (BT-20)
+    payment_text = data.payment_terms_text
+    if not payment_text and data.payment_terms_days is not None:
+        payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
+    if payment_text:
         pt = PaymentTerms()
-        pt.description = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
+        pt.description = payment_text
         doc.trade.settlement.terms.add(pt)
 
     # Serialize without local XSD validation — KoSIT validates the full document.

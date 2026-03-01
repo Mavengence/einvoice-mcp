@@ -152,6 +152,19 @@ class InvoiceData(BaseModel):
         default=None,
         description="Ende des Leistungszeitraums (BT-74)",
     )
+    invoice_note: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Freitext-Bemerkung zur Rechnung (BT-22)",
+    )
+    payment_terms_text: str | None = Field(
+        default=None,
+        max_length=1000,
+        description=(
+            "Zahlungsbedingungen als Freitext "
+            "(BT-20, z.B. '2% Skonto bei Zahlung innerhalb 10 Tagen')"
+        ),
+    )
 
     def total_net(self) -> Decimal:
         return sum(
@@ -228,6 +241,8 @@ class ParsedInvoice(BaseModel):
     delivery_date: str = Field(default="", description="Lieferdatum (BT-71)")
     service_period_start: str = Field(default="", description="Leistungszeitraum Beginn (BT-73)")
     service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
+    invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
+    payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
 
 
 class FieldCheck(BaseModel):

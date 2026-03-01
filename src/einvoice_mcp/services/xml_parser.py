@@ -102,6 +102,33 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Invoice note (BT-22)
+    invoice_note = ""
+    try:
+        notes = getattr(doc.header, "notes", None)
+        if notes and hasattr(notes, "children"):
+            for note in notes.children:
+                content = getattr(note, "content", None)
+                text = _str_element(content) if content else _str_element(note)
+                if text:
+                    invoice_note = text
+                    break
+    except Exception:
+        pass
+
+    # Payment terms (BT-20)
+    payment_terms = ""
+    try:
+        terms = doc.trade.settlement.terms
+        if hasattr(terms, "children"):
+            for term in terms.children:
+                desc = _str_element(getattr(term, "description", ""))
+                if desc:
+                    payment_terms = desc
+                    break
+    except Exception:
+        pass
+
     return ParsedInvoice(
         invoice_id=_str_element(doc.header.id),
         type_code=_str_element(doc.header.type_code) or "380",
@@ -116,6 +143,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        invoice_note=invoice_note,
+        payment_terms=payment_terms,
     )
 
 
