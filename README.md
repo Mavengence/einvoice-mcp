@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**182 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**187 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -45,6 +45,16 @@ Every mandatory Business Term is tested in generated XML output:
 | Rule | Description | Test | Result |
 |------|-------------|------|--------|
 | BR-CO-14 | TaxTotalAmount = sum of per-group CalculatedAmount | `test_br_co_14_tax_total_equals_sum_of_trade_tax` | PASS |
+| BR-CO-14 | PDF/XML/API totals use identical per-group rounding | `test_total_tax_uses_per_group_rounding` | PASS |
+
+### Parsing Fidelity
+
+| Scenario | Description | Test | Result |
+|----------|-------------|------|--------|
+| SchemeID stripping | `DE123456789 (VA)` → `DE123456789` | `test_str_element_strips_scheme_id` | PASS |
+| Numeric schemeID | `4000000000098 (9930)` → `4000000000098` | `test_strips_numeric_scheme` | PASS |
+| Description text | `Reisekosten (pauschal)` preserved | `test_preserves_lowercase_parens` | PASS |
+| Roundtrip invoice | Generate → Parse → Verify all fields | `test_xrechnung_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -91,16 +101,18 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 101 | 0 | **100%** |
+| `models.py` | 106 | 0 | **100%** |
 | `services/invoice_builder.py` | 109 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
 | `services/pdf_generator.py` | 70 | 1 | **99%** |
-| `services/xml_parser.py` | 157 | 23 | **85%** |
+| `services/xml_parser.py` | 159 | 23 | **86%** |
 | `tools/compliance.py` | 57 | 2 | **96%** |
 | `tools/generate.py` | 56 | 0 | **100%** |
 | `tools/parse.py` | 39 | 4 | **90%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **754** | **33** | **96%** |
+| **TOTAL** | **761** | **33** | **96%** |
+
+*`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
 ---
 

@@ -111,12 +111,21 @@ class InvoiceData(BaseModel):
         )
 
     def total_tax(self) -> Decimal:
+        """Calculate tax total using per-group rounding (EN 16931 / BR-CO-14).
+
+        Items are grouped by (tax_category, tax_rate), the net basis per group
+        is summed, then tax is calculated and rounded once per group.  This
+        matches the XML builder and satisfies BR-CO-14.
+        """
+        tax_groups: dict[tuple[str, Decimal], Decimal] = {}
+        for item in self.items:
+            key = (item.tax_category.value, item.tax_rate)
+            net = item.quantity * item.unit_price
+            tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
         return sum(
             (
-                (item.quantity * item.unit_price * item.tax_rate / Decimal("100")).quantize(
-                    Decimal("0.01")
-                )
-                for item in self.items
+                (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
+                for (_, rate), basis in tax_groups.items()
             ),
             Decimal("0"),
         )

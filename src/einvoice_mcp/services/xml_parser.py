@@ -212,16 +212,24 @@ def _extract_tax_total_fallback(ms: object) -> Decimal:
 
 
 def _str_element(value: object) -> str:
-    """Convert a drafthorse element to a clean string."""
+    """Convert a drafthorse element to a clean string.
+
+    IDElement.__str__ returns "text (schemeID)" where schemeID is a short
+    uppercase code like "VA", "EM", "9930". Only strip this pattern — do NOT
+    strip arbitrary parenthetical text from descriptions or names.
+    """
     if value is None:
         return ""
     s = str(value).strip()
-    # IDElement.__str__ returns "text (schemeID)" — strip the scheme suffix
-    # e.g. "DE123456789 (VA)" → "DE123456789", "email@example.de (EM)" → "email@example.de"
+    # Only strip trailing " (XX)" where XX is 1-10 alphanumeric chars without
+    # any lowercase letters.  This matches schemeID patterns like (VA), (EM),
+    # (9930) but NOT description text like "Reisekosten (pauschal)".
     if s.endswith(")"):
         paren_idx = s.rfind(" (")
         if paren_idx > 0:
-            s = s[:paren_idx]
+            scheme = s[paren_idx + 2 : -1]
+            if scheme and len(scheme) <= 10 and scheme.isalnum() and scheme == scheme.upper():
+                s = s[:paren_idx]
     return s
 
 

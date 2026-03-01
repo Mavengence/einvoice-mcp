@@ -42,6 +42,9 @@ markers = [
 ]
 
 [tool.coverage.run]
+# server.py: FastMCP Context object cannot be constructed in unit tests;
+# the _build_invoice_data helper is tested in test_server_helpers.py.
+# __main__.py: entry point shim only.
 omit = [
     "src/einvoice_mcp/server.py",
     "src/einvoice_mcp/__main__.py",

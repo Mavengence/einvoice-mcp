@@ -76,8 +76,13 @@ class TestStrElement:
     def test_strips_email_scheme_suffix(self) -> None:
         assert _str_element("email@example.de (EM)") == "email@example.de"
 
-    def test_strips_empty_scheme(self) -> None:
-        assert _str_element("plain ()") == "plain"
+    def test_strips_numeric_scheme(self) -> None:
+        """EAS numeric schemeIDs like 9930 must be stripped."""
+        assert _str_element("4000000000098 (9930)") == "4000000000098"
+
+    def test_preserves_empty_parens(self) -> None:
+        """Empty parens are NOT a schemeID — preserve them."""
+        assert _str_element("plain ()") == "plain ()"
 
     def test_preserves_plain_string(self) -> None:
         assert _str_element("hello world") == "hello world"
@@ -85,6 +90,11 @@ class TestStrElement:
     def test_preserves_parentheses_in_middle(self) -> None:
         """Parentheses in the middle should not be stripped."""
         assert _str_element("Company (GmbH) Name") == "Company (GmbH) Name"
+
+    def test_preserves_lowercase_parens(self) -> None:
+        """Lowercase parenthetical text (descriptions) must NOT be stripped."""
+        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+        assert _str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
 
     def test_none_returns_empty(self) -> None:
         assert _str_element(None) == ""

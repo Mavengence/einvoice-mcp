@@ -124,8 +124,22 @@ class TestXmlParserEdgeCases:
     def test_str_element_none(self) -> None:
         assert _str_element(None) == ""
 
-    def test_str_element_strips_empty_scheme(self) -> None:
-        assert _str_element("DE123 ()") == "DE123"
+    def test_str_element_preserves_empty_parens(self) -> None:
+        # Empty parens are NOT a schemeID pattern — preserve them
+        assert _str_element("DE123 ()") == "DE123 ()"
+
+    def test_str_element_strips_scheme_id(self) -> None:
+        # SchemeID patterns: short uppercase alphanumeric in parens
+        assert _str_element("DE123456789 (VA)") == "DE123456789"
+        assert _str_element("seller@example.com (EM)") == "seller@example.com"
+        assert _str_element("4000000000098 (9930)") == "4000000000098"
+
+    def test_str_element_preserves_description_parens(self) -> None:
+        # Natural language parenthetical text must NOT be stripped
+        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+        assert _str_element("Beratung (inkl. Reise)") == "Beratung (inkl. Reise)"
+        assert _str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
+        assert _str_element("Hosting (pro Monat)") == "Hosting (pro Monat)"
 
     def test_str_element_normal_string(self) -> None:
         assert _str_element("hello") == "hello"

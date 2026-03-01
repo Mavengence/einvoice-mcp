@@ -81,6 +81,29 @@ class TestInvoiceData:
         assert net == Decimal("10") * Decimal("150.00") + Decimal("1") * Decimal("49.99")
         assert net == Decimal("1549.99")
 
+    def test_total_tax_uses_per_group_rounding(self) -> None:
+        """BR-CO-14: total_tax() must use per-group rounding, not per-item.
+
+        3 separate items at 33.33 @7%: per-item gives 3*2.33=6.99,
+        per-group gives (99.99*7/100).quantize(0.01) = 7.00.
+        """
+        data = InvoiceData(
+            invoice_id="ROUND",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[
+                LineItem(description="A", quantity="1", unit_price="33.33", tax_rate="7"),
+                LineItem(description="B", quantity="1", unit_price="33.33", tax_rate="7"),
+                LineItem(description="C", quantity="1", unit_price="33.33", tax_rate="7"),
+                LineItem(description="D", quantity="1", unit_price="100.00", tax_rate="19"),
+            ],
+        )
+        # Per-group: 7% group basis=99.99, tax=7.00
+        #            19% group basis=100.00, tax=19.00
+        # Total tax = 26.00 (per-group), NOT 25.99 (per-item)
+        assert data.total_tax() == Decimal("26.00")
+
     def test_empty_items_rejected(self) -> None:
         with pytest.raises(ValidationError):
             InvoiceData(
