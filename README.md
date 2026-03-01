@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**154 tests | 96% coverage | 0 failures | lint clean**
+*Run `make test` to verify — all tests pass with 96% code coverage.*
 
 ### EN 16931 / XRechnung 3.0 Field Coverage
 
@@ -184,7 +184,6 @@ Add to `.cursor/mcp.json`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KOSIT_URL` | `http://localhost:8081` | KoSIT Validator URL |
-| `MCP_PORT` | `8000` | HTTP transport port |
 | `LOG_LEVEL` | `INFO` | Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 
 ---
@@ -192,14 +191,14 @@ Add to `.cursor/mcp.json`:
 ## Example Prompts
 
 ```
-Validate this XRechnung: [paste XML]
+Validiere diese XRechnung: [XML einfügen]
 
-Generate an invoice from TechCorp GmbH (DE123456789) to ClientCorp GmbH
-for 40 hours software consulting at 150 EUR/hour with 19% VAT.
+Erstelle eine Rechnung von TechCorp GmbH (DE123456789) an ClientCorp GmbH
+für 40 Stunden Software-Beratung à 150€/Stunde mit 19% MwSt.
 
-Parse this e-invoice and show me the line items.
+Parse diese E-Rechnung und zeig mir die Positionen.
 
-Check if this invoice is XRechnung-compliant and suggest improvements.
+Prüfe ob diese Rechnung XRechnung-konform ist und gib Verbesserungsvorschläge.
 ```
 
 ---
@@ -207,7 +206,7 @@ Check if this invoice is XRechnung-compliant and suggest improvements.
 ## Architecture
 
 ```
-[AI Client] --> stdio --> [FastMCP Server :8000]
+[AI Client] --> stdio --> [FastMCP Server]
                               |-- drafthorse (CII XML generation/parsing)
                               |-- factur-x (PDF/A-3 embedding/extraction)
                               |-- reportlab (Visual PDF rendering)

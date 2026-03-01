@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import Context, FastMCP
+from pydantic import ValidationError as PydanticValidationError
 
 from einvoice_mcp.config import settings
 from einvoice_mcp.models import InvoiceData, InvoiceProfile
@@ -94,41 +95,45 @@ def _build_invoice_data(
     except ValueError:
         return f"Fehler: Ungültiges Profil. Erlaubt: {_VALID_PROFILES}."
 
-    return InvoiceData(
-        invoice_id=invoice_id,
-        issue_date=issue_date,
-        seller={
-            "name": seller_name,
-            "address": {
-                "street": seller_street,
-                "city": seller_city,
-                "postal_code": seller_postal_code,
-                "country_code": seller_country_code,
+    try:
+        return InvoiceData(
+            invoice_id=invoice_id,
+            issue_date=issue_date,
+            seller={
+                "name": seller_name,
+                "address": {
+                    "street": seller_street,
+                    "city": seller_city,
+                    "postal_code": seller_postal_code,
+                    "country_code": seller_country_code,
+                },
+                "tax_id": seller_tax_id or None,
+                "electronic_address": seller_electronic_address or None,
             },
-            "tax_id": seller_tax_id or None,
-            "electronic_address": seller_electronic_address or None,
-        },
-        buyer={
-            "name": buyer_name,
-            "address": {
-                "street": buyer_street,
-                "city": buyer_city,
-                "postal_code": buyer_postal_code,
-                "country_code": buyer_country_code,
+            buyer={
+                "name": buyer_name,
+                "address": {
+                    "street": buyer_street,
+                    "city": buyer_city,
+                    "postal_code": buyer_postal_code,
+                    "country_code": buyer_country_code,
+                },
+                "tax_id": buyer_tax_id or None,
+                "electronic_address": buyer_electronic_address or None,
             },
-            "tax_id": buyer_tax_id or None,
-            "electronic_address": buyer_electronic_address or None,
-        },
-        items=items_list,
-        currency=currency,
-        payment_terms_days=payment_terms_days,
-        leitweg_id=leitweg_id or None,
-        buyer_reference=buyer_reference or None,
-        profile=invoice_profile,
-        seller_contact_name=seller_contact_name or None,
-        seller_contact_email=seller_contact_email or None,
-        seller_contact_phone=seller_contact_phone or None,
-    )
+            items=items_list,
+            currency=currency,
+            payment_terms_days=payment_terms_days,
+            leitweg_id=leitweg_id or None,
+            buyer_reference=buyer_reference or None,
+            profile=invoice_profile,
+            seller_contact_name=seller_contact_name or None,
+            seller_contact_email=seller_contact_email or None,
+            seller_contact_phone=seller_contact_phone or None,
+        )
+    except PydanticValidationError as exc:
+        errors = "; ".join(e["msg"] for e in exc.errors()[:3])
+        return f"Fehler: Ungültige Rechnungsdaten — {errors}"
 
 
 # --- Tool 1: Validate XRechnung ---

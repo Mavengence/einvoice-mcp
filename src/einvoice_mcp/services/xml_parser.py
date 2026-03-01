@@ -179,9 +179,12 @@ def _str_element(value: object) -> str:
     if value is None:
         return ""
     s = str(value).strip()
-    # IDElement.__str__ returns "text (scheme)", strip the scheme part
-    if s.endswith(" ()"):
-        s = s[:-3]
+    # IDElement.__str__ returns "text (schemeID)" — strip the scheme suffix
+    # e.g. "DE123456789 (VA)" → "DE123456789", "email@example.de (EM)" → "email@example.de"
+    if s.endswith(")"):
+        paren_idx = s.rfind(" (")
+        if paren_idx > 0:
+            s = s[:paren_idx]
     return s
 
 

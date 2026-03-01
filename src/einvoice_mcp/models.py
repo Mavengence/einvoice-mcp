@@ -105,15 +105,20 @@ class InvoiceData(BaseModel):
     )
 
     def total_net(self) -> Decimal:
-        return sum(item.quantity * item.unit_price for item in self.items)
+        return sum(
+            (item.quantity * item.unit_price).quantize(Decimal("0.01")) for item in self.items
+        )
 
     def total_tax(self) -> Decimal:
         return sum(
-            item.quantity * item.unit_price * item.tax_rate / Decimal("100") for item in self.items
+            (item.quantity * item.unit_price * item.tax_rate / Decimal("100")).quantize(
+                Decimal("0.01")
+            )
+            for item in self.items
         )
 
     def total_gross(self) -> Decimal:
-        return self.total_net() + self.total_tax()
+        return (self.total_net() + self.total_tax()).quantize(Decimal("0.01"))
 
 
 class ValidationError(BaseModel):
