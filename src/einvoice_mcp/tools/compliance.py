@@ -140,6 +140,11 @@ SUGGESTIONS_MAP = {
         "Weder Lieferdatum (BT-71) noch Leistungszeitraum (BT-73/BT-74) angegeben — "
         "gemäß §14 Abs. 4 Nr. 6 UStG ist mindestens eine Angabe erforderlich."
     ),
+    "BT-25": (
+        "BT-25 (Vorherige Rechnungsnummer) fehlt — "
+        "bei Gutschriften (TypeCode 381) muss die Originalrechnung "
+        "referenziert werden."
+    ),
 }
 
 
@@ -328,5 +333,34 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
             required=True,
         )
     )
+
+    # BT-25 check: for credit notes (TypeCode=381), preceding invoice is required
+    type_code_el = root.find(
+        ".//rsm:ExchangedDocument/ram:TypeCode", CII_NS
+    )
+    type_code_val = ""
+    if type_code_el is not None and type_code_el.text:
+        type_code_val = type_code_el.text.strip()
+    if type_code_val == "381":
+        inv_ref_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:InvoiceReferencedDocument/ram:IssuerAssignedID",
+            CII_NS,
+        )
+        bt25_present = inv_ref_el is not None and bool(
+            inv_ref_el.text and inv_ref_el.text.strip()
+        )
+        bt25_value = ""
+        if bt25_present and inv_ref_el is not None and inv_ref_el.text:
+            bt25_value = inv_ref_el.text.strip()
+        checks.append(
+            FieldCheck(
+                field="BT-25",
+                name="Vorherige Rechnungsnummer (Gutschrift)",
+                present=bt25_present,
+                value=bt25_value,
+                required=True,
+            )
+        )
 
     return checks

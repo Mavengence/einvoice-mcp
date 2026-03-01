@@ -2159,3 +2159,79 @@ class TestPaymentMeansAndRemittance:
         assert data.preceding_invoice_number == "RE-OLD"
         assert data.payment_means_type_code == "30"
         assert data.remittance_information == "Ref 12345"
+
+
+# ============================================================================
+# 30. BT-25 compliance check for credit notes
+# ============================================================================
+
+
+class TestBT25ComplianceCheck:
+    """Compliance checker: credit notes must reference preceding invoice."""
+
+    @respx.mock
+    async def test_credit_note_without_bt25_flags_missing(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Credit note (381) without BT-25 is flagged as non-compliant."""
+        data = sample_invoice_data.model_copy(
+            update={"type_code": "381", "preceding_invoice_number": None}
+        )
+        xml_content = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml_content, client)
+        await client.close()
+
+        bt25_check = next(
+            (c for c in result["field_checks"] if c["field"] == "BT-25"),
+            None,
+        )
+        assert bt25_check is not None
+        assert bt25_check["present"] is False
+        assert "BT-25" in result["missing_fields"]
+        assert any("Vorherige" in s for s in result["suggestions"])
+
+    @respx.mock
+    async def test_credit_note_with_bt25_passes(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Credit note (381) with BT-25 passes compliance check."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "type_code": "381",
+                "preceding_invoice_number": "RE-2025-099",
+            }
+        )
+        xml_content = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml_content, client)
+        await client.close()
+
+        bt25_check = next(
+            (c for c in result["field_checks"] if c["field"] == "BT-25"),
+            None,
+        )
+        assert bt25_check is not None
+        assert bt25_check["present"] is True
+        assert bt25_check["value"] == "RE-2025-099"
+        assert "BT-25" not in result["missing_fields"]
+
+    @respx.mock
+    async def test_regular_invoice_no_bt25_check(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Regular invoice (380) doesn't get BT-25 check."""
+        xml_content = build_xml(sample_invoice_data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml_content, client)
+        await client.close()
+
+        bt25_check = next(
+            (c for c in result["field_checks"] if c["field"] == "BT-25"),
+            None,
+        )
+        # BT-25 check should NOT be present for TypeCode 380
+        assert bt25_check is None

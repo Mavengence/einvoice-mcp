@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**279 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**282 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -63,6 +63,7 @@ Every mandatory Business Term is tested in generated XML output:
 | §14/4/2 | BT-31 or BT-32 must be present | `test_neither_bt31_nor_bt32_flags_missing` | PASS |
 | §14/4/6 | BT-71 or BT-73/74 must be present | `test_no_delivery_date_or_period_flags_missing` | PASS |
 | BT-3 | TypeCode validated against EN 16931 codes | `test_invalid_type_code_rejected` | PASS |
+| BT-25 | Credit note (381) must reference preceding invoice | `test_credit_note_without_bt25_flags_missing` | PASS |
 
 ### Parsing Fidelity
 
@@ -143,11 +144,11 @@ Every mandatory Business Term is tested in generated XML output:
 | `services/kosit.py` | 80 | 1 | **99%** |
 | `services/pdf_generator.py` | 99 | 2 | **98%** |
 | `services/xml_parser.py` | 285 | 20 | **93%** |
-| `tools/compliance.py` | 80 | 2 | **98%** |
+| `tools/compliance.py` | 91 | 2 | **98%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 1 | **97%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **1003** | **28** | **97%** |
+| **TOTAL** | **1014** | **28** | **97%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
