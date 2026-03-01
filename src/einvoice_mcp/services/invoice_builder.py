@@ -173,7 +173,7 @@ def _build_document(data: InvoiceData) -> bytes:
     # Payment terms
     if data.payment_terms_days is not None:
         pt = PaymentTerms()
-        pt.description = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen."
+        pt.description = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
         doc.trade.settlement.terms.add(pt)
 
     # Serialize without local XSD validation — KoSIT validates the full document.

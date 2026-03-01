@@ -183,7 +183,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
     # Payment terms
     if data.payment_terms_days is not None:
         elements.append(Spacer(1, 8 * mm))
-        terms_data = [[f"Zahlungsziel: {data.payment_terms_days} Tage"]]
+        terms_data = [[f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."]]
         terms_table = Table(terms_data, colWidths=[170 * mm])
         terms_table.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 8)]))
         elements.append(terms_table)

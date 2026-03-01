@@ -2,7 +2,6 @@
 
 import base64
 import logging
-from decimal import Decimal
 from typing import Any
 
 from einvoice_mcp.errors import EInvoiceError
@@ -15,25 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def _compute_totals(data: InvoiceData) -> dict[str, str]:
-    """Compute invoice totals using the same per-group tax rounding as the XML builder.
+    """Compute invoice totals using per-group tax rounding (BR-CO-14).
 
-    This ensures the API response totals match the legally binding XML values exactly
-    (BR-CO-14 compliance).
+    InvoiceData.total_tax() uses per-group rounding, matching the XML builder.
     """
     net_total = data.total_net()
-
-    # Per-group tax calculation — identical to invoice_builder._build_document
-    tax_groups: dict[tuple[str, Decimal], Decimal] = {}
-    for item in data.items:
-        key = (item.tax_category.value, item.tax_rate)
-        net = item.quantity * item.unit_price
-        tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
-
-    tax_total = sum(
-        (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
-        for (_, rate), basis in tax_groups.items()
-    )
-    gross_total = (net_total + tax_total).quantize(Decimal("0.01"))
+    tax_total = data.total_tax()
+    gross_total = data.total_gross()
 
     return {
         "net": str(net_total),
