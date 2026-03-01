@@ -95,6 +95,12 @@ def _build_pdf(data: InvoiceData) -> bytes:
             ]
         )
     )
+    # Preceding invoice reference (BT-25) for credit notes
+    if data.type_code == "381" and data.preceding_invoice_number:
+        header_data.append(
+            ["", "", f"Bezug: {data.preceding_invoice_number}"]
+        )
+
     elements.append(header_table)
     elements.append(Spacer(1, 10 * mm))
 
@@ -209,6 +215,21 @@ def _build_pdf(data: InvoiceData) -> bytes:
             )
         )
         elements.append(bank_table)
+
+    # Remittance information (BT-83) / Verwendungszweck
+    if data.remittance_information:
+        elements.append(Spacer(1, 4 * mm))
+        ref_data = [["Verwendungszweck:", data.remittance_information]]
+        ref_table = Table(ref_data, colWidths=[35 * mm, 135 * mm])
+        ref_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        elements.append(ref_table)
 
     # Payment terms (BT-20)
     payment_text = data.payment_terms_text

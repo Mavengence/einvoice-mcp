@@ -2235,3 +2235,68 @@ class TestBT25ComplianceCheck:
         )
         # BT-25 check should NOT be present for TypeCode 380
         assert bt25_check is None
+
+
+# ============================================================================
+# 31. PDF output enhancements and coverage gaps
+# ============================================================================
+
+
+class TestPdfOutputEnhancements:
+    """PDF generation tests for BT-25, BT-83, and tax_number branch."""
+
+    def test_pdf_credit_note_shows_preceding_ref(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Credit note PDF shows preceding invoice reference."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "type_code": "381",
+                "preceding_invoice_number": "RE-2025-099",
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 100
+
+    def test_pdf_shows_verwendungszweck(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """PDF shows Verwendungszweck (BT-83) when set."""
+        data = sample_invoice_data.model_copy(
+            update={"remittance_information": "RE-2026-001 Alpha"}
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 100
+
+    def test_pdf_tax_number_branch(self) -> None:
+        """PDF displays Steuernummer when no USt-IdNr. is set."""
+        from einvoice_mcp.models import Address, LineItem, Party
+
+        data = InvoiceData(
+            invoice_id="TAXNUM-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Handwerker GmbH",
+                address=Address(
+                    street="Werkstr. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id=None,
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(
+                name="Kunde GmbH",
+                address=Address(
+                    street="Kundenstr. 1",
+                    city="München",
+                    postal_code="80999",
+                ),
+            ),
+            items=[LineItem(description="Reparatur", quantity="1", unit_price="500")],
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 100

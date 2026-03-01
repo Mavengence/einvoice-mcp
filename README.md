@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**282 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**285 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -142,13 +142,13 @@ Every mandatory Business Term is tested in generated XML output:
 | `models.py` | 141 | 0 | **100%** |
 | `services/invoice_builder.py` | 144 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
-| `services/pdf_generator.py` | 99 | 2 | **98%** |
+| `services/pdf_generator.py` | 107 | 1 | **99%** |
 | `services/xml_parser.py` | 285 | 20 | **93%** |
 | `tools/compliance.py` | 91 | 2 | **98%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 1 | **97%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **1014** | **28** | **97%** |
+| **TOTAL** | **1022** | **27** | **97%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
