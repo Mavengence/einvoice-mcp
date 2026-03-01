@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**168 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**169 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -91,11 +91,11 @@ Every mandatory Business Term is tested in generated XML output:
 | `services/kosit.py` | 71 | 0 | **100%** |
 | `services/pdf_generator.py` | 68 | 1 | **99%** |
 | `services/xml_parser.py` | 147 | 19 | **87%** |
-| `tools/compliance.py` | 53 | 2 | **96%** |
-| `tools/generate.py` | 46 | 0 | **100%** |
+| `tools/compliance.py` | 57 | 2 | **96%** |
+| `tools/generate.py` | 56 | 0 | **100%** |
 | `tools/parse.py` | 37 | 4 | **89%** |
 | `tools/validate.py` | 30 | 2 | **93%** |
-| **TOTAL** | **700** | **28** | **96%** |
+| **TOTAL** | **714** | **28** | **96%** |
 
 ---
 

@@ -20,6 +20,8 @@ GUIDELINE_MAP = {
     ),
     InvoiceProfile.ZUGFERD_EN16931: "urn:cen.eu:en16931:2017",
     InvoiceProfile.ZUGFERD_BASIC: ("urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic"),
+    # EXTENDED uses #conformant# (not #compliant#) per Factur-X spec —
+    # it is a conformant extension of EN 16931, not a CIUS-compliant profile.
     InvoiceProfile.ZUGFERD_EXTENDED: (
         "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended"
     ),

@@ -14,6 +14,35 @@ from einvoice_mcp.services.pdf_generator import embed_xml_in_pdf, generate_invoi
 logger = logging.getLogger(__name__)
 
 
+def _compute_totals(data: InvoiceData) -> dict[str, str]:
+    """Compute invoice totals using the same per-group tax rounding as the XML builder.
+
+    This ensures the API response totals match the legally binding XML values exactly
+    (BR-CO-14 compliance).
+    """
+    net_total = data.total_net()
+
+    # Per-group tax calculation — identical to invoice_builder._build_document
+    tax_groups: dict[tuple[str, Decimal], Decimal] = {}
+    for item in data.items:
+        key = (item.tax_category.value, item.tax_rate)
+        net = item.quantity * item.unit_price
+        tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
+
+    tax_total = sum(
+        (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
+        for (_, rate), basis in tax_groups.items()
+    )
+    gross_total = (net_total + tax_total).quantize(Decimal("0.01"))
+
+    return {
+        "net": str(net_total),
+        "tax": str(tax_total),
+        "gross": str(gross_total),
+        "currency": data.currency,
+    }
+
+
 async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict[str, Any]:
     """Generate an XRechnung-compliant CII XML invoice.
 
@@ -44,12 +73,7 @@ async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict[str,
         "success": True,
         "xml_content": xml_string,
         "validation": validation,
-        "totals": {
-            "net": str(data.total_net()),
-            "tax": str(data.total_tax().quantize(Decimal("0.01"))),
-            "gross": str(data.total_gross().quantize(Decimal("0.01"))),
-            "currency": data.currency,
-        },
+        "totals": _compute_totals(data),
     }
 
 
@@ -93,10 +117,5 @@ async def generate_zugferd(data: InvoiceData, kosit: KoSITClient) -> dict[str, A
         "pdf_base64": pdf_base64,
         "pdf_size_bytes": len(hybrid_pdf),
         "validation": validation,
-        "totals": {
-            "net": str(data.total_net()),
-            "tax": str(data.total_tax().quantize(Decimal("0.01"))),
-            "gross": str(data.total_gross().quantize(Decimal("0.01"))),
-            "currency": data.currency,
-        },
+        "totals": _compute_totals(data),
     }

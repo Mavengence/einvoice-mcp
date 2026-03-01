@@ -107,6 +107,9 @@ _XRECHNUNG_ONLY_FIELDS = [
 # Optional fields (informational, not flagged as missing)
 _OPTIONAL_FIELDS = {"BT-6"}
 
+# Valid target profiles for the compliance checker
+_VALID_TARGET_PROFILES = frozenset({"XRECHNUNG", "ZUGFERD"})
+
 SUGGESTIONS_MAP = {
     "BT-1": "BT-1 (Rechnungsnummer) fehlt — jede Rechnung muss eindeutig nummeriert sein.",
     "BT-2": "BT-2 (Rechnungsdatum) fehlt — Pflichtangabe nach §14 UStG.",
@@ -153,13 +156,22 @@ async def check_compliance(
     Returns:
         Compliance result with field checks and German suggestions.
     """
+    profile_upper = target_profile.upper()
+    if profile_upper not in _VALID_TARGET_PROFILES:
+        return ComplianceResult(
+            valid=False,
+            suggestions=[
+                f"Fehler: Ungültiges Zielprofil '{target_profile}'. Erlaubt: XRECHNUNG, ZUGFERD."
+            ],
+        ).model_dump()
+
     if len(xml_content) > MAX_XML_SIZE:
         return ComplianceResult(
             valid=False,
             suggestions=["Fehler: XML-Inhalt überschreitet das Größenlimit (10 MB)."],
         ).model_dump()
 
-    is_xrechnung = target_profile.upper() == "XRECHNUNG"
+    is_xrechnung = profile_upper == "XRECHNUNG"
     field_checks = _check_fields(xml_content, xrechnung=is_xrechnung)
     missing_fields = [fc.field for fc in field_checks if fc.required and not fc.present]
     suggestions = [SUGGESTIONS_MAP[f] for f in missing_fields if f in SUGGESTIONS_MAP]

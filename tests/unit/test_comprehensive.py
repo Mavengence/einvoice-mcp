@@ -467,6 +467,15 @@ class TestComplianceEdgeCases:
         await client.close()
 
     @respx.mock
+    async def test_invalid_target_profile_rejected(self) -> None:
+        """Unknown target_profile must return an error, not silently weaken checks."""
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance("<xml/>", client, "TYPO_XRECHUNG")
+        assert result["valid"] is False
+        assert any("Ungültiges Zielprofil" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
     async def test_zugferd_profile_compliance(self) -> None:
         """Test compliance with ZUGFERD target profile — should NOT flag BT-10, BT-34, etc."""
         xml = build_xml(
