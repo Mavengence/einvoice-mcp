@@ -118,6 +118,31 @@ def _build_document(data: InvoiceData) -> bytes:
     if buyer_ref:
         doc.trade.agreement.buyer_reference = buyer_ref
 
+    # Purchase order reference (BT-13)
+    if data.purchase_order_reference:
+        doc.trade.agreement.buyer_order.issuer_assigned_id = (
+            data.purchase_order_reference
+        )
+
+    # Contract reference (BT-12)
+    if data.contract_reference:
+        doc.trade.agreement.contract.issuer_assigned_id = (
+            data.contract_reference
+        )
+
+    # Project reference (BT-11)
+    if data.project_reference:
+        doc.trade.agreement.procuring_project_type.id = (
+            data.project_reference
+        )
+        doc.trade.agreement.procuring_project_type.name = ""
+
+    # Preceding invoice reference (BT-25) — for credit notes (381)
+    if data.preceding_invoice_number:
+        doc.trade.settlement.invoice_referenced_document.issuer_assigned_id = (
+            data.preceding_invoice_number
+        )
+
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     if data.delivery_date:
         doc.trade.delivery.event.occurrence = data.delivery_date
@@ -151,9 +176,9 @@ def _build_document(data: InvoiceData) -> bytes:
     # Settlement
     doc.trade.settlement.currency_code = data.currency
 
-    # Payment means
+    # Payment means (BT-81)
     pm = PaymentMeans()
-    pm.type_code = "58"  # SEPA credit transfer
+    pm.type_code = data.payment_means_type_code
     if data.seller_iban:
         pm.payee_account.iban = data.seller_iban
         if data.seller_bank_name:
@@ -161,6 +186,12 @@ def _build_document(data: InvoiceData) -> bytes:
     if data.seller_bic:
         pm.payee_institution.bic = data.seller_bic
     doc.trade.settlement.payment_means.add(pm)
+
+    # Remittance information (BT-83) / Verwendungszweck
+    if data.remittance_information:
+        doc.trade.settlement.payment_reference = (
+            data.remittance_information
+        )
 
     # Trade tax summary
     tax_groups: dict[tuple[str, Decimal], Decimal] = {}

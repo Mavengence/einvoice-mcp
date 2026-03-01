@@ -87,9 +87,10 @@ class TestStrElement:
         """EAS numeric schemeIDs like 9930 must be stripped."""
         assert _str_element("4000000000098 (9930)") == "4000000000098"
 
-    def test_preserves_empty_parens(self) -> None:
-        """Empty parens are NOT a schemeID — preserve them."""
-        assert _str_element("plain ()") == "plain ()"
+    def test_strips_empty_parens(self) -> None:
+        """Empty parens from drafthorse IDElements are stripped."""
+        assert _str_element("plain ()") == "plain"
+        assert _str_element("()") == ""
 
     def test_preserves_plain_string(self) -> None:
         assert _str_element("hello world") == "hello world"

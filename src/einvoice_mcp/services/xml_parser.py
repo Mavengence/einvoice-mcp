@@ -129,6 +129,58 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Purchase order reference (BT-13)
+    purchase_order_reference = ""
+    try:
+        po_id = doc.trade.agreement.buyer_order.issuer_assigned_id
+        val = _str_element(po_id)
+        if val:
+            purchase_order_reference = val
+    except Exception:
+        pass
+
+    # Contract reference (BT-12)
+    contract_reference = ""
+    try:
+        ct_id = doc.trade.agreement.contract.issuer_assigned_id
+        val = _str_element(ct_id)
+        if val:
+            contract_reference = val
+    except Exception:
+        pass
+
+    # Project reference (BT-11)
+    project_reference = ""
+    try:
+        pr_id = doc.trade.agreement.procuring_project_type.id
+        val = _str_element(pr_id)
+        if val:
+            project_reference = val
+    except Exception:
+        pass
+
+    # Preceding invoice number (BT-25)
+    preceding_invoice_number = ""
+    try:
+        inv_ref = doc.trade.settlement.invoice_referenced_document
+        ref_id = getattr(inv_ref, "issuer_assigned_id", None)
+        if ref_id:
+            val = _str_element(ref_id)
+            if val:
+                preceding_invoice_number = val
+    except Exception:
+        pass
+
+    # Remittance information (BT-83) / Verwendungszweck
+    remittance_information = ""
+    try:
+        pay_ref = doc.trade.settlement.payment_reference
+        val = _str_element(pay_ref)
+        if val:
+            remittance_information = val
+    except Exception:
+        pass
+
     return ParsedInvoice(
         invoice_id=_str_element(doc.header.id),
         type_code=_str_element(doc.header.type_code) or "380",
@@ -145,6 +197,11 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         service_period_end=service_period_end,
         invoice_note=invoice_note,
         payment_terms=payment_terms,
+        purchase_order_reference=purchase_order_reference,
+        contract_reference=contract_reference,
+        project_reference=project_reference,
+        preceding_invoice_number=preceding_invoice_number,
+        remittance_information=remittance_information,
     )
 
 
@@ -342,6 +399,9 @@ def _str_element(value: object) -> str:
     if value is None:
         return ""
     s = str(value).strip()
+    # drafthorse empty IDElements produce "()" — treat as empty
+    if s == "()":
+        return ""
     # Only strip trailing " (XX)" where XX is 1-10 ASCII alphanumeric chars
     # without any lowercase letters.  This matches schemeID patterns like
     # (VA), (EM), (9930) but NOT description text like "Reisekosten (pauschal)"
@@ -350,9 +410,10 @@ def _str_element(value: object) -> str:
         paren_idx = s.rfind(" (")
         if paren_idx > 0:
             scheme = s[paren_idx + 2 : -1]
-            if (
-                scheme
-                and len(scheme) <= 10
+            # Strip " ()" (empty schemeID) or " (XX)" where XX is
+            # uppercase alphanumeric (schemeID pattern).
+            if not scheme or (
+                len(scheme) <= 10
                 and scheme.isascii()
                 and scheme.isalnum()
                 and scheme == scheme.upper()

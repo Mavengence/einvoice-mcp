@@ -124,9 +124,9 @@ class TestXmlParserEdgeCases:
     def test_str_element_none(self) -> None:
         assert _str_element(None) == ""
 
-    def test_str_element_preserves_empty_parens(self) -> None:
-        # Empty parens are NOT a schemeID pattern — preserve them
-        assert _str_element("DE123 ()") == "DE123 ()"
+    def test_str_element_strips_empty_parens(self) -> None:
+        # Empty parens come from drafthorse IDElements with no schemeID
+        assert _str_element("DE123 ()") == "DE123"
 
     def test_strips_numeric_scheme(self) -> None:
         assert _str_element("4000000000098 (9930)") == "4000000000098"
@@ -1994,3 +1994,168 @@ class TestInvoiceNoteAndPaymentTerms:
         assert isinstance(data, InvoiceData)
         assert data.invoice_note == "Wichtiger Hinweis"
         assert data.payment_terms_text == "Sofort zahlbar."
+
+
+# ============================================================================
+# 28. Reference fields (BT-11, BT-12, BT-13, BT-25) roundtrip
+# ============================================================================
+
+
+class TestReferenceFieldsRoundtrip:
+    """Roundtrip tests for BT-11/12/13/25 reference fields."""
+
+    def test_purchase_order_reference_bt13(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-13: purchase order reference roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={"purchase_order_reference": "PO-2026-0042"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.purchase_order_reference == "PO-2026-0042"
+
+    def test_contract_reference_bt12(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-12: contract reference roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={"contract_reference": "V-2025-1234"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.contract_reference == "V-2025-1234"
+
+    def test_project_reference_bt11(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-11: project reference roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={"project_reference": "PRJ-ALPHA"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.project_reference == "PRJ-ALPHA"
+
+    def test_preceding_invoice_bt25(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-25: preceding invoice number roundtrip (credit note)."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "type_code": "381",
+                "preceding_invoice_number": "RE-2025-099",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.preceding_invoice_number == "RE-2025-099"
+        assert parsed.type_code == "381"
+
+    def test_no_references_parse_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """All reference fields parse as empty when not set."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.purchase_order_reference == ""
+        assert parsed.contract_reference == ""
+        assert parsed.project_reference == ""
+        assert parsed.preceding_invoice_number == ""
+
+    def test_all_references_together(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """All reference fields work together in same invoice."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "purchase_order_reference": "PO-1",
+                "contract_reference": "V-2",
+                "project_reference": "P-3",
+                "preceding_invoice_number": "RE-0",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.purchase_order_reference == "PO-1"
+        assert parsed.contract_reference == "V-2"
+        assert parsed.project_reference == "P-3"
+        assert parsed.preceding_invoice_number == "RE-0"
+
+
+# ============================================================================
+# 29. Payment means (BT-81) and remittance info (BT-83) roundtrip
+# ============================================================================
+
+
+class TestPaymentMeansAndRemittance:
+    """Tests for BT-81 payment means type code and BT-83 remittance."""
+
+    def test_remittance_information_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-83: remittance information (Verwendungszweck) roundtrip."""
+        data = sample_invoice_data.model_copy(
+            update={"remittance_information": "RE-2026-001 Projekt Alpha"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.remittance_information == "RE-2026-001 Projekt Alpha"
+
+    def test_payment_means_type_code_default(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-81 defaults to 58 (SEPA credit transfer)."""
+        assert sample_invoice_data.payment_means_type_code == "58"
+
+    def test_payment_means_type_code_custom(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-81 custom payment means code (e.g. 30 for bank transfer)."""
+        data = sample_invoice_data.model_copy(
+            update={"payment_means_type_code": "30"}
+        )
+        xml_bytes = build_xml(data)
+        assert b"30" in xml_bytes  # TypeCode in PaymentMeans
+
+    def test_no_remittance_parses_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Remittance info parses as empty when not set."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.remittance_information == ""
+
+    def test_build_invoice_data_with_references(self) -> None:
+        """Server _build_invoice_data passes all new reference fields."""
+        from einvoice_mcp.server import _build_invoice_data
+
+        data = _build_invoice_data(
+            invoice_id="REF-001",
+            issue_date="2026-03-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="10115",
+            seller_country_code="DE",
+            seller_tax_id="DE123456789",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="80999",
+            buyer_country_code="DE",
+            items_json='[{"description":"Test","quantity":1,"unit_price":100}]',
+            purchase_order_reference="PO-42",
+            contract_reference="V-99",
+            project_reference="P-7",
+            preceding_invoice_number="RE-OLD",
+            payment_means_type_code="30",
+            remittance_information="Ref 12345",
+        )
+        assert isinstance(data, InvoiceData)
+        assert data.purchase_order_reference == "PO-42"
+        assert data.contract_reference == "V-99"
+        assert data.project_reference == "P-7"
+        assert data.preceding_invoice_number == "RE-OLD"
+        assert data.payment_means_type_code == "30"
+        assert data.remittance_information == "Ref 12345"

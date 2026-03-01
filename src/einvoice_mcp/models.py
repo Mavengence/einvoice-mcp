@@ -165,6 +165,46 @@ class InvoiceData(BaseModel):
             "(BT-20, z.B. '2% Skonto bei Zahlung innerhalb 10 Tagen')"
         ),
     )
+    purchase_order_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Bestellnummer des Käufers (BT-13)",
+    )
+    contract_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Vertragsnummer (BT-12)",
+    )
+    project_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Projektreferenz (BT-11)",
+    )
+    preceding_invoice_number: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Vorherige Rechnungsnummer (BT-25) — "
+            "Pflicht bei Gutschrift (381) per §14 Abs. 4 UStG"
+        ),
+    )
+    payment_means_type_code: str = Field(
+        default="58",
+        max_length=3,
+        description=(
+            "Zahlungsart (BT-81): "
+            "58=SEPA-Überweisung, 30=Überweisung, "
+            "48=Kreditkarte, 59=SEPA-Lastschrift"
+        ),
+    )
+    remittance_information: str | None = Field(
+        default=None,
+        max_length=140,
+        description=(
+            "Verwendungszweck (BT-83) — "
+            "SEPA-Referenz für die Zahlungszuordnung"
+        ),
+    )
 
     def total_net(self) -> Decimal:
         return sum(
@@ -243,6 +283,21 @@ class ParsedInvoice(BaseModel):
     service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
     invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
+    purchase_order_reference: str = Field(
+        default="", description="Bestellnummer (BT-13)"
+    )
+    contract_reference: str = Field(
+        default="", description="Vertragsnummer (BT-12)"
+    )
+    project_reference: str = Field(
+        default="", description="Projektreferenz (BT-11)"
+    )
+    preceding_invoice_number: str = Field(
+        default="", description="Vorherige Rechnungsnummer (BT-25)"
+    )
+    remittance_information: str = Field(
+        default="", description="Verwendungszweck (BT-83)"
+    )
 
 
 class FieldCheck(BaseModel):

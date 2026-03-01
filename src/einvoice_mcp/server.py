@@ -94,6 +94,12 @@ def _build_invoice_data(
     service_period_end: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
+    purchase_order_reference: str = "",
+    contract_reference: str = "",
+    project_reference: str = "",
+    preceding_invoice_number: str = "",
+    payment_means_type_code: str = "58",
+    remittance_information: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -157,6 +163,12 @@ def _build_invoice_data(
                 "service_period_end": service_period_end or None,
                 "invoice_note": invoice_note or None,
                 "payment_terms_text": payment_terms_text or None,
+                "purchase_order_reference": purchase_order_reference or None,
+                "contract_reference": contract_reference or None,
+                "project_reference": project_reference or None,
+                "preceding_invoice_number": preceding_invoice_number or None,
+                "payment_means_type_code": payment_means_type_code,
+                "remittance_information": remittance_information or None,
             }
         )
     except PydanticValidationError as exc:
@@ -260,6 +272,12 @@ async def einvoice_generate_xrechnung(
     service_period_end: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
+    purchase_order_reference: str = "",
+    contract_reference: str = "",
+    project_reference: str = "",
+    preceding_invoice_number: str = "",
+    payment_means_type_code: str = "58",
+    remittance_information: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -279,33 +297,36 @@ async def einvoice_generate_xrechnung(
         buyer_city: Stadt des Käufers.
         buyer_postal_code: PLZ des Käufers.
         buyer_country_code: Ländercode des Käufers (z.B. "DE").
-        items: JSON-Array der Positionen. Felder pro Position:
-            description (str), quantity (number), unit_price (number),
-            tax_rate (number), unit_code (str, optional),
-            tax_category (str, optional).
+        items: JSON-Array der Positionen.
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: "EUR").
         payment_terms_days: Zahlungsziel in Tagen (optional).
-        leitweg_id: Leitweg-ID für öffentliche Auftraggeber (optional).
-        buyer_reference: Käuferreferenz / Bestellnummer BT-10 (optional).
-        profile: Rechnungsprofil — XRECHNUNG, ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED.
-        seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34, z.B. E-Mail).
-        seller_electronic_address_scheme: EAS-Code für Verkäufer (EM=E-Mail, 9930=USt-IdNr.).
-        buyer_electronic_address: Elektronische Adresse des Käufers (BT-49, z.B. E-Mail).
-        buyer_electronic_address_scheme: EAS-Code für Käufer (EM=E-Mail, 9930=USt-IdNr.).
-        seller_contact_name: Ansprechpartner des Verkäufers (BT-41, BR-DE-5).
-        seller_contact_email: E-Mail des Ansprechpartners (BT-43, BR-DE-7).
-        seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
-        seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
-        seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
-        seller_bank_name: Name der Bank des Verkäufers (optional).
-        type_code: Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung.
-        seller_tax_number: Steuernummer des Verkäufers (BT-32, alternativ zu USt-IdNr.).
-        delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
-        service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
-        service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
-        invoice_note: Freitext-Bemerkung zur Rechnung (BT-22, optional).
-        payment_terms_text: Zahlungsbedingungen als Freitext (BT-20).
+        leitweg_id: Leitweg-ID (optional).
+        buyer_reference: Käuferreferenz BT-10 (optional).
+        profile: Rechnungsprofil.
+        seller_electronic_address: Elektronische Adresse (BT-34).
+        seller_electronic_address_scheme: EAS-Code (EM/9930).
+        buyer_electronic_address: Elektronische Adresse (BT-49).
+        buyer_electronic_address_scheme: EAS-Code (EM/9930).
+        seller_contact_name: Ansprechpartner (BT-41).
+        seller_contact_email: E-Mail (BT-43).
+        seller_contact_phone: Telefon (BT-42).
+        seller_iban: IBAN (BT-84).
+        seller_bic: BIC (BT-86).
+        seller_bank_name: Bankname.
+        type_code: Rechnungsart (BT-3): 380/381/384.
+        seller_tax_number: Steuernummer (BT-32).
+        delivery_date: Lieferdatum (BT-71, YYYY-MM-DD).
+        service_period_start: Leistungszeitraum Beginn (BT-73).
+        service_period_end: Leistungszeitraum Ende (BT-74).
+        invoice_note: Freitext-Bemerkung (BT-22).
+        payment_terms_text: Zahlungsbedingungen (BT-20).
+        purchase_order_reference: Bestellnummer (BT-13).
+        contract_reference: Vertragsnummer (BT-12).
+        project_reference: Projektreferenz (BT-11).
+        preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        payment_means_type_code: Zahlungsart (BT-81, Standard 58).
+        remittance_information: Verwendungszweck (BT-83).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -345,6 +366,12 @@ async def einvoice_generate_xrechnung(
         service_period_end=service_period_end,
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
+        purchase_order_reference=purchase_order_reference,
+        contract_reference=contract_reference,
+        project_reference=project_reference,
+        preceding_invoice_number=preceding_invoice_number,
+        payment_means_type_code=payment_means_type_code,
+        remittance_information=remittance_information,
     )
 
     if isinstance(data, str):
@@ -405,6 +432,12 @@ async def einvoice_generate_zugferd(
     service_period_end: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
+    purchase_order_reference: str = "",
+    contract_reference: str = "",
+    project_reference: str = "",
+    preceding_invoice_number: str = "",
+    payment_means_type_code: str = "58",
+    remittance_information: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -422,30 +455,36 @@ async def einvoice_generate_zugferd(
         buyer_city: Stadt des Käufers.
         buyer_postal_code: PLZ des Käufers.
         buyer_country_code: Land des Käufers.
-        items: JSON-Array der Positionen (wie bei generate_xrechnung).
+        items: JSON-Array der Positionen.
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: EUR).
         payment_terms_days: Zahlungsziel in Tagen (optional).
         leitweg_id: Leitweg-ID (optional).
         buyer_reference: Käuferreferenz BT-10 (optional).
-        profile: Profil — ZUGFERD_EN16931, ZUGFERD_BASIC, ZUGFERD_EXTENDED, XRECHNUNG.
-        seller_electronic_address: Elektronische Adresse des Verkäufers (BT-34).
-        seller_electronic_address_scheme: EAS-Code für Verkäufer (EM=E-Mail, 9930=USt-IdNr.).
-        buyer_electronic_address: Elektronische Adresse des Käufers (BT-49).
-        buyer_electronic_address_scheme: EAS-Code für Käufer (EM=E-Mail, 9930=USt-IdNr.).
-        seller_contact_name: Ansprechpartner des Verkäufers (BT-41).
-        seller_contact_email: E-Mail des Ansprechpartners (BT-43).
-        seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
-        seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
-        seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
-        seller_bank_name: Name der Bank des Verkäufers (optional).
-        type_code: Rechnungsartcode (BT-3): 380=Rechnung, 381=Gutschrift, 384=Korrekturrechnung.
-        seller_tax_number: Steuernummer des Verkäufers (BT-32, alternativ zu USt-IdNr.).
-        delivery_date: Lieferdatum (BT-71, YYYY-MM-DD, §14 Abs. 4 Nr. 6 UStG).
-        service_period_start: Beginn des Leistungszeitraums (BT-73, YYYY-MM-DD).
-        service_period_end: Ende des Leistungszeitraums (BT-74, YYYY-MM-DD).
-        invoice_note: Freitext-Bemerkung zur Rechnung (BT-22, optional).
-        payment_terms_text: Zahlungsbedingungen als Freitext (BT-20).
+        profile: Rechnungsprofil.
+        seller_electronic_address: Elektronische Adresse (BT-34).
+        seller_electronic_address_scheme: EAS-Code (EM/9930).
+        buyer_electronic_address: Elektronische Adresse (BT-49).
+        buyer_electronic_address_scheme: EAS-Code (EM/9930).
+        seller_contact_name: Ansprechpartner (BT-41).
+        seller_contact_email: E-Mail (BT-43).
+        seller_contact_phone: Telefon (BT-42).
+        seller_iban: IBAN (BT-84).
+        seller_bic: BIC (BT-86).
+        seller_bank_name: Bankname.
+        type_code: Rechnungsart (BT-3): 380/381/384.
+        seller_tax_number: Steuernummer (BT-32).
+        delivery_date: Lieferdatum (BT-71).
+        service_period_start: Leistungszeitraum Beginn (BT-73).
+        service_period_end: Leistungszeitraum Ende (BT-74).
+        invoice_note: Freitext-Bemerkung (BT-22).
+        payment_terms_text: Zahlungsbedingungen (BT-20).
+        purchase_order_reference: Bestellnummer (BT-13).
+        contract_reference: Vertragsnummer (BT-12).
+        project_reference: Projektreferenz (BT-11).
+        preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        payment_means_type_code: Zahlungsart (BT-81, Standard 58).
+        remittance_information: Verwendungszweck (BT-83).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -485,6 +524,12 @@ async def einvoice_generate_zugferd(
         service_period_end=service_period_end,
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
+        purchase_order_reference=purchase_order_reference,
+        contract_reference=contract_reference,
+        project_reference=project_reference,
+        preceding_invoice_number=preceding_invoice_number,
+        payment_means_type_code=payment_means_type_code,
+        remittance_information=remittance_information,
     )
 
     if isinstance(data, str):

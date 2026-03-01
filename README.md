@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**268 tests | 98% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**279 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -44,6 +44,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-20 | Payment terms text | `test_payment_terms_text_roundtrip` | PASS |
 | BT-22 | Invoice note | `test_invoice_note_roundtrip` | PASS |
 | BT-73/74 | Service period start/end | `test_service_period_bt73_bt74` | PASS |
+| BT-11 | Project reference | `test_project_reference_bt11` | PASS |
+| BT-12 | Contract reference | `test_contract_reference_bt12` | PASS |
+| BT-13 | Purchase order reference | `test_purchase_order_reference_bt13` | PASS |
+| BT-25 | Preceding invoice number | `test_preceding_invoice_bt25` | PASS |
+| BT-81 | Payment means type code | `test_payment_means_type_code_custom` | PASS |
+| BT-83 | Remittance information | `test_remittance_information_roundtrip` | PASS |
 | BT-84 | IBAN (SEPA credit transfer) | `test_iban_in_xml` | PASS |
 
 ### Calculation Rules
@@ -74,6 +80,12 @@ Every mandatory Business Term is tested in generated XML output:
 | Invoice note roundtrip | BT-22 generate → parse | `test_invoice_note_roundtrip` | PASS |
 | Payment terms roundtrip | BT-20 generate → parse | `test_payment_terms_text_roundtrip` | PASS |
 | Payment terms override | BT-20 text overrides days | `test_payment_terms_text_overrides_days` | PASS |
+| Purchase order roundtrip | BT-13 generate → parse | `test_purchase_order_reference_bt13` | PASS |
+| Contract roundtrip | BT-12 generate → parse | `test_contract_reference_bt12` | PASS |
+| Project roundtrip | BT-11 generate → parse | `test_project_reference_bt11` | PASS |
+| Preceding invoice roundtrip | BT-25 generate → parse | `test_preceding_invoice_bt25` | PASS |
+| Remittance roundtrip | BT-83 generate → parse | `test_remittance_information_roundtrip` | PASS |
+| Empty scheme stripping | `"PO-42 ()"` → `"PO-42"` | `test_strips_empty_parens` | PASS |
 | Roundtrip invoice | Generate → Parse → Verify key fields | `test_xrechnung_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
@@ -126,16 +138,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 130 | 0 | **100%** |
-| `services/invoice_builder.py` | 133 | 0 | **100%** |
+| `models.py` | 141 | 0 | **100%** |
+| `services/invoice_builder.py` | 144 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
 | `services/pdf_generator.py` | 99 | 2 | **98%** |
-| `services/xml_parser.py` | 241 | 10 | **96%** |
+| `services/xml_parser.py` | 285 | 20 | **93%** |
 | `tools/compliance.py` | 80 | 2 | **98%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 1 | **97%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **937** | **18** | **98%** |
+| **TOTAL** | **1003** | **28** | **97%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
