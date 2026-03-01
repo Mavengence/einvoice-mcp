@@ -163,6 +163,22 @@ class TestDefusedXMLPreScreen:
         with pytest.raises(InvoiceParsingError):
             parse_xml(xxe_xml)
 
+    def test_parse_xml_blocks_billion_laughs(self) -> None:
+        """Verify that defusedxml blocks recursive entity expansion (billion laughs)."""
+        billion_laughs = (
+            b'<?xml version="1.0"?>'
+            b"<!DOCTYPE lolz ["
+            b'  <!ENTITY lol "lol">'
+            b"  <!ENTITY lol2 '&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;'>"
+            b"  <!ENTITY lol3 '&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;'>"
+            b"]>"
+            b"<rsm:CrossIndustryInvoice"
+            b' xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
+            b"&lol3;</rsm:CrossIndustryInvoice>"
+        )
+        with pytest.raises(InvoiceParsingError):
+            parse_xml(billion_laughs)
+
     def test_parse_xml_blocks_external_entity(self) -> None:
         # External general entity — defusedxml raises EntitiesForbidden
         ext_xml = (

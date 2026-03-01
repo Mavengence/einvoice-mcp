@@ -116,7 +116,7 @@ def _build_document(data: InvoiceData) -> bytes:
         li.delivery.billed_quantity._amount = str(item.quantity)
         li.delivery.billed_quantity._unit_code = item.unit_code
 
-        net_amount = item.quantity * item.unit_price
+        net_amount = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
         li.settlement.monetary_summation.total_amount = net_amount
 
         li.settlement.trade_tax.type_code = "VAT"
@@ -131,6 +131,12 @@ def _build_document(data: InvoiceData) -> bytes:
     # Payment means
     pm = PaymentMeans()
     pm.type_code = "58"  # SEPA credit transfer
+    if data.seller_iban:
+        pm.payee_account.iban = data.seller_iban
+        if data.seller_bank_name:
+            pm.payee_account.account_name = data.seller_bank_name
+    if data.seller_bic:
+        pm.payee_institution.bic = data.seller_bic
     doc.trade.settlement.payment_means.add(pm)
 
     # Trade tax summary

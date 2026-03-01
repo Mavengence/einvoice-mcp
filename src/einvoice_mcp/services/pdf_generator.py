@@ -180,6 +180,27 @@ def _build_pdf(data: InvoiceData) -> bytes:
     )
     elements.append(totals_table)
 
+    # Bank details
+    if data.seller_iban:
+        elements.append(Spacer(1, 8 * mm))
+        bank_rows: list[list[str]] = [["Bankverbindung:", ""]]
+        bank_rows.append(["IBAN:", data.seller_iban])
+        if data.seller_bic:
+            bank_rows.append(["BIC:", data.seller_bic])
+        if data.seller_bank_name:
+            bank_rows.append(["Bank:", data.seller_bank_name])
+        bank_table = Table(bank_rows, colWidths=[30 * mm, 140 * mm])
+        bank_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+        )
+        elements.append(bank_table)
+
     # Payment terms
     if data.payment_terms_days is not None:
         elements.append(Spacer(1, 8 * mm))

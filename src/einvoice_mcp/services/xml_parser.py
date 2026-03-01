@@ -142,10 +142,22 @@ def _extract_items(doc: Document) -> list[LineItem]:
                 if cat in TaxCategory.__members__:
                     tax_category = TaxCategory(cat)
 
+            # Preserve magnitude for negative quantities (credit notes, TypeCode 381);
+            # only fall back to 0.01 when the parsed quantity is exactly zero.
+            if quantity < 0:
+                logger.warning(
+                    "Negative quantity %s in line item '%s' — using absolute value",
+                    quantity,
+                    description,
+                )
+                quantity = abs(quantity)
+            if quantity == 0:
+                quantity = Decimal("0.01")
+
             items.append(
                 LineItem(
                     description=description,
-                    quantity=max(quantity, Decimal("0.01")),
+                    quantity=quantity,
                     unit_code=unit_code,
                     unit_price=unit_price,
                     tax_rate=tax_rate,

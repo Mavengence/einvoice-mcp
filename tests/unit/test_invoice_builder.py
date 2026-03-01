@@ -185,6 +185,56 @@ class TestBuildXml:
         # BR-CO-14: must match exactly
         assert tax_total == calculated_sum
 
+    def test_iban_in_xml(self) -> None:
+        """BT-84: IBAN must appear in PayeePartyCreditorFinancialAccount."""
+        data = InvoiceData(
+            invoice_id="IBAN-001",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            seller_bic="COBADEFFXXX",
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "DE89370400440532013000" in xml_str
+        assert "COBADEFFXXX" in xml_str
+
+    def test_no_iban_when_empty(self) -> None:
+        """PayeePartyCreditorFinancialAccount should not appear without IBAN."""
+        data = InvoiceData(
+            invoice_id="NO-IBAN",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "IBANID" not in xml_str
+        assert "PayeePartyCreditorFinancialAccount" not in xml_str or "IBAN" not in xml_str
+
+    def test_line_item_net_amount_quantized(self) -> None:
+        """Line item LineTotalAmount must be quantized to 2 decimal places."""
+        data = InvoiceData(
+            invoice_id="QUANT-001",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="3", unit_price="33.33")],
+        )
+        xml_bytes = build_xml(data)
+        root = ET.fromstring(xml_bytes)
+        line_total = root.find(
+            ".//ram:IncludedSupplyChainTradeLineItem"
+            "/ram:SpecifiedLineTradeSettlement"
+            "/ram:SpecifiedTradeSettlementLineMonetarySummation"
+            "/ram:LineTotalAmount",
+            CII_NS,
+        )
+        assert line_total is not None
+        # 3 * 33.33 = 99.99 — must be exactly 99.99, not 99.990000...
+        assert line_total.text == "99.99"
+
     def test_no_electronic_address_when_empty(self, sample_invoice_data: InvoiceData) -> None:
         """Electronic address elements should not appear when not set."""
         from einvoice_mcp.models import Address, Party

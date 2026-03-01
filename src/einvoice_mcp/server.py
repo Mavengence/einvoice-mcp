@@ -82,6 +82,9 @@ def _build_invoice_data(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    seller_iban: str = "",
+    seller_bic: str = "",
+    seller_bank_name: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -133,6 +136,9 @@ def _build_invoice_data(
                 "seller_contact_name": seller_contact_name or None,
                 "seller_contact_email": seller_contact_email or None,
                 "seller_contact_phone": seller_contact_phone or None,
+                "seller_iban": seller_iban or None,
+                "seller_bic": seller_bic or None,
+                "seller_bank_name": seller_bank_name or None,
             }
         )
     except PydanticValidationError as exc:
@@ -224,6 +230,9 @@ async def einvoice_generate_xrechnung(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    seller_iban: str = "",
+    seller_bic: str = "",
+    seller_bank_name: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -258,6 +267,9 @@ async def einvoice_generate_xrechnung(
         seller_contact_name: Ansprechpartner des Verkäufers (BT-41, BR-DE-5).
         seller_contact_email: E-Mail des Ansprechpartners (BT-43, BR-DE-7).
         seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
+        seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
+        seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
+        seller_bank_name: Name der Bank des Verkäufers (optional).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -285,6 +297,9 @@ async def einvoice_generate_xrechnung(
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,
+        seller_iban=seller_iban,
+        seller_bic=seller_bic,
+        seller_bank_name=seller_bank_name,
     )
 
     if isinstance(data, str):
@@ -333,6 +348,9 @@ async def einvoice_generate_zugferd(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    seller_iban: str = "",
+    seller_bic: str = "",
+    seller_bank_name: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -362,6 +380,9 @@ async def einvoice_generate_zugferd(
         seller_contact_name: Ansprechpartner des Verkäufers (BT-41).
         seller_contact_email: E-Mail des Ansprechpartners (BT-43).
         seller_contact_phone: Telefon des Ansprechpartners (BT-42, optional).
+        seller_iban: IBAN des Verkäufers (BT-84, Pflicht bei SEPA).
+        seller_bic: BIC der Bank des Verkäufers (BT-86, optional).
+        seller_bank_name: Name der Bank des Verkäufers (optional).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -389,6 +410,9 @@ async def einvoice_generate_zugferd(
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,
+        seller_iban=seller_iban,
+        seller_bic=seller_bic,
+        seller_bank_name=seller_bank_name,
     )
 
     if isinstance(data, str):

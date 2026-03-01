@@ -103,6 +103,21 @@ class InvoiceData(BaseModel):
         max_length=50,
         description="Telefon des Ansprechpartners (BT-42)",
     )
+    seller_iban: str | None = Field(
+        default=None,
+        max_length=34,
+        description="IBAN des Verkäufers (BT-84) — Pflicht bei SEPA-Überweisung",
+    )
+    seller_bic: str | None = Field(
+        default=None,
+        max_length=11,
+        description="BIC der Bank des Verkäufers (BT-86, optional)",
+    )
+    seller_bank_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Name der Bank des Verkäufers (optional)",
+    )
 
     def total_net(self) -> Decimal:
         return sum(

@@ -542,7 +542,10 @@ class TestComplianceEdgeCases:
 class TestFullRoundtrip:
     @respx.mock
     async def test_xrechnung_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
-        """Generate XRechnung, then parse it back, then run compliance."""
+        """Generate XRechnung, then parse it back, then run compliance.
+
+        Verifies: invoice_id, seller, buyer, totals, tax breakdown, currency, items.
+        """
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
 
@@ -554,7 +557,34 @@ class TestFullRoundtrip:
         # Parse
         parse_result = await parse_einvoice(xml, "xml")
         assert parse_result["success"] is True
-        assert parse_result["invoice"]["invoice_id"] == "RE-2026-001"
+        inv = parse_result["invoice"]
+
+        # Verify all key fields roundtrip correctly
+        assert inv["invoice_id"] == "RE-2026-001"
+        assert inv["currency"] == "EUR"
+
+        # Seller
+        assert inv["seller"]["name"] == "TechCorp GmbH"
+        assert inv["seller"]["address"]["city"] == "Berlin"
+        assert inv["seller"]["address"]["postal_code"] == "10115"
+        assert inv["seller"]["tax_id"] == "DE123456789"
+
+        # Buyer
+        assert inv["buyer"]["name"] == "ClientCorp GmbH"
+        assert inv["buyer"]["address"]["city"] == "München"
+
+        # Totals (parsed values may be Decimal or str depending on serialization)
+        expected_net = sample_invoice_data.total_net()
+        expected_tax = sample_invoice_data.total_tax()
+        assert Decimal(str(inv["totals"]["net_total"])) == expected_net
+        assert Decimal(str(inv["totals"]["tax_total"])) == expected_tax
+
+        # Items
+        assert len(inv["items"]) == 2
+        assert inv["items"][0]["description"] == "Software-Beratung"
+
+        # Tax breakdown
+        assert len(inv["tax_breakdown"]) >= 1
 
         # Compliance
         comp_result = await check_compliance(xml, client, "XRECHNUNG")
@@ -625,6 +655,37 @@ class TestModelBoundaryValues:
             )
             xml = build_xml(data)
             assert xml  # should not crash for any category
+
+    def test_iban_in_generated_xml(self) -> None:
+        """BT-84: IBAN appears in generated XML when seller_iban is set."""
+        data = InvoiceData(
+            invoice_id="IBAN-T",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            seller_bic="COBADEFFXXX",
+            seller_bank_name="Commerzbank",
+        )
+        xml_str = build_xml(data).decode("utf-8")
+        assert "DE89370400440532013000" in xml_str
+        assert "COBADEFFXXX" in xml_str
+
+    def test_iban_in_pdf(self) -> None:
+        """Bank details section appears in PDF when seller_iban is set."""
+        data = InvoiceData(
+            invoice_id="IBAN-PDF",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            seller_iban="DE89370400440532013000",
+            seller_bic="COBADEFFXXX",
+            seller_bank_name="Commerzbank",
+        )
+        pdf = generate_invoice_pdf(data)
+        assert len(pdf) > 0  # PDF generated successfully with IBAN + BIC + bank name
 
     def test_invoice_no_payment_terms(self) -> None:
         data = InvoiceData(

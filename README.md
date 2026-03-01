@@ -8,13 +8,13 @@ An MCP server that enables AI agents (Claude, Cursor, Copilot) to validate, gene
 
 ## Why This Exists
 
-Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15). Issuance mandates follow in 2027 (revenue > 800K) and 2028 (all businesses). Every German company needs tooling — this MCP server gives AI agents that capability.
+Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15). Issuance mandates follow in 2027 (Vorjahresumsatz > 800K) and 2028 (all businesses). Every German company needs tooling — this MCP server gives AI agents that capability.
 
 ---
 
 ## Compliance Proof
 
-**188 tests | 96% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**194 tests | 95% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -39,6 +39,7 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-44 | Buyer name | `test_contains_buyer` | PASS |
 | BT-49 | Buyer electronic address (schemeID=EM) | `test_buyer_electronic_address_bt49` | PASS |
 | BT-50..55 | Buyer address | `test_contains_buyer` | PASS |
+| BT-84 | IBAN (SEPA credit transfer) | `test_iban_in_xml` | PASS |
 
 ### Calculation Rules
 
@@ -46,6 +47,7 @@ Every mandatory Business Term is tested in generated XML output:
 |------|-------------|------|--------|
 | BR-CO-14 | TaxTotalAmount = sum of per-group CalculatedAmount | `test_br_co_14_tax_total_equals_sum_of_trade_tax` | PASS |
 | BR-CO-14 | PDF/XML/API totals use identical per-group rounding | `test_total_tax_uses_per_group_rounding` | PASS |
+| BR-CO-10 | Line item LineTotalAmount quantized to 0.01 | `test_line_item_net_amount_quantized` | PASS |
 
 ### Parsing Fidelity
 
@@ -54,7 +56,8 @@ Every mandatory Business Term is tested in generated XML output:
 | SchemeID stripping | `DE123456789 (VA)` → `DE123456789` | `test_str_element_strips_scheme_id` | PASS |
 | Numeric schemeID | `4000000000098 (9930)` → `4000000000098` | `test_strips_numeric_scheme` | PASS |
 | Description text | `Reisekosten (pauschal)` preserved | `test_preserves_lowercase_parens` | PASS |
-| Roundtrip invoice | Generate → Parse → Verify all fields | `test_xrechnung_roundtrip` | PASS |
+| Unicode safety | `Artikel (3Ü)` preserved (not stripped) | `test_preserves_unicode_parens` | PASS |
+| Roundtrip invoice | Generate → Parse → Verify key fields | `test_xrechnung_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -75,6 +78,7 @@ Every mandatory Business Term is tested in generated XML output:
 | Attack Vector | Protection | Test | Result |
 |---------------|-----------|------|--------|
 | XXE entity expansion | defusedxml pre-screen | `test_parse_xml_blocks_xxe` | PASS |
+| Billion laughs (entity bomb) | defusedxml pre-screen | `test_parse_xml_blocks_billion_laughs` | PASS |
 | External entity injection | defusedxml pre-screen | `test_parse_xml_blocks_external_entity` | PASS |
 | XML bomb (>10 MB) | Size limit | `test_validate_rejects_oversized_xml` | PASS |
 | PDF bomb (>50 MB base64) | Size limit | `test_validate_rejects_oversized_pdf` | PASS |
@@ -92,8 +96,10 @@ Every mandatory Business Term is tested in generated XML output:
 |---------|----------|-------|----------|------------|
 | XRechnung 3.0 | PASS | PASS | PASS | PASS |
 | ZUGFeRD EN16931 | PASS | PASS | PASS | PASS |
-| ZUGFeRD Basic | PASS | - | - | - |
-| ZUGFeRD Extended | PASS | - | - | - |
+| ZUGFeRD Basic | PASS* | - | - | - |
+| ZUGFeRD Extended | PASS* | - | - | - |
+
+*\* Generation produces XML with correct guideline URI; full parse/validate/compliance support planned.*
 
 ### Module Coverage
 
@@ -101,16 +107,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 106 | 0 | **100%** |
-| `services/invoice_builder.py` | 109 | 0 | **100%** |
+| `models.py` | 109 | 0 | **100%** |
+| `services/invoice_builder.py` | 115 | 0 | **100%** |
 | `services/kosit.py` | 80 | 1 | **99%** |
-| `services/pdf_generator.py` | 70 | 1 | **99%** |
-| `services/xml_parser.py` | 161 | 23 | **86%** |
+| `services/pdf_generator.py` | 81 | 1 | **99%** |
+| `services/xml_parser.py` | 166 | 26 | **84%** |
 | `tools/compliance.py` | 57 | 2 | **96%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 4 | **90%** |
 | `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **757** | **33** | **96%** |
+| **TOTAL** | **782** | **36** | **95%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -258,6 +264,15 @@ make lint       # Ruff + mypy strict
 make fmt        # Format code
 make docker-up  # Start Docker stack
 ```
+
+---
+
+## Limitations
+
+- **Credit notes (TypeCode 381)**: Not yet supported for generation. Parsing preserves absolute quantity values with a logged warning for negative quantities.
+- **BT-71/72/73 (Delivery date / service period)**: Not yet modeled. The issue date is used implicitly as the service date, which is a common German practice.
+- **BT-32 (Steuernummer)**: Only USt-IdNr. (BT-31, schemeID=VA) is currently supported for generation. Kleinunternehmer (§19 UStG) who use a Steuernummer instead need to provide it manually as `tax_id`.
+- **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are only tested for XRechnung 3.0 and ZUGFeRD EN16931.
 
 ---
 
