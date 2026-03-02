@@ -3,7 +3,7 @@
 [![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-617%20passed-brightgreen.svg)](#compliance-proof)
+[![Tests](https://img.shields.io/badge/tests-646%20passed-brightgreen.svg)](#compliance-proof)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#module-coverage)
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
@@ -20,7 +20,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**617 tests | 100% coverage (2106 stmts) | 0 failures | lint clean (ruff + mypy strict)**
+**646 tests | 100% coverage (2106 stmts) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -126,6 +126,7 @@ Every mandatory Business Term is tested in generated XML output:
 | BR-E-10 | Exemption reason required for TaxCategory E | `test_compliance_missing_exemption_reason` | PASS |
 | BR-DE-24 | SEPA DD: mandate (BT-89) + buyer IBAN (BT-91) | `test_dd_missing_mandate_and_iban` | PASS |
 | BR-DE-15 | Payment terms (BT-20) required for XRechnung | `test_payment_terms_missing` | PASS |
+| BR-DE-20 | Max one payment instruction type (no mix CT+DD) | `test_mixed_ct_and_dd_flagged` | PASS |
 | CC-BT-87 | Credit card PAN required when code=48 | `test_credit_card_missing_pan` | PASS |
 | REP-BT-63 | Tax rep VAT ID required when BG-11 present | `test_tax_rep_without_tax_id` | PASS |
 | IBAN | IBAN format validation (ISO 13616) | `test_invalid_iban_*` | PASS |
@@ -260,8 +261,8 @@ Every mandatory Business Term is tested in generated XML output:
 | `errors.py` | 36 | Custom exceptions |
 | `models/` | 600+ | Pydantic models (invoice, party, line items, results, enums) |
 | `prompts/guides.py` | 633 | 14 German tax scenario prompts |
-| `prompts/guides_advanced.py` | 241 | 4 advanced prompts (EU trade, recurring invoices) |
-| `resources/` | 600+ | 17 resources (schemas, reference codes, compliance) |
+| `prompts/guides_advanced.py` | 511 | 8 advanced prompts (EU trade, recurring, Schlussrechnung, Proforma, Drittland, Gutschrift) |
+| `resources/` | 830+ | 19 resources (schemas, reference codes, compliance, Leitweg-ID, tax decision tree) |
 | `services/invoice_builder.py` | 576 | CII XML generation via drafthorse |
 | `services/invoice_data_builder.py` | 320 | Flat parameter builder |
 | `services/cii_extractors.py` | 457 | Party, item, attribute extraction |
@@ -269,7 +270,7 @@ Every mandatory Business Term is tested in generated XML output:
 | `services/pdf_generator.py` | 182 | Visual PDF + factur-x embed |
 | `services/xml_parser.py` | 720 | CII/ZUGFeRD XML parser |
 | `tools/compliance.py` | 217 | Compliance orchestration |
-| `tools/compliance_checks.py` | 767 | BR-DE/BR-CO field checks |
+| `tools/compliance_checks.py` | 795 | BR-DE/BR-CO field checks |
 | `tools/arithmetic_checks.py` | 113 | BR-CO-10/14/15/16 math checks |
 | `tools/generate.py` | 50 | Generate tools |
 | `tools/parse.py` | 39 | Parse tool |
@@ -309,6 +310,8 @@ Every mandatory Business Term is tested in generated XML output:
 | `einvoice://reference/br-de-rules` | Deutsche Geschäftsregeln (BR-DE-1..24) mit Lösungshinweisen |
 | `einvoice://reference/skr04-mapping` | SKR04-Kontenzuordnung für häufige Rechnungsarten (DATEV) |
 | `einvoice://reference/credit-note-reasons` | Gutschrift-Gründe und Korrektur-Codes mit Empfehlungen |
+| `einvoice://reference/leitweg-id-format` | Leitweg-ID Aufbau (Grobadresse-Feinadresse-Prüfziffer), Regex, Beispiele |
+| `einvoice://reference/tax-category-decision-tree` | Steuerkategorie-Entscheidungsbaum (S/Z/E/AE/K/G/O/L/M) mit Szenarien |
 
 ### MCP Prompts
 
@@ -332,6 +335,10 @@ Every mandatory Business Term is tested in generated XML output:
 | `innergemeinschaftliche_lieferung_guide` | Innergemeinschaftliche Lieferung (§4 Nr. 1b / §6a UStG) |
 | `dauerrechnung_guide` | Dauerrechnung / Monatsrechnung für wiederkehrende Leistungen |
 | `steuernummer_vs_ustidnr_guide` | Steuernummer vs. USt-IdNr. — Entscheidungshilfe (BR-DE-26) |
+| `schlussrechnung_nach_abschlag` | Schlussrechnung nach Abschlagszahlungen (prepaid_amount, BT-113) |
+| `proforma_rechnung_guide` | Proforma-Rechnung — rechtliche Einordnung, E-Rechnungs-Behandlung |
+| `drittlandlieferung_guide` | Export außerhalb EU (§4 Nr. 1a UStG, Steuerkategorie G, Incoterms) |
+| `gutschriftverfahren_389_guide` | Gutschriftverfahren / Self-Billing (TypeCode 389, §14 Abs. 2) |
 
 ---
 
@@ -681,6 +688,7 @@ pytest -m integration
 - **§4 Nr. 1b UStG** — Intra-community supply: buyer VAT ID required, 0% tax rate
 - **§19 UStG** — Kleinunternehmerregelung: exemption note advisory for TaxCategory E
 - **BG-19** — SEPA direct debit (PaymentMeansCode = 59, buyer IBAN, mandate reference)
+- **BR-DE-20** — Max one payment instruction type (no mixing credit transfer + direct debit)
 - **BR-DE-24** — SEPA direct debit: mandate reference + buyer IBAN required
 - **BR-E-10** — VAT exemption reason (BT-120) required for TaxCategory E
 - **§4 Nr. 1a UStG** — Export outside EU (TaxCategory G): 0% tax rate required
