@@ -11,7 +11,7 @@ from mcp.types import ToolAnnotations
 from pydantic import ValidationError as PydanticValidationError
 
 from einvoice_mcp.config import settings
-from einvoice_mcp.models import InvoiceData, InvoiceProfile
+from einvoice_mcp.models import AllowanceCharge, InvoiceData, InvoiceProfile, LineItem
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.tools.compliance import check_compliance
 from einvoice_mcp.tools.generate import generate_xrechnung, generate_zugferd
@@ -53,6 +53,36 @@ mcp = FastMCP(
     ),
     lifespan=app_lifespan,
 )
+
+
+@mcp.resource("einvoice://schemas/line-item")
+def schema_line_item() -> str:
+    """JSON-Schema für eine Rechnungsposition (items-Array-Element).
+
+    Verwenden Sie dieses Schema um korrekte JSON-Objekte für den
+    'items' Parameter der generate-Tools zu erstellen.
+    """
+    return json.dumps(LineItem.model_json_schema(), ensure_ascii=False, indent=2)
+
+
+@mcp.resource("einvoice://schemas/allowance-charge")
+def schema_allowance_charge() -> str:
+    """JSON-Schema für Zu-/Abschläge (allowances_charges-Array-Element).
+
+    Verwenden Sie dieses Schema um korrekte JSON-Objekte für den
+    'allowances_charges' Parameter der generate-Tools zu erstellen.
+    """
+    return json.dumps(AllowanceCharge.model_json_schema(), ensure_ascii=False, indent=2)
+
+
+@mcp.resource("einvoice://schemas/invoice-data")
+def schema_invoice_data() -> str:
+    """Vollständiges JSON-Schema für InvoiceData.
+
+    Zeigt alle verfügbaren Felder mit Typen, Beschreibungen und
+    Validierungsregeln für die Rechnungserstellung.
+    """
+    return json.dumps(InvoiceData.model_json_schema(), ensure_ascii=False, indent=2)
 
 
 def _build_invoice_data(
