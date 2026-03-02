@@ -587,6 +587,8 @@ def _extract_party(party_obj: object) -> Party | None:
         addr_obj = getattr(party_obj, "address", None)
         street_2_val = _str_element(getattr(addr_obj, "line_two", "")) or None
         street_3_val = _str_element(getattr(addr_obj, "line_three", "")) or None
+        # Country subdivision (BT-39/BT-54)
+        subdivision_val = _str_element(getattr(addr_obj, "country_subdivision", ""))
         address = Address(
             street=_str_element(getattr(addr_obj, "line_one", "")),
             street_2=street_2_val,
@@ -594,6 +596,7 @@ def _extract_party(party_obj: object) -> Party | None:
             city=_str_element(getattr(addr_obj, "city_name", "")),
             postal_code=_str_element(getattr(addr_obj, "postcode", "")),
             country_code=_str_element(getattr(addr_obj, "country_id", "DE")) or "DE",
+            country_subdivision=subdivision_val or None,
         )
 
         tax_id = None

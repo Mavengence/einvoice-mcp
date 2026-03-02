@@ -80,6 +80,10 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.seller.address.postcode = data.seller.address.postal_code
     doc.trade.agreement.seller.address.city_name = data.seller.address.city
     doc.trade.agreement.seller.address.country_id = data.seller.address.country_code
+    if data.seller.address.country_subdivision:
+        doc.trade.agreement.seller.address.country_subdivision = (
+            data.seller.address.country_subdivision
+        )
 
     # Seller trading name (BT-28)
     if data.seller.trading_name:
@@ -129,6 +133,10 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.buyer.address.postcode = data.buyer.address.postal_code
     doc.trade.agreement.buyer.address.city_name = data.buyer.address.city
     doc.trade.agreement.buyer.address.country_id = data.buyer.address.country_code
+    if data.buyer.address.country_subdivision:
+        doc.trade.agreement.buyer.address.country_subdivision = (
+            data.buyer.address.country_subdivision
+        )
 
     # Buyer trading name (BT-45)
     if data.buyer.trading_name:
@@ -174,6 +182,10 @@ def _build_document(data: InvoiceData) -> bytes:
         rep.address.postcode = data.seller_tax_representative.address.postal_code
         rep.address.city_name = data.seller_tax_representative.address.city
         rep.address.country_id = data.seller_tax_representative.address.country_code
+        if data.seller_tax_representative.address.country_subdivision:
+            rep.address.country_subdivision = (
+                data.seller_tax_representative.address.country_subdivision
+            )
         if data.seller_tax_representative.tax_id:
             rep_tax = TaxRegistration()
             rep_tax.id = ("VA", data.seller_tax_representative.tax_id)

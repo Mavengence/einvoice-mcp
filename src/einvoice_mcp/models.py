@@ -45,6 +45,11 @@ class Address(BaseModel):
     country_code: str = Field(
         default="DE", min_length=2, max_length=2, description="ISO 3166-1 alpha-2 Ländercode"
     )
+    country_subdivision: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Bundesland / Region (BT-39/BT-54, z.B. 'BY' für Bayern)",
+    )
 
     @field_validator("country_code")
     @classmethod

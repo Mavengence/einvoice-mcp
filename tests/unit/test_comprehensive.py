@@ -6441,6 +6441,139 @@ class TestIntraCommunityCountryValidation:
         assert "innergemeinschaftlich" in SUGGESTIONS_MAP["IC-COUNTRY"].lower()
 
 
+# ─── Country Subdivision (BT-39/BT-54) Roundtrip ──────────────────────
+
+
+class TestCountrySubdivisionRoundtrip:
+    """Test BT-39/BT-54 country subdivision roundtrip."""
+
+    def test_seller_buyer_subdivision_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="SUB-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="München",
+                    postal_code="80999", country_code="DE",
+                    country_subdivision="BY",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="Köln",
+                    postal_code="50667", country_code="DE",
+                    country_subdivision="NW",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Service", quantity="1", unit_price="100.00",
+                ),
+            ],
+            buyer_reference="REF-001",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.address.country_subdivision == "BY"
+        assert parsed.buyer is not None
+        assert parsed.buyer.address.country_subdivision == "NW"
+
+    def test_tax_rep_subdivision_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="REPSUB-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Foreign Seller",
+                address=Address(
+                    street="Foreign St 1", city="London",
+                    postal_code="SW1A", country_code="GB",
+                ),
+                tax_id="GB999999999",
+                electronic_address="s@test.co.uk",
+            ),
+            buyer=Party(
+                name="DE Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Service", quantity="1", unit_price="100.00",
+                ),
+            ],
+            buyer_reference="REF-REP",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+            seller_tax_representative=Party(
+                name="DE Vertreter GmbH",
+                address=Address(
+                    street="Vertretung 1", city="München",
+                    postal_code="80999", country_code="DE",
+                    country_subdivision="BY",
+                ),
+                tax_id="DE222222222",
+            ),
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_tax_representative is not None
+        assert parsed.seller_tax_representative.address.country_subdivision == "BY"
+
+    def test_no_subdivision_returns_none(self) -> None:
+        data = InvoiceData(
+            invoice_id="NOSUB-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="Hamburg",
+                    postal_code="20095", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Service", quantity="1", unit_price="100.00",
+                ),
+            ],
+            buyer_reference="REF-002",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.address.country_subdivision is None
+        assert parsed.buyer is not None
+        assert parsed.buyer.address.country_subdivision is None
+
+
 # ─── MCP Reference Resources ──────────────────────────────────────────
 
 
@@ -6542,5 +6675,271 @@ class TestMCPPrompts:
         assert "384" in content
         assert "BT-25" in content
         assert "Korrektur" in content
+
+
+# ─── Edge Case Tests ─────────────────────────────────────────────────
+
+
+class TestMixedTaxCategoryInvoice:
+    """Test invoice with mixed tax categories (S + AE)."""
+
+    def test_mixed_s_and_ae_items(self) -> None:
+        data = InvoiceData(
+            invoice_id="MIX-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer Ltd",
+                address=Address(
+                    street="Road 1", city="London",
+                    postal_code="SW1A 1AA", country_code="GB",
+                ),
+                tax_id="GB123456789",
+                electronic_address="b@test.co.uk",
+            ),
+            items=[
+                LineItem(
+                    description="Domestic service",
+                    quantity="5", unit_code="HUR",
+                    unit_price="200.00",
+                    tax_rate="19.00",
+                    tax_category=TaxCategory.S,
+                ),
+                LineItem(
+                    description="Export service",
+                    quantity="10", unit_code="HUR",
+                    unit_price="100.00",
+                    tax_rate="0.00",
+                    tax_category=TaxCategory.G,
+                ),
+            ],
+            buyer_reference="REF-MIX",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.items) == 2
+        s_item = next(i for i in parsed.items if i.tax_category == TaxCategory.S)
+        g_item = next(i for i in parsed.items if i.tax_category == TaxCategory.G)
+        assert s_item.tax_rate == Decimal("19.00")
+        assert g_item.tax_rate == Decimal("0.00")
+        # Totals should include both items
+        assert parsed.totals is not None
+        assert parsed.totals.net_total == Decimal("2000.00")
+
+
+class TestUnicodeInvoice:
+    """Test Unicode characters in invoice fields."""
+
+    def test_german_umlauts_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="ÜM-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Müller & Söhne Straßenbau GmbH",
+                address=Address(
+                    street="Böttgerstraße 42",
+                    city="Nürnberg",
+                    postal_code="90402",
+                    country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="info@müller-strassenbau.de",
+            ),
+            buyer=Party(
+                name="Château Château SARL",
+                address=Address(
+                    street="Rue de la Résistance 1",
+                    city="Straßburg",
+                    postal_code="67000",
+                    country_code="FR",
+                ),
+                electronic_address="info@château.fr",
+            ),
+            items=[
+                LineItem(
+                    description="Straßensanierung — Hauptstraße",
+                    quantity="100",
+                    unit_code="MTR",
+                    unit_price="50.00",
+                ),
+            ],
+            buyer_reference="REF-ÜML",
+            seller_contact_name="Jürgen Böhm",
+            seller_contact_email="juergen@test.de",
+            seller_contact_phone="+49 911 12345",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert "Müller" in parsed.seller.name
+        assert "Böttger" in parsed.seller.address.street
+        assert parsed.items[0].description is not None
+        assert "Straßensanierung" in parsed.items[0].description
+
+
+class TestHighValueInvoice:
+    """Test invoices with many line items and large amounts."""
+
+    def test_50_line_items(self) -> None:
+        items = [
+            LineItem(
+                description=f"Position {i+1}: Dienstleistung",
+                quantity="1",
+                unit_price=f"{(i + 1) * 10:.2f}",
+                seller_item_id=f"ART-{i+1:03d}",
+            )
+            for i in range(50)
+        ]
+        data = InvoiceData(
+            invoice_id="BIG-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="München",
+                    postal_code="80999", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=items,
+            buyer_reference="REF-BIG",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.items) == 50
+        # Net total: sum of i*10 for i=1..50 = 10*(50*51/2) = 12750
+        assert parsed.totals is not None
+        assert parsed.totals.net_total == Decimal("12750.00")
+
+
+class TestReducedTaxRate:
+    """Test invoices with German reduced tax rate (7%)."""
+
+    def test_mixed_19_and_7_percent(self) -> None:
+        data = InvoiceData(
+            invoice_id="TAX-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Buchhandlung GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="München",
+                    postal_code="80999", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Fachbuch (ermäßigt)",
+                    quantity="3",
+                    unit_price="29.99",
+                    tax_rate="7.00",
+                    tax_category=TaxCategory.S,
+                ),
+                LineItem(
+                    description="Software-Lizenz (normal)",
+                    quantity="1",
+                    unit_price="499.00",
+                    tax_rate="19.00",
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            buyer_reference="REF-TAX",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.tax_breakdown) == 2
+        tb_7 = next(tb for tb in parsed.tax_breakdown if tb.tax_rate == Decimal("7.00"))
+        tb_19 = next(tb for tb in parsed.tax_breakdown if tb.tax_rate == Decimal("19.00"))
+        assert tb_7.taxable_amount == Decimal("89.97")
+        assert tb_7.tax_amount == Decimal("6.30")
+        assert tb_19.taxable_amount == Decimal("499.00")
+        assert tb_19.tax_amount == Decimal("94.81")
+
+
+class TestSmallAmountInvoice:
+    """Test Kleinbetragsrechnung (<=250 EUR) compliance advisory."""
+
+    def test_small_invoice_triggers_advisory(self) -> None:
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        data = InvoiceData(
+            invoice_id="KB-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="München",
+                    postal_code="80999", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Kleiner Posten",
+                    quantity="1",
+                    unit_price="100.00",
+                ),
+            ],
+            buyer_reference="REF-KB",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+        )
+        xml_bytes = build_xml(data)
+        xml_str = xml_bytes.decode("utf-8")
+        checks = _check_fields(xml_str)
+        kb = next((c for c in checks if c.field == "KB-INFO"), None)
+        assert kb is not None
+        assert kb.required is False
+        assert kb.present is True  # it's informational
 
 

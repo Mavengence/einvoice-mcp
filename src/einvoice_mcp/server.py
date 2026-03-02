@@ -444,8 +444,10 @@ def _build_invoice_data(
     items_json: str,
     seller_street_2: str = "",
     seller_street_3: str = "",
+    seller_country_subdivision: str = "",
     buyer_street_2: str = "",
     buyer_street_3: str = "",
+    buyer_country_subdivision: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -560,6 +562,7 @@ def _build_invoice_data(
                         "city": seller_city,
                         "postal_code": seller_postal_code,
                         "country_code": seller_country_code,
+                        "country_subdivision": seller_country_subdivision or None,
                     },
                     "tax_id": seller_tax_id or None,
                     "tax_number": seller_tax_number or None,
@@ -577,6 +580,7 @@ def _build_invoice_data(
                         "city": buyer_city,
                         "postal_code": buyer_postal_code,
                         "country_code": buyer_country_code,
+                        "country_subdivision": buyer_country_subdivision or None,
                     },
                     "tax_id": buyer_tax_id or None,
                     "registration_id": buyer_registration_id or None,
@@ -736,8 +740,10 @@ async def einvoice_generate_xrechnung(
     ctx: Context,
     seller_street_2: str = "",
     seller_street_3: str = "",
+    seller_country_subdivision: str = "",
     buyer_street_2: str = "",
     buyer_street_3: str = "",
+    buyer_country_subdivision: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -830,8 +836,10 @@ async def einvoice_generate_xrechnung(
         items: JSON-Array der Positionen.
         seller_street_2: Adresszeile 2 des Verkäufers (BT-36).
         seller_street_3: Adresszeile 3 des Verkäufers (BT-37).
+        seller_country_subdivision: Bundesland Verkäufer (BT-39, z.B. 'BY').
         buyer_street_2: Adresszeile 2 des Käufers (BT-51).
         buyer_street_3: Adresszeile 3 des Käufers (BT-52).
+        buyer_country_subdivision: Bundesland Käufer (BT-54, z.B. 'NW').
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: "EUR").
         payment_terms_days: Zahlungsziel in Tagen (optional).
@@ -910,6 +918,7 @@ async def einvoice_generate_xrechnung(
         seller_street=seller_street,
         seller_street_2=seller_street_2,
         seller_street_3=seller_street_3,
+        seller_country_subdivision=seller_country_subdivision,
         seller_city=seller_city,
         seller_postal_code=seller_postal_code,
         seller_country_code=seller_country_code,
@@ -918,6 +927,7 @@ async def einvoice_generate_xrechnung(
         buyer_street=buyer_street,
         buyer_street_2=buyer_street_2,
         buyer_street_3=buyer_street_3,
+        buyer_country_subdivision=buyer_country_subdivision,
         buyer_city=buyer_city,
         buyer_postal_code=buyer_postal_code,
         buyer_country_code=buyer_country_code,
@@ -1031,8 +1041,10 @@ async def einvoice_generate_zugferd(
     ctx: Context,
     seller_street_2: str = "",
     seller_street_3: str = "",
+    seller_country_subdivision: str = "",
     buyer_street_2: str = "",
     buyer_street_3: str = "",
+    buyer_country_subdivision: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -1123,8 +1135,10 @@ async def einvoice_generate_zugferd(
         items: JSON-Array der Positionen.
         seller_street_2: Adresszeile 2 des Verkäufers (BT-36).
         seller_street_3: Adresszeile 3 des Verkäufers (BT-37).
+        seller_country_subdivision: Bundesland Verkäufer (BT-39, z.B. 'BY').
         buyer_street_2: Adresszeile 2 des Käufers (BT-51).
         buyer_street_3: Adresszeile 3 des Käufers (BT-52).
+        buyer_country_subdivision: Bundesland Käufer (BT-54, z.B. 'NW').
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: EUR).
         payment_terms_days: Zahlungsziel in Tagen (optional).
@@ -1203,6 +1217,7 @@ async def einvoice_generate_zugferd(
         seller_street=seller_street,
         seller_street_2=seller_street_2,
         seller_street_3=seller_street_3,
+        seller_country_subdivision=seller_country_subdivision,
         seller_city=seller_city,
         seller_postal_code=seller_postal_code,
         seller_country_code=seller_country_code,
@@ -1211,6 +1226,7 @@ async def einvoice_generate_zugferd(
         buyer_street=buyer_street,
         buyer_street_2=buyer_street_2,
         buyer_street_3=buyer_street_3,
+        buyer_country_subdivision=buyer_country_subdivision,
         buyer_city=buyer_city,
         buyer_postal_code=buyer_postal_code,
         buyer_country_code=buyer_country_code,
