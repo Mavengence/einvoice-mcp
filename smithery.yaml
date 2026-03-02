@@ -1,0 +1,24 @@
+# Smithery configuration: https://smithery.ai/docs/config#smitheryyaml
+
+build:
+  dockerBuildPath: docker/
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      kositUrl:
+        type: string
+        default: "http://localhost:8081"
+        description: URL of the KoSIT Validator (requires separate Docker container).
+
+commandFunction:
+  |-
+  (config) => ({
+    command: 'python',
+    args: ['-m', 'einvoice_mcp'],
+    env: {
+      KOSIT_URL: config.kositUrl || 'http://localhost:8081'
+    }
+  })
