@@ -31,4 +31,4 @@ jobs:
         run: mypy src/ --strict
 
       - name: Run tests
-        run: pytest tests/ --cov=einvoice_mcp --cov-report=term-missing -q
+        run: pytest tests/ --cov=einvoice_mcp --cov-report=term-missing --cov-fail-under=80 -q

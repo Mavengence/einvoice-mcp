@@ -21,7 +21,10 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
+    "Natural Language :: German",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -44,6 +47,7 @@ dependencies = [
 Homepage = "https://github.com/Mavengence/einvoice-mcp"
 Repository = "https://github.com/Mavengence/einvoice-mcp"
 Issues = "https://github.com/Mavengence/einvoice-mcp/issues"
+Changelog = "https://github.com/Mavengence/einvoice-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 einvoice-mcp = "einvoice_mcp.server:main"
