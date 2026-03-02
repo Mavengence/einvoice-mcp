@@ -87,9 +87,7 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Seller trading name (BT-28)
     if data.seller.trading_name:
-        doc.trade.agreement.seller.legal_organization.trade_name = (
-            data.seller.trading_name
-        )
+        doc.trade.agreement.seller.legal_organization.trade_name = data.seller.trading_name
 
     # Seller global ID (BT-29) — Handelsregisternummer or GLN
     if data.seller.registration_id:
@@ -147,9 +145,7 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Buyer trading name (BT-45)
     if data.buyer.trading_name:
-        doc.trade.agreement.buyer.legal_organization.trade_name = (
-            data.buyer.trading_name
-        )
+        doc.trade.agreement.buyer.legal_organization.trade_name = data.buyer.trading_name
 
     # Buyer global ID (BT-46) — GLN or other identifier
     if data.buyer.registration_id:
@@ -208,27 +204,19 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Purchase order reference (BT-13)
     if data.purchase_order_reference:
-        doc.trade.agreement.buyer_order.issuer_assigned_id = (
-            data.purchase_order_reference
-        )
+        doc.trade.agreement.buyer_order.issuer_assigned_id = data.purchase_order_reference
 
     # Sales order reference (BT-14)
     if data.sales_order_reference:
-        doc.trade.agreement.seller_order.issuer_assigned_id = (
-            data.sales_order_reference
-        )
+        doc.trade.agreement.seller_order.issuer_assigned_id = data.sales_order_reference
 
     # Contract reference (BT-12)
     if data.contract_reference:
-        doc.trade.agreement.contract.issuer_assigned_id = (
-            data.contract_reference
-        )
+        doc.trade.agreement.contract.issuer_assigned_id = data.contract_reference
 
     # Project reference (BT-11)
     if data.project_reference:
-        doc.trade.agreement.procuring_project_type.id = (
-            data.project_reference
-        )
+        doc.trade.agreement.procuring_project_type.id = data.project_reference
         doc.trade.agreement.procuring_project_type.name = ""
 
     # Tender or lot reference (BT-17) — AdditionalReferencedDocument TypeCode=50
@@ -269,8 +257,8 @@ def _build_document(data: InvoiceData) -> bytes:
             from datetime import date as date_type
 
             parts = data.preceding_invoice_date.split("-")
-            doc.trade.settlement.invoice_referenced_document.issue_date_time = (
-                date_type(int(parts[0]), int(parts[1]), int(parts[2]))
+            doc.trade.settlement.invoice_referenced_document.issue_date_time = date_type(
+                int(parts[0]), int(parts[1]), int(parts[2])
             )
 
     # Delivery location (BT-70..BT-80) — ShipToTradeParty
@@ -292,15 +280,11 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Despatch advice reference (BT-16)
     if data.despatch_advice_reference:
-        doc.trade.delivery.despatch_advice.issuer_assigned_id = (
-            data.despatch_advice_reference
-        )
+        doc.trade.delivery.despatch_advice.issuer_assigned_id = data.despatch_advice_reference
 
     # Receiving advice reference (BT-15)
     if data.receiving_advice_reference:
-        doc.trade.delivery.receiving_advice.issuer_assigned_id = (
-            data.receiving_advice_reference
-        )
+        doc.trade.delivery.receiving_advice.issuer_assigned_id = data.receiving_advice_reference
 
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     if data.delivery_date:
@@ -340,6 +324,7 @@ def _build_document(data: InvoiceData) -> bytes:
             li.agreement.gross.basis_quantity._unit_code = item.unit_code
             if item.item_price_discount is not None:
                 from drafthorse.models.tradelines import AllowanceCharge as LineAC
+
                 price_ac = LineAC()
                 price_ac.actual_amount = item.item_price_discount
                 li.agreement.gross.charge.add(price_ac)
@@ -351,6 +336,7 @@ def _build_document(data: InvoiceData) -> bytes:
         # Item attributes (BG-30, BT-160/BT-161)
         for attr in item.attributes:
             from drafthorse.models.product import ProductCharacteristic
+
             pc = ProductCharacteristic()
             pc.type_code = attr.name
             pc.value = attr.value
@@ -359,6 +345,7 @@ def _build_document(data: InvoiceData) -> bytes:
         # Item classification (BT-158)
         if item.item_classification_id:
             from drafthorse.models.product import ProductClassification
+
             cls = ProductClassification()
             cls.class_code = (
                 item.item_classification_scheme,
@@ -401,6 +388,7 @@ def _build_document(data: InvoiceData) -> bytes:
         # Line purchase order reference (BT-132)
         if item.line_purchase_order_reference:
             from drafthorse.models.references import InvoiceReferencedDocument
+
             line_po = InvoiceReferencedDocument()
             line_po.issuer_assigned_id = item.line_purchase_order_reference
             li.settlement.invoice_referenced_document.add(line_po)
@@ -442,9 +430,7 @@ def _build_document(data: InvoiceData) -> bytes:
         if data.payee_id:
             doc.trade.settlement.payee.global_id.add(("0088", data.payee_id))
         if data.payee_legal_registration_id:
-            doc.trade.settlement.payee.legal_organization.id = (
-                data.payee_legal_registration_id
-            )
+            doc.trade.settlement.payee.legal_organization.id = data.payee_legal_registration_id
 
     # Creditor reference ID (BT-90) — for SEPA direct debit
     if data.creditor_reference_id:
@@ -456,9 +442,7 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Remittance information (BT-83) / Verwendungszweck
     if data.remittance_information:
-        doc.trade.settlement.payment_reference = (
-            data.remittance_information
-        )
+        doc.trade.settlement.payment_reference = data.remittance_information
 
     # Document-level allowances/charges (BG-20/BG-21)
     for ac in data.allowances_charges:
@@ -545,8 +529,7 @@ def _build_document(data: InvoiceData) -> bytes:
     # Auto-generate Skonto text if skonto_percent is set but no explicit text
     if data.skonto_percent is not None and data.skonto_days is not None and not payment_text:
         payment_text = (
-            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von "
-            f"{data.skonto_days} Tagen."
+            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von {data.skonto_days} Tagen."
         )
     has_skonto = data.skonto_percent is not None and data.skonto_days is not None
     has_mandate = bool(data.mandate_reference_id)

@@ -17,11 +17,15 @@ class ItemAttribute(BaseModel):
     """
 
     name: str = Field(
-        ..., min_length=1, max_length=200,
+        ...,
+        min_length=1,
+        max_length=200,
         description="Attributname (BT-160, z.B. 'Farbe', 'Groesse')",
     )
     value: str = Field(
-        ..., min_length=1, max_length=500,
+        ...,
+        min_length=1,
+        max_length=500,
         description="Attributwert (BT-161, z.B. 'Rot', 'XL')",
     )
 
@@ -37,12 +41,8 @@ class LineAllowanceCharge(BaseModel):
         default=False,
         description="True=Zuschlag, False=Abzug/Rabatt",
     )
-    amount: Decimal = Field(
-        ..., ge=0, description="Betrag (BT-136/BT-141)"
-    )
-    reason: str = Field(
-        default="", max_length=500, description="Grund (BT-139/BT-144)"
-    )
+    amount: Decimal = Field(..., ge=0, description="Betrag (BT-136/BT-141)")
+    reason: str = Field(default="", max_length=500, description="Grund (BT-139/BT-144)")
 
 
 class LineItem(BaseModel):
@@ -87,10 +87,7 @@ class LineItem(BaseModel):
     item_classification_id: str | None = Field(
         default=None,
         max_length=100,
-        description=(
-            "Klassifizierungscode (BT-158) -- "
-            "z.B. CPV-Code fuer oeffentliche Vergabe"
-        ),
+        description=("Klassifizierungscode (BT-158) -- z.B. CPV-Code fuer oeffentliche Vergabe"),
     )
     item_classification_scheme: str = Field(
         default="STL",
@@ -159,21 +156,11 @@ class AllowanceCharge(BaseModel):
         default=False,
         description="True=Zuschlag, False=Abzug/Rabatt",
     )
-    amount: Decimal = Field(
-        ..., ge=0, description="Betrag (BT-92/BT-99)"
-    )
-    reason: str = Field(
-        default="", max_length=500, description="Grund (BT-97/BT-104)"
-    )
-    reason_code: str = Field(
-        default="", max_length=10, description="Grundcode (BT-98/BT-105)"
-    )
-    tax_rate: Decimal = Field(
-        default=Decimal("19.00"), ge=0, le=100, description="Steuersatz in %"
-    )
-    tax_category: TaxCategory = Field(
-        default=TaxCategory.S, description="Steuerkategorie"
-    )
+    amount: Decimal = Field(..., ge=0, description="Betrag (BT-92/BT-99)")
+    reason: str = Field(default="", max_length=500, description="Grund (BT-97/BT-104)")
+    reason_code: str = Field(default="", max_length=10, description="Grundcode (BT-98/BT-105)")
+    tax_rate: Decimal = Field(default=Decimal("19.00"), ge=0, le=100, description="Steuersatz in %")
+    tax_category: TaxCategory = Field(default=TaxCategory.S, description="Steuerkategorie")
     base_amount: Decimal | None = Field(
         default=None, ge=0, description="Basisbetrag fuer Prozentberechnung (BT-93/BT-100)"
     )
@@ -189,7 +176,9 @@ class SupportingDocument(BaseModel):
     """
 
     id: str = Field(
-        ..., min_length=1, max_length=200,
+        ...,
+        min_length=1,
+        max_length=200,
         description="Dokumentenreferenz (BT-122)",
     )
     description: str = Field(

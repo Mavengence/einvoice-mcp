@@ -115,6 +115,7 @@ class TestStrElement:
 class TestTaxTotalFallback:
     def test_no_container(self) -> None:
         """Returns 0 when tax_total_other_currency is None."""
+
         class FakeMS:
             tax_total_other_currency = None
 
@@ -122,6 +123,7 @@ class TestTaxTotalFallback:
 
     def test_tuple_children(self) -> None:
         """Extracts amount from tuple children."""
+
         class FakeChild:
             children = ((Decimal("19.00"), "EUR"),)
 
@@ -132,6 +134,7 @@ class TestTaxTotalFallback:
 
     def test_invalid_tuple_children(self) -> None:
         """Returns 0 for invalid tuple children."""
+
         class FakeChild:
             children = (("not-a-number", "EUR"),)
 
@@ -142,6 +145,7 @@ class TestTaxTotalFallback:
 
     def test_non_tuple_children_skipped(self) -> None:
         """Non-tuple children are skipped."""
+
         class FakeChild:
             children = ("not-a-tuple",)
 
@@ -152,6 +156,7 @@ class TestTaxTotalFallback:
 
     def test_empty_children(self) -> None:
         """Returns 0 when children is empty."""
+
         class FakeChild:
             children = ()
 

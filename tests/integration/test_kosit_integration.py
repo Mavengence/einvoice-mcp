@@ -120,7 +120,7 @@ class TestKoSITIntegration:
         """KoSIT should reject incomplete CII XML."""
         invalid_xml = (
             '<?xml version="1.0" encoding="UTF-8"?>'
-            '<rsm:CrossIndustryInvoice '
+            "<rsm:CrossIndustryInvoice "
             'xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">'
             "</rsm:CrossIndustryInvoice>"
         )

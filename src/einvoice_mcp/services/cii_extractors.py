@@ -4,6 +4,7 @@ import contextlib
 import logging
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from drafthorse.models.document import Document
 
@@ -217,27 +218,19 @@ def extract_items(doc: Document) -> list[LineItem]:
             # Line object identifier (BT-128) — AdditionalReferencedDocument
             line_object_identifier = None
             line_object_identifier_scheme = "AWV"
-            line_add_ref = getattr(
-                li.settlement, "additional_referenced_document", None
-            )
+            line_add_ref = getattr(li.settlement, "additional_referenced_document", None)
             if line_add_ref:
                 ltc = str_element(getattr(line_add_ref, "type_code", ""))
-                lref_id = str_element(
-                    getattr(line_add_ref, "issuer_assigned_id", "")
-                )
+                lref_id = str_element(getattr(line_add_ref, "issuer_assigned_id", ""))
                 if ltc == "130" and lref_id:
                     line_object_identifier = lref_id
 
             # Line purchase order reference (BT-132)
             line_purchase_order_reference = None
-            line_inv_refs = getattr(
-                li.settlement, "invoice_referenced_document", None
-            )
+            line_inv_refs = getattr(li.settlement, "invoice_referenced_document", None)
             if line_inv_refs and hasattr(line_inv_refs, "children"):
                 for liref in line_inv_refs.children:
-                    liref_id = str_element(
-                        getattr(liref, "issuer_assigned_id", "")
-                    )
+                    liref_id = str_element(getattr(liref, "issuer_assigned_id", ""))
                     if liref_id:
                         line_purchase_order_reference = liref_id
                         break
@@ -246,7 +239,8 @@ def extract_items(doc: Document) -> list[LineItem]:
             if quantity < 0:
                 logger.warning(
                     "Negative quantity %s in line item '%s' — using absolute value",
-                    quantity, description,
+                    quantity,
+                    description,
                 )
                 quantity = abs(quantity)
             if quantity == 0:
@@ -287,10 +281,10 @@ def extract_items(doc: Document) -> list[LineItem]:
     return items
 
 
-def _extract_line_allowances(li: object) -> list[LineAllowanceCharge]:
+def _extract_line_allowances(li: Any) -> list[LineAllowanceCharge]:
     """Extract line-level allowances/charges (BG-27/BG-28)."""
     line_allowances: list[LineAllowanceCharge] = []
-    line_ac_container = getattr(li.settlement, "allowance_charge", None)  # type: ignore[union-attr]
+    line_ac_container = getattr(li.settlement, "allowance_charge", None)
     if line_ac_container and hasattr(line_ac_container, "children"):
         for lac_item in line_ac_container.children:
             lac_indicator = getattr(lac_item, "indicator", None)
@@ -307,11 +301,11 @@ def _extract_line_allowances(li: object) -> list[LineAllowanceCharge]:
     return line_allowances
 
 
-def _extract_standard_item(li: object) -> tuple[str | None, str]:
+def _extract_standard_item(li: Any) -> tuple[str | None, str]:
     """Extract standard item ID (BT-157) and scheme."""
     standard_item_id = None
     standard_item_scheme = "0160"
-    gid = getattr(li.product, "global_id", None)  # type: ignore[union-attr]
+    gid = getattr(li.product, "global_id", None)
     if gid:
         gid_str = str_element(gid)
         if gid_str:
@@ -322,11 +316,11 @@ def _extract_standard_item(li: object) -> tuple[str | None, str]:
     return standard_item_id, standard_item_scheme
 
 
-def _extract_gross_price(li: object) -> tuple[Decimal | None, Decimal | None]:
+def _extract_gross_price(li: Any) -> tuple[Decimal | None, Decimal | None]:
     """Extract gross price (BT-148) and price discount (BT-147)."""
     item_gross_price = None
     item_price_discount = None
-    gross_obj = getattr(li.agreement, "gross", None)  # type: ignore[union-attr]
+    gross_obj = getattr(li.agreement, "gross", None)
     if gross_obj:
         gp = safe_decimal(getattr(gross_obj, "amount", "0"))
         if gp > 0:
@@ -341,12 +335,12 @@ def _extract_gross_price(li: object) -> tuple[Decimal | None, Decimal | None]:
     return item_gross_price, item_price_discount
 
 
-def _extract_classification(li: object) -> tuple[str | None, str, str]:
+def _extract_classification(li: Any) -> tuple[str | None, str, str]:
     """Extract item classification (BT-158)."""
     item_classification_id = None
     item_classification_scheme = "STL"
     item_classification_version = ""
-    cls_container = getattr(li.product, "classifications", None)  # type: ignore[union-attr]
+    cls_container = getattr(li.product, "classifications", None)
     if cls_container and hasattr(cls_container, "children"):
         for cls_item in cls_container.children:
             cc = getattr(cls_item, "class_code", None)
@@ -364,10 +358,10 @@ def _extract_classification(li: object) -> tuple[str | None, str, str]:
     return item_classification_id, item_classification_scheme, item_classification_version
 
 
-def _extract_item_attributes(li: object) -> list[ItemAttribute]:
+def _extract_item_attributes(li: Any) -> list[ItemAttribute]:
     """Extract item attributes (BG-30, BT-160/BT-161)."""
     item_attributes: list[ItemAttribute] = []
-    char_container = getattr(li.product, "characteristics", None)  # type: ignore[union-attr]
+    char_container = getattr(li.product, "characteristics", None)
     if char_container and hasattr(char_container, "children"):
         for char_item in char_container.children:
             attr_name = str_element(getattr(char_item, "type_code", ""))
@@ -377,11 +371,11 @@ def _extract_item_attributes(li: object) -> list[ItemAttribute]:
     return item_attributes
 
 
-def _extract_line_period(li: object) -> tuple[date | None, date | None]:
+def _extract_line_period(li: Any) -> tuple[date | None, date | None]:
     """Extract line-level billing period (BT-134/BT-135)."""
     line_period_start: date | None = None
     line_period_end: date | None = None
-    line_period = getattr(li.settlement, "period", None)  # type: ignore[union-attr]
+    line_period = getattr(li.settlement, "period", None)
     if line_period:
         lps = getattr(line_period, "start", None)
         if lps:

@@ -114,19 +114,25 @@ def _build_pdf(data: InvoiceData) -> bytes:
         [data.seller.address.street, data.buyer.address.street],
     ]
     if data.seller.address.street_2 or data.buyer.address.street_2:
-        party_data.append([
-            data.seller.address.street_2 or "",
-            data.buyer.address.street_2 or "",
-        ])
+        party_data.append(
+            [
+                data.seller.address.street_2 or "",
+                data.buyer.address.street_2 or "",
+            ]
+        )
     if data.seller.address.street_3 or data.buyer.address.street_3:
-        party_data.append([
-            data.seller.address.street_3 or "",
-            data.buyer.address.street_3 or "",
-        ])
-    party_data.append([
-        f"{data.seller.address.postal_code} {data.seller.address.city}",
-        f"{data.buyer.address.postal_code} {data.buyer.address.city}",
-    ])
+        party_data.append(
+            [
+                data.seller.address.street_3 or "",
+                data.buyer.address.street_3 or "",
+            ]
+        )
+    party_data.append(
+        [
+            f"{data.seller.address.postal_code} {data.seller.address.city}",
+            f"{data.buyer.address.postal_code} {data.buyer.address.city}",
+        ]
+    )
     if data.seller.tax_id:
         buyer_tax = f"USt-IdNr.: {data.buyer.tax_id}" if data.buyer.tax_id else ""
         party_data.append([f"USt-IdNr.: {data.seller.tax_id}", buyer_tax])
@@ -137,24 +143,30 @@ def _build_pdf(data: InvoiceData) -> bytes:
     seller_contact = data.seller_contact_name or data.seller.contact_name
     buyer_contact = data.buyer_contact_name or data.buyer.contact_name
     if seller_contact or buyer_contact:
-        party_data.append([
-            f"Kontakt: {seller_contact}" if seller_contact else "",
-            f"Kontakt: {buyer_contact}" if buyer_contact else "",
-        ])
+        party_data.append(
+            [
+                f"Kontakt: {seller_contact}" if seller_contact else "",
+                f"Kontakt: {buyer_contact}" if buyer_contact else "",
+            ]
+        )
     seller_phone = data.seller_contact_phone or data.seller.contact_phone
     seller_email = data.seller_contact_email or data.seller.contact_email
     buyer_phone = data.buyer_contact_phone or data.buyer.contact_phone
     buyer_email = data.buyer_contact_email or data.buyer.contact_email
     if seller_phone or buyer_phone:
-        party_data.append([
-            f"Tel.: {seller_phone}" if seller_phone else "",
-            f"Tel.: {buyer_phone}" if buyer_phone else "",
-        ])
+        party_data.append(
+            [
+                f"Tel.: {seller_phone}" if seller_phone else "",
+                f"Tel.: {buyer_phone}" if buyer_phone else "",
+            ]
+        )
     if seller_email or buyer_email:
-        party_data.append([
-            seller_email or "",
-            buyer_email or "",
-        ])
+        party_data.append(
+            [
+                seller_email or "",
+                buyer_email or "",
+            ]
+        )
 
     party_table = Table(party_data, colWidths=[85 * mm, 85 * mm])
     party_table.setStyle(
@@ -268,9 +280,7 @@ def _build_pdf(data: InvoiceData) -> bytes:
         ["", "Zwischensumme Positionen:", f"{net_total:.2f} {data.currency}"],
     ]
     if data.allowances_charges:
-        totals_data.append(
-            ["", "Steuerbemessungsgrundlage:", f"{tax_basis:.2f} {data.currency}"]
-        )
+        totals_data.append(["", "Steuerbemessungsgrundlage:", f"{tax_basis:.2f} {data.currency}"])
 
     # Per-category tax breakdown (group items + doc-level allowances/charges)
     tax_groups: dict[tuple[str, Decimal], Decimal] = {}
@@ -286,16 +296,19 @@ def _build_pdf(data: InvoiceData) -> bytes:
             tax_groups[key] = tax_groups.get(key, Decimal("0")) - ac.amount
 
     cat_labels = {
-        "S": "USt", "Z": "USt 0%", "E": "Steuerbefreit",
-        "AE": "Reverse Charge", "K": "ig. Lieferung",
-        "G": "Export", "O": "Nicht steuerbar",
-        "L": "Kanarische Inseln", "M": "Ceuta/Melilla",
+        "S": "USt",
+        "Z": "USt 0%",
+        "E": "Steuerbefreit",
+        "AE": "Reverse Charge",
+        "K": "ig. Lieferung",
+        "G": "Export",
+        "O": "Nicht steuerbar",
+        "L": "Kanarische Inseln",
+        "M": "Ceuta/Melilla",
     }
     if len(tax_groups) == 1:
         # Single rate — show simple line
-        totals_data.append(
-            ["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"]
-        )
+        totals_data.append(["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"])
     else:
         # Multiple rates — show per-category breakdown
         for (cat, rate), basis in sorted(tax_groups.items()):
@@ -308,13 +321,9 @@ def _build_pdf(data: InvoiceData) -> bytes:
                     f"{cat_tax:.2f} {data.currency}",
                 ]
             )
-        totals_data.append(
-            ["", "Steuern gesamt:", f"{tax_total:.2f} {data.currency}"]
-        )
+        totals_data.append(["", "Steuern gesamt:", f"{tax_total:.2f} {data.currency}"])
 
-    totals_data.append(
-        ["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"]
-    )
+    totals_data.append(["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"])
     last_row = len(totals_data) - 1
     totals_table = Table(totals_data, colWidths=[100 * mm, 35 * mm, 35 * mm])
     totals_table.setStyle(
@@ -369,14 +378,9 @@ def _build_pdf(data: InvoiceData) -> bytes:
     payment_text = data.payment_terms_text
     if not payment_text and data.payment_terms_days is not None:
         payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
-    if (
-        not payment_text
-        and data.skonto_percent is not None
-        and data.skonto_days is not None
-    ):
+    if not payment_text and data.skonto_percent is not None and data.skonto_days is not None:
         payment_text = (
-            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von "
-            f"{data.skonto_days} Tagen."
+            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von {data.skonto_days} Tagen."
         )
     if payment_text:
         elements.append(Spacer(1, 8 * mm))

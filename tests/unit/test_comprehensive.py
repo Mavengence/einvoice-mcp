@@ -797,8 +797,7 @@ class TestComplianceEdgeCases:
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "ZUGFERD")
         ku_suggestions = [
-            s for s in result["suggestions"]
-            if "§19" in s and "Kleinunternehmer" in s
+            s for s in result["suggestions"] if "§19" in s and "Kleinunternehmer" in s
         ]
         assert ku_suggestions == []
         await client.close()
@@ -2170,9 +2169,7 @@ class TestInvoiceNoteAndPaymentTerms:
 
     def test_pdf_includes_invoice_note(self, sample_invoice_data: InvoiceData) -> None:
         """PDF generation with invoice_note doesn't crash and produces bytes."""
-        data = sample_invoice_data.model_copy(
-            update={"invoice_note": "Testnotiz für die PDF."}
-        )
+        data = sample_invoice_data.model_copy(update={"invoice_note": "Testnotiz für die PDF."})
         pdf_bytes = generate_invoice_pdf(data)
         assert isinstance(pdf_bytes, bytes)
         assert len(pdf_bytes) > 100
@@ -2221,42 +2218,28 @@ class TestInvoiceNoteAndPaymentTerms:
 class TestReferenceFieldsRoundtrip:
     """Roundtrip tests for BT-11/12/13/25 reference fields."""
 
-    def test_purchase_order_reference_bt13(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_purchase_order_reference_bt13(self, sample_invoice_data: InvoiceData) -> None:
         """BT-13: purchase order reference roundtrip."""
-        data = sample_invoice_data.model_copy(
-            update={"purchase_order_reference": "PO-2026-0042"}
-        )
+        data = sample_invoice_data.model_copy(update={"purchase_order_reference": "PO-2026-0042"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.purchase_order_reference == "PO-2026-0042"
 
-    def test_contract_reference_bt12(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_contract_reference_bt12(self, sample_invoice_data: InvoiceData) -> None:
         """BT-12: contract reference roundtrip."""
-        data = sample_invoice_data.model_copy(
-            update={"contract_reference": "V-2025-1234"}
-        )
+        data = sample_invoice_data.model_copy(update={"contract_reference": "V-2025-1234"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.contract_reference == "V-2025-1234"
 
-    def test_project_reference_bt11(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_project_reference_bt11(self, sample_invoice_data: InvoiceData) -> None:
         """BT-11: project reference roundtrip."""
-        data = sample_invoice_data.model_copy(
-            update={"project_reference": "PRJ-ALPHA"}
-        )
+        data = sample_invoice_data.model_copy(update={"project_reference": "PRJ-ALPHA"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.project_reference == "PRJ-ALPHA"
 
-    def test_preceding_invoice_bt25(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_preceding_invoice_bt25(self, sample_invoice_data: InvoiceData) -> None:
         """BT-25: preceding invoice number roundtrip (credit note)."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2269,9 +2252,7 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.preceding_invoice_number == "RE-2025-099"
         assert parsed.type_code == "381"
 
-    def test_preceding_invoice_date_bt26(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_preceding_invoice_date_bt26(self, sample_invoice_data: InvoiceData) -> None:
         """BT-26: preceding invoice date roundtrips for credit note."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2285,9 +2266,7 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.preceding_invoice_number == "RE-2025-099"
         assert parsed.preceding_invoice_date == "2025-06-15"
 
-    def test_preceding_invoice_number_without_date(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_preceding_invoice_number_without_date(self, sample_invoice_data: InvoiceData) -> None:
         """BT-25 without BT-26: date stays empty."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2300,9 +2279,7 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.preceding_invoice_number == "RE-2025-099"
         assert parsed.preceding_invoice_date == ""
 
-    def test_no_references_parse_empty(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_references_parse_empty(self, sample_invoice_data: InvoiceData) -> None:
         """All reference fields parse as empty when not set."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -2312,9 +2289,7 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.preceding_invoice_number == ""
         assert parsed.preceding_invoice_date == ""
 
-    def test_all_references_together(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_all_references_together(self, sample_invoice_data: InvoiceData) -> None:
         """All reference fields work together in same invoice."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2340,9 +2315,7 @@ class TestReferenceFieldsRoundtrip:
 class TestPaymentMeansAndRemittance:
     """Tests for BT-81 payment means type code and BT-83 remittance."""
 
-    def test_remittance_information_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_remittance_information_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """BT-83: remittance information (Verwendungszweck) roundtrip."""
         data = sample_invoice_data.model_copy(
             update={"remittance_information": "RE-2026-001 Projekt Alpha"}
@@ -2351,25 +2324,17 @@ class TestPaymentMeansAndRemittance:
         parsed = parse_xml(xml_bytes)
         assert parsed.remittance_information == "RE-2026-001 Projekt Alpha"
 
-    def test_payment_means_type_code_default(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_payment_means_type_code_default(self, sample_invoice_data: InvoiceData) -> None:
         """BT-81 defaults to 58 (SEPA credit transfer)."""
         assert sample_invoice_data.payment_means_type_code == "58"
 
-    def test_payment_means_type_code_custom(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_payment_means_type_code_custom(self, sample_invoice_data: InvoiceData) -> None:
         """BT-81 custom payment means code (e.g. 30 for bank transfer)."""
-        data = sample_invoice_data.model_copy(
-            update={"payment_means_type_code": "30"}
-        )
+        data = sample_invoice_data.model_copy(update={"payment_means_type_code": "30"})
         xml_bytes = build_xml(data)
         assert b"30" in xml_bytes  # TypeCode in PaymentMeans
 
-    def test_no_remittance_parses_empty(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_remittance_parses_empty(self, sample_invoice_data: InvoiceData) -> None:
         """Remittance info parses as empty when not set."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -2442,9 +2407,7 @@ class TestBT25ComplianceCheck:
         assert any("Vorherige" in s for s in result["suggestions"])
 
     @respx.mock
-    async def test_credit_note_with_bt25_passes(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    async def test_credit_note_with_bt25_passes(self, sample_invoice_data: InvoiceData) -> None:
         """Credit note (381) with BT-25 passes compliance check."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2468,9 +2431,7 @@ class TestBT25ComplianceCheck:
         assert "BT-25" not in result["missing_fields"]
 
     @respx.mock
-    async def test_regular_invoice_no_bt25_check(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    async def test_regular_invoice_no_bt25_check(self, sample_invoice_data: InvoiceData) -> None:
         """Regular invoice (380) doesn't get BT-25 check."""
         xml_content = build_xml(sample_invoice_data).decode("utf-8")
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
@@ -2494,9 +2455,7 @@ class TestBT25ComplianceCheck:
 class TestPdfOutputEnhancements:
     """PDF generation tests for BT-25, BT-83, and tax_number branch."""
 
-    def test_pdf_credit_note_shows_preceding_ref(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_pdf_credit_note_shows_preceding_ref(self, sample_invoice_data: InvoiceData) -> None:
         """Credit note PDF shows preceding invoice reference."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2508,9 +2467,7 @@ class TestPdfOutputEnhancements:
         assert isinstance(pdf_bytes, bytes)
         assert len(pdf_bytes) > 100
 
-    def test_pdf_shows_verwendungszweck(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_pdf_shows_verwendungszweck(self, sample_invoice_data: InvoiceData) -> None:
         """PDF shows Verwendungszweck (BT-83) when set."""
         data = sample_invoice_data.model_copy(
             update={"remittance_information": "RE-2026-001 Alpha"}
@@ -2586,9 +2543,7 @@ class TestKoSITOversizedBody:
         check (line 74) and reach the actual body size check (line 82).
         """
         huge_body = "x" * (MAX_RESPONSE_SIZE + 1)
-        respx.post(f"{KOSIT_URL}/").respond(
-            200, text=huge_body, headers={"Content-Length": "100"}
-        )
+        respx.post(f"{KOSIT_URL}/").respond(200, text=huge_body, headers={"Content-Length": "100"})
         client = KoSITClient(base_url=KOSIT_URL)
         with pytest.raises(KoSITValidationError, match="Größenlimit"):
             await client.validate(b"<test/>")
@@ -2632,9 +2587,7 @@ class TestComplianceKoSITErrors:
     ) -> None:
         """KoSIT validation errors are included in compliance suggestions."""
         xml_content = build_xml(sample_invoice_data).decode("utf-8")
-        respx.post(f"{KOSIT_URL}/").respond(
-            406, text=MOCK_REPORT_WITH_ERRORS
-        )
+        respx.post(f"{KOSIT_URL}/").respond(406, text=MOCK_REPORT_WITH_ERRORS)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml_content, client)
         await client.close()
@@ -2642,9 +2595,7 @@ class TestComplianceKoSITErrors:
         # KoSIT said invalid → kosit_valid should be False
         assert result["kosit_valid"] is False
         # The SVRL error message should be in suggestions
-        assert any(
-            "Specification identifier" in s for s in result["suggestions"]
-        )
+        assert any("Specification identifier" in s for s in result["suggestions"])
 
 
 # ============================================================================
@@ -2666,9 +2617,7 @@ class TestValidateZugferdSuccessPath:
             "einvoice_mcp.tools.validate.extract_xml_from_pdf",
             return_value=xml_bytes,
         ):
-            respx.post(f"{KOSIT_URL}/").respond(
-                200, text=MOCK_VALID_REPORT
-            )
+            respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
             client = KoSITClient(base_url=KOSIT_URL)
             result = await validate_zugferd(valid_b64, client)
             await client.close()
@@ -2723,9 +2672,7 @@ class TestExtractXmlFromPdfSuccess:
             result = extract_xml_from_pdf(b"fake-pdf-bytes")
 
         assert result == fake_xml
-        mock_facturx.get_xml_from_pdf.assert_called_once_with(
-            b"fake-pdf-bytes", check_xsd=False
-        )
+        mock_facturx.get_xml_from_pdf.assert_called_once_with(b"fake-pdf-bytes", check_xsd=False)
 
 
 # ============================================================================
@@ -2807,9 +2754,7 @@ class TestExtractInvoiceExceptionHandlers:
 
 
 class TestContactFieldParsing:
-    def test_seller_contact_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_seller_contact_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Seller contact (name, phone, email) roundtrips through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2825,9 +2770,7 @@ class TestContactFieldParsing:
         assert parsed.seller.contact_email == "hans@techcorp.de"
         assert parsed.seller.contact_phone == "+49 30 123456"
 
-    def test_no_contact_returns_none(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_contact_returns_none(self, sample_invoice_data: InvoiceData) -> None:
         """No contact info → contact fields are None."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2866,9 +2809,7 @@ class TestContactFieldParsing:
 
 
 class TestIbanBicParsing:
-    def test_iban_bic_bank_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_iban_bic_bank_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """IBAN, BIC, and bank name roundtrip through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2883,9 +2824,7 @@ class TestIbanBicParsing:
         assert parsed.seller_bic == "COBADEFFXXX"
         assert parsed.seller_bank_name == "Commerzbank"
 
-    def test_no_bank_details_empty(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_bank_details_empty(self, sample_invoice_data: InvoiceData) -> None:
         """No IBAN → all bank fields empty strings."""
         data = sample_invoice_data.model_copy(
             update={
@@ -2950,12 +2889,8 @@ class TestISOCodeValidation:
             InvoiceData(
                 invoice_id="V3",
                 issue_date="2026-01-01",
-                seller=Party(
-                    name="S", address=Address(street="S", city="S", postal_code="00000")
-                ),
-                buyer=Party(
-                    name="B", address=Address(street="B", city="B", postal_code="00000")
-                ),
+                seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+                buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
                 items=[LineItem(description="X", quantity="1", unit_price="100")],
                 currency="eur",
             )
@@ -2965,12 +2900,8 @@ class TestISOCodeValidation:
             InvoiceData(
                 invoice_id="V4",
                 issue_date="2026-01-01",
-                seller=Party(
-                    name="S", address=Address(street="S", city="S", postal_code="00000")
-                ),
-                buyer=Party(
-                    name="B", address=Address(street="B", city="B", postal_code="00000")
-                ),
+                seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+                buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
                 items=[LineItem(description="X", quantity="1", unit_price="100")],
                 currency="123",
             )
@@ -3018,12 +2949,8 @@ class TestISOCodeValidation:
             InvoiceData(
                 invoice_id="PM3",
                 issue_date="2026-01-01",
-                seller=Party(
-                    name="S", address=Address(street="S", city="S", postal_code="00000")
-                ),
-                buyer=Party(
-                    name="B", address=Address(street="B", city="B", postal_code="00000")
-                ),
+                seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+                buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
                 items=[LineItem(description="X", quantity="1", unit_price="100")],
                 payment_means_type_code="99",
             )
@@ -3039,9 +2966,7 @@ class TestDueDateRoundtrip:
         """Due date (BT-9) roundtrips through XML build/parse."""
         from datetime import date
 
-        data = sample_invoice_data.model_copy(
-            update={"due_date": date(2026, 3, 15)}
-        )
+        data = sample_invoice_data.model_copy(update={"due_date": date(2026, 3, 15)})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.due_date == "2026-03-15"
@@ -3055,9 +2980,7 @@ class TestDueDateRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.due_date == ""
 
-    def test_due_date_with_payment_terms(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_due_date_with_payment_terms(self, sample_invoice_data: InvoiceData) -> None:
         """Due date combined with payment terms text."""
         from datetime import date
 
@@ -3076,15 +2999,11 @@ class TestDueDateRoundtrip:
         """Due date produces a valid PDF (content is compressed)."""
         from datetime import date
 
-        data = sample_invoice_data.model_copy(
-            update={"due_date": date(2026, 5, 20)}
-        )
+        data = sample_invoice_data.model_copy(update={"due_date": date(2026, 5, 20)})
         pdf_bytes = generate_invoice_pdf(data)
         assert pdf_bytes.startswith(b"%PDF")
         # PDF with due date should be larger than without
-        data_no_due = sample_invoice_data.model_copy(
-            update={"due_date": None}
-        )
+        data_no_due = sample_invoice_data.model_copy(update={"due_date": None})
         pdf_no_due = generate_invoice_pdf(data_no_due)
         assert len(pdf_bytes) > len(pdf_no_due)
 
@@ -3095,9 +3014,7 @@ class TestDueDateRoundtrip:
 
 
 class TestAddressLineRoundtrip:
-    def test_full_address_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_full_address_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Address lines 2+3 roundtrip through XML build/parse."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3142,9 +3059,7 @@ class TestAddressLineRoundtrip:
         assert parsed.seller.address.street_2 is None
         assert parsed.seller.address.street_3 is None
 
-    def test_address_lines_in_pdf(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_address_lines_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
         """PDF generates successfully with extra address lines."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3171,9 +3086,7 @@ class TestAddressLineRoundtrip:
 
 
 class TestBuyerContactRoundtrip:
-    def test_buyer_contact_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_buyer_contact_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Buyer contact (BT-44/46/47) roundtrips through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3231,9 +3144,7 @@ class TestBuyerContactRoundtrip:
 
 
 class TestRegistrationIdRoundtrip:
-    def test_seller_registration_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_seller_registration_id_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Seller registration ID (BT-29) roundtrips through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3247,18 +3158,14 @@ class TestRegistrationIdRoundtrip:
         assert parsed.seller is not None
         assert parsed.seller.registration_id == "4000001000016"
 
-    def test_no_registration_id(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_registration_id(self, sample_invoice_data: InvoiceData) -> None:
         """No registration ID → parsed as None."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.seller is not None
         assert parsed.seller.registration_id is None
 
-    def test_buyer_registration_id(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_buyer_registration_id(self, sample_invoice_data: InvoiceData) -> None:
         """Buyer registration ID roundtrips through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3276,9 +3183,7 @@ class TestRegistrationIdRoundtrip:
 class TestLineAllowancesChargesRoundtrip:
     """Roundtrip tests for line-level allowances/charges (BG-27/BG-28)."""
 
-    def test_line_allowance_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_line_allowance_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Line-level allowance roundtrips through XML."""
         items = [
             sample_invoice_data.items[0].model_copy(
@@ -3302,9 +3207,7 @@ class TestLineAllowancesChargesRoundtrip:
         assert lac.amount == Decimal("5.00")
         assert lac.reason == "Positionsrabatt"
 
-    def test_line_charge_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_line_charge_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Line-level charge roundtrips through XML."""
         items = [
             sample_invoice_data.items[0].model_copy(
@@ -3327,9 +3230,7 @@ class TestLineAllowancesChargesRoundtrip:
         assert lac.charge is True
         assert lac.amount == Decimal("3.00")
 
-    def test_no_line_allowances(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_line_allowances(self, sample_invoice_data: InvoiceData) -> None:
         """No line allowances → empty list."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -3339,9 +3240,7 @@ class TestLineAllowancesChargesRoundtrip:
 class TestLineAllowanceChargeAffectsTotals:
     """Verify line-level A/C affects total_net() and XML monetary summation."""
 
-    def test_line_allowance_reduces_total_net(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_line_allowance_reduces_total_net(self, sample_invoice_data: InvoiceData) -> None:
         """Line-level allowance (discount) reduces total_net() per EN 16931."""
         item = sample_invoice_data.items[0]
         item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
@@ -3359,9 +3258,7 @@ class TestLineAllowanceChargeAffectsTotals:
         data = sample_invoice_data.model_copy(update={"items": [new_item]})
         assert data.total_net() == item_base - Decimal("10.00")
 
-    def test_line_charge_increases_total_net(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_line_charge_increases_total_net(self, sample_invoice_data: InvoiceData) -> None:
         """Line-level charge (surcharge) increases total_net()."""
         item = sample_invoice_data.items[0]
         item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
@@ -3379,21 +3276,15 @@ class TestLineAllowanceChargeAffectsTotals:
         data = sample_invoice_data.model_copy(update={"items": [new_item]})
         assert data.total_net() == item_base + Decimal("7.50")
 
-    def test_mixed_line_allowance_charge(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_mixed_line_allowance_charge(self, sample_invoice_data: InvoiceData) -> None:
         """Both allowance and charge on same line partially offset."""
         item = sample_invoice_data.items[0]
         item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
         new_item = item.model_copy(
             update={
                 "allowances_charges": [
-                    LineAllowanceCharge(
-                        charge=False, amount=Decimal("20.00"), reason="Rabatt"
-                    ),
-                    LineAllowanceCharge(
-                        charge=True, amount=Decimal("5.00"), reason="Zuschlag"
-                    ),
+                    LineAllowanceCharge(charge=False, amount=Decimal("20.00"), reason="Rabatt"),
+                    LineAllowanceCharge(charge=True, amount=Decimal("5.00"), reason="Zuschlag"),
                 ],
             }
         )
@@ -3419,18 +3310,14 @@ class TestLineAllowanceChargeAffectsTotals:
         data = sample_invoice_data.model_copy(update={"items": [new_item]})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
-        expected = (item.quantity * item.unit_price).quantize(
-            Decimal("0.01")
-        ) - Decimal("5.00")
+        expected = (item.quantity * item.unit_price).quantize(Decimal("0.01")) - Decimal("5.00")
         assert parsed.totals.net_total == expected
 
 
 class TestLineAllowanceChargeAffectsTaxGroups:
     """Verify line-level A/C affects total_tax() and XML ApplicableTradeTax basis."""
 
-    def test_total_tax_includes_line_allowance(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_total_tax_includes_line_allowance(self, sample_invoice_data: InvoiceData) -> None:
         """total_tax() must use _line_net_amount (incl. line A/C) as tax basis."""
         item = sample_invoice_data.items[0]
         new_item = item.model_copy(
@@ -3446,9 +3333,7 @@ class TestLineAllowanceChargeAffectsTaxGroups:
         )
         data = sample_invoice_data.model_copy(update={"items": [new_item]})
         line_net = InvoiceData._line_net_amount(new_item)
-        expected_tax = (line_net * new_item.tax_rate / Decimal("100")).quantize(
-            Decimal("0.01")
-        )
+        expected_tax = (line_net * new_item.tax_rate / Decimal("100")).quantize(Decimal("0.01"))
         assert data.total_tax() == expected_tax
 
     def test_xml_tax_group_basis_includes_line_allowance(
@@ -3472,56 +3357,40 @@ class TestLineAllowanceChargeAffectsTaxGroups:
         parsed = parse_xml(xml_bytes)
         expected_net = InvoiceData._line_net_amount(new_item)
         assert parsed.totals.net_total == expected_net
-        expected_tax = (expected_net * new_item.tax_rate / Decimal("100")).quantize(
-            Decimal("0.01")
-        )
+        expected_tax = (expected_net * new_item.tax_rate / Decimal("100")).quantize(Decimal("0.01"))
         assert parsed.totals.tax_total == expected_tax
 
 
 class TestPrepaidAmountRoundtrip:
     """Verify BT-113 prepaid amount and BT-115 due payable roundtrip."""
 
-    def test_prepaid_amount_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_prepaid_amount_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Prepaid amount generates correct XML and parses back."""
-        data = sample_invoice_data.model_copy(
-            update={"prepaid_amount": Decimal("500.00")}
-        )
+        data = sample_invoice_data.model_copy(update={"prepaid_amount": Decimal("500.00")})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.totals.prepaid_amount == Decimal("500.00")
         expected_due = parsed.totals.gross_total - Decimal("500.00")
         assert parsed.totals.due_payable == expected_due
 
-    def test_no_prepaid_amount(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_prepaid_amount(self, sample_invoice_data: InvoiceData) -> None:
         """Without prepaid, due_payable equals gross_total."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.totals.prepaid_amount == Decimal("0")
         assert parsed.totals.due_payable == parsed.totals.gross_total
 
-    def test_prepaid_amount_zero(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_prepaid_amount_zero(self, sample_invoice_data: InvoiceData) -> None:
         """Explicit zero prepaid behaves same as None."""
-        data = sample_invoice_data.model_copy(
-            update={"prepaid_amount": Decimal("0")}
-        )
+        data = sample_invoice_data.model_copy(update={"prepaid_amount": Decimal("0")})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.totals.prepaid_amount == Decimal("0")
         assert parsed.totals.due_payable == parsed.totals.gross_total
 
-    def test_prepaid_partial_payment(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_prepaid_partial_payment(self, sample_invoice_data: InvoiceData) -> None:
         """Schlussrechnung with partial prepayment calculates due correctly."""
-        data = sample_invoice_data.model_copy(
-            update={"prepaid_amount": Decimal("100.00")}
-        )
+        data = sample_invoice_data.model_copy(update={"prepaid_amount": Decimal("100.00")})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.totals.prepaid_amount == Decimal("100.00")
@@ -3532,9 +3401,7 @@ class TestPrepaidAmountRoundtrip:
 class TestDeliveryLocationRoundtrip:
     """Roundtrip tests for delivery location (BT-70..BT-80)."""
 
-    def test_delivery_location_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_delivery_location_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Full delivery location roundtrips through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3553,29 +3420,21 @@ class TestDeliveryLocationRoundtrip:
         assert parsed.delivery_postal_code == "20457"
         assert parsed.delivery_country_code == "DE"
 
-    def test_no_delivery_location(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_delivery_location(self, sample_invoice_data: InvoiceData) -> None:
         """No delivery location → empty strings parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.delivery_party_name == ""
         assert parsed.delivery_street == ""
 
-    def test_delivery_name_only(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_delivery_name_only(self, sample_invoice_data: InvoiceData) -> None:
         """Only delivery party name (no address)."""
-        data = sample_invoice_data.model_copy(
-            update={"delivery_party_name": "Zentrale"}
-        )
+        data = sample_invoice_data.model_copy(update={"delivery_party_name": "Zentrale"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.delivery_party_name == "Zentrale"
 
-    def test_delivery_location_in_pdf(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_delivery_location_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
         """PDF generation includes delivery location section."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3596,23 +3455,17 @@ class TestDeliveryLocationRoundtrip:
 class TestLineItemNoteRoundtrip:
     """Roundtrip tests for line-item note (BT-127)."""
 
-    def test_item_note_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_item_note_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Line item note roundtrips through XML."""
         items = [
-            sample_invoice_data.items[0].model_copy(
-                update={"item_note": "Lieferung per Express"}
-            )
+            sample_invoice_data.items[0].model_copy(update={"item_note": "Lieferung per Express"})
         ]
         data = sample_invoice_data.model_copy(update={"items": items})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.items[0].item_note == "Lieferung per Express"
 
-    def test_no_item_note(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_item_note(self, sample_invoice_data: InvoiceData) -> None:
         """No item note → None in parsed output."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -3622,37 +3475,23 @@ class TestLineItemNoteRoundtrip:
 class TestLineItemIdentifiersRoundtrip:
     """Roundtrip tests for line-item identifiers (BT-155/156/157)."""
 
-    def test_seller_item_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_seller_item_id_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Seller item ID (BT-155) roundtrips through XML."""
-        items = [
-            sample_invoice_data.items[0].model_copy(
-                update={"seller_item_id": "ART-001"}
-            )
-        ]
+        items = [sample_invoice_data.items[0].model_copy(update={"seller_item_id": "ART-001"})]
         data = sample_invoice_data.model_copy(update={"items": items})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.items[0].seller_item_id == "ART-001"
 
-    def test_buyer_item_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_buyer_item_id_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Buyer item ID (BT-156) roundtrips through XML."""
-        items = [
-            sample_invoice_data.items[0].model_copy(
-                update={"buyer_item_id": "BUYER-X1"}
-            )
-        ]
+        items = [sample_invoice_data.items[0].model_copy(update={"buyer_item_id": "BUYER-X1"})]
         data = sample_invoice_data.model_copy(update={"items": items})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.items[0].buyer_item_id == "BUYER-X1"
 
-    def test_standard_item_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_standard_item_id_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Standard item ID / GTIN (BT-157) roundtrips through XML."""
         items = [
             sample_invoice_data.items[0].model_copy(
@@ -3668,9 +3507,7 @@ class TestLineItemIdentifiersRoundtrip:
         assert parsed.items[0].standard_item_id == "4012345000001"
         assert parsed.items[0].standard_item_scheme == "0160"
 
-    def test_no_item_ids(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_item_ids(self, sample_invoice_data: InvoiceData) -> None:
         """No item IDs → all None in parsed output."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -3678,22 +3515,14 @@ class TestLineItemIdentifiersRoundtrip:
         assert parsed.items[0].buyer_item_id is None
         assert parsed.items[0].standard_item_id is None
 
-    def test_seller_item_id_in_pdf(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_seller_item_id_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
         """Seller item ID shown in PDF line items."""
-        items = [
-            sample_invoice_data.items[0].model_copy(
-                update={"seller_item_id": "ART-999"}
-            )
-        ]
+        items = [sample_invoice_data.items[0].model_copy(update={"seller_item_id": "ART-999"})]
         data = sample_invoice_data.model_copy(update={"items": items})
         pdf_bytes = generate_invoice_pdf(data)
         assert len(pdf_bytes) > 0
 
-    def test_all_item_ids_together(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_all_item_ids_together(self, sample_invoice_data: InvoiceData) -> None:
         """All three item IDs set simultaneously."""
         items = [
             sample_invoice_data.items[0].model_copy(
@@ -3715,20 +3544,14 @@ class TestLineItemIdentifiersRoundtrip:
 class TestSalesOrderReferenceRoundtrip:
     """Roundtrip tests for seller order reference (BT-14)."""
 
-    def test_sales_order_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_sales_order_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Sales order reference roundtrips through XML."""
-        data = sample_invoice_data.model_copy(
-            update={"sales_order_reference": "SO-2026-001"}
-        )
+        data = sample_invoice_data.model_copy(update={"sales_order_reference": "SO-2026-001"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.sales_order_reference == "SO-2026-001"
 
-    def test_no_sales_order_reference(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_sales_order_reference(self, sample_invoice_data: InvoiceData) -> None:
         """No sales order reference → empty string parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -3738,9 +3561,7 @@ class TestSalesOrderReferenceRoundtrip:
 class TestAllowancesChargesRoundtrip:
     """Roundtrip tests for document-level allowances/charges (BG-20/BG-21)."""
 
-    def test_allowance_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_allowance_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Allowance (discount) roundtrips through XML generation and parsing."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3765,9 +3586,7 @@ class TestAllowancesChargesRoundtrip:
         assert ac.tax_rate == Decimal("19.00")
         assert ac.tax_category == "S"
 
-    def test_charge_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_charge_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Charge (surcharge) roundtrips through XML generation and parsing."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3790,9 +3609,7 @@ class TestAllowancesChargesRoundtrip:
         assert ac.amount == Decimal("25.00")
         assert ac.reason == "Expressversand"
 
-    def test_mixed_allowances_charges(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_mixed_allowances_charges(self, sample_invoice_data: InvoiceData) -> None:
         """Multiple allowances and charges roundtrip correctly."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3822,17 +3639,13 @@ class TestAllowancesChargesRoundtrip:
         assert charge.amount == Decimal("15.00")
         assert charge.reason == "Verpackung"
 
-    def test_no_allowances_charges(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_allowances_charges(self, sample_invoice_data: InvoiceData) -> None:
         """No allowances/charges → empty list parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.allowances_charges == []
 
-    def test_allowance_affects_totals(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_allowance_affects_totals(self, sample_invoice_data: InvoiceData) -> None:
         """Allowance reduces tax basis and grand total correctly."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3861,9 +3674,7 @@ class TestAllowancesChargesRoundtrip:
         assert parsed.totals.net_total == net
         assert parsed.totals.tax_basis_total == tax_basis
 
-    def test_charge_with_percentage_and_base_amount(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_charge_with_percentage_and_base_amount(self, sample_invoice_data: InvoiceData) -> None:
         """Charge with reason_code, base_amount, percentage covers builder branches."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3895,9 +3706,7 @@ class TestAllowancesChargesRoundtrip:
         assert ac.charge is True
         assert ac.amount == Decimal("20.00")
 
-    def test_allowance_in_pdf(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_allowance_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
         """PDF generation succeeds with allowances/charges."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3921,9 +3730,7 @@ class TestAllowancesChargesRoundtrip:
 class TestSkontoRoundtrip:
     """Roundtrip tests for Skonto (early payment discount)."""
 
-    def test_skonto_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_skonto_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Skonto terms roundtrip through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3938,9 +3745,7 @@ class TestSkontoRoundtrip:
         assert "10" in parsed.skonto_days
         assert "Skonto" in parsed.payment_terms
 
-    def test_skonto_with_base_amount(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_skonto_with_base_amount(self, sample_invoice_data: InvoiceData) -> None:
         """Skonto with explicit base amount."""
         data = sample_invoice_data.model_copy(
             update={
@@ -3953,23 +3758,17 @@ class TestSkontoRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.skonto_percent == "3.00"
 
-    def test_no_skonto(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_skonto(self, sample_invoice_data: InvoiceData) -> None:
         """No Skonto → empty strings parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.skonto_percent == ""
         assert parsed.skonto_days == ""
 
-    def test_skonto_in_pdf(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_skonto_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
         """Skonto generates payment terms text in PDF."""
         # Clear payment_terms_days so Skonto text is generated
-        base = sample_invoice_data.model_copy(
-            update={"payment_terms_days": None}
-        )
+        base = sample_invoice_data.model_copy(update={"payment_terms_days": None})
         data = base.model_copy(
             update={
                 "skonto_percent": Decimal("2.00"),
@@ -3986,9 +3785,7 @@ class TestSkontoRoundtrip:
 class TestPdfContactInfo:
     """Tests for contact info display in PDF."""
 
-    def test_pdf_with_contact_info(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_pdf_with_contact_info(self, sample_invoice_data: InvoiceData) -> None:
         """PDF with contact info generates successfully."""
         data = sample_invoice_data.model_copy(
             update={
@@ -4004,9 +3801,7 @@ class TestPdfContactInfo:
         assert len(pdf_bytes) > 0
         assert pdf_bytes[:5] == b"%PDF-"
 
-    def test_pdf_with_party_contact(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_pdf_with_party_contact(self, sample_invoice_data: InvoiceData) -> None:
         """Contact info from Party model also renders in PDF."""
         seller = sample_invoice_data.seller.model_copy(
             update={
@@ -4024,9 +3819,7 @@ class TestPdfContactInfo:
 class TestSepaDirectDebitRoundtrip:
     """Roundtrip tests for SEPA direct debit (BG-19)."""
 
-    def test_sepa_direct_debit_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_sepa_direct_debit_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """SEPA direct debit fields roundtrip through XML."""
         data = sample_invoice_data.model_copy(
             update={
@@ -4040,9 +3833,7 @@ class TestSepaDirectDebitRoundtrip:
         assert parsed.buyer_iban == "DE75512108001245126199"
         assert parsed.mandate_reference_id == "MANDATE-2026-001"
 
-    def test_no_direct_debit(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_direct_debit(self, sample_invoice_data: InvoiceData) -> None:
         """No direct debit → empty strings parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -4053,32 +3844,22 @@ class TestSepaDirectDebitRoundtrip:
 class TestInvoicedObjectIdentifierRoundtrip:
     """Roundtrip tests for invoiced object identifier (BT-18)."""
 
-    def test_bt18_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_bt18_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Invoiced object identifier roundtrips through XML."""
-        data = sample_invoice_data.model_copy(
-            update={"invoiced_object_identifier": "METER-12345"}
-        )
+        data = sample_invoice_data.model_copy(update={"invoiced_object_identifier": "METER-12345"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.invoiced_object_identifier == "METER-12345"
 
-    def test_no_bt18(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_bt18(self, sample_invoice_data: InvoiceData) -> None:
         """No invoiced object identifier → empty string parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.invoiced_object_identifier == ""
 
-    def test_bt18_xml_contains_type_code_130(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_bt18_xml_contains_type_code_130(self, sample_invoice_data: InvoiceData) -> None:
         """BT-18 generates AdditionalReferencedDocument with TypeCode 130."""
-        data = sample_invoice_data.model_copy(
-            update={"invoiced_object_identifier": "SUB-999"}
-        )
+        data = sample_invoice_data.model_copy(update={"invoiced_object_identifier": "SUB-999"})
         xml_bytes = build_xml(data)
         xml_str = xml_bytes.decode("utf-8")
         assert "130" in xml_str
@@ -4088,20 +3869,14 @@ class TestInvoicedObjectIdentifierRoundtrip:
 class TestDespatchAdviceRoundtrip:
     """Roundtrip tests for despatch advice reference (BT-16)."""
 
-    def test_bt16_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_bt16_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Despatch advice reference roundtrips through XML."""
-        data = sample_invoice_data.model_copy(
-            update={"despatch_advice_reference": "DESP-2026-001"}
-        )
+        data = sample_invoice_data.model_copy(update={"despatch_advice_reference": "DESP-2026-001"})
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.despatch_advice_reference == "DESP-2026-001"
 
-    def test_no_bt16(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_bt16(self, sample_invoice_data: InvoiceData) -> None:
         """No despatch advice reference → empty string parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -4111,24 +3886,16 @@ class TestDespatchAdviceRoundtrip:
 class TestBusinessProcessTypeRoundtrip:
     """Roundtrip tests for business process type (BT-23)."""
 
-    def test_bt23_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_bt23_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """Business process type roundtrips through XML."""
         data = sample_invoice_data.model_copy(
-            update={
-                "business_process_type": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
-            }
+            update={"business_process_type": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"}
         )
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
-        assert parsed.business_process_type == (
-            "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
-        )
+        assert parsed.business_process_type == ("urn:fdc:peppol.eu:2017:poacc:billing:01:1.0")
 
-    def test_no_bt23(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_bt23(self, sample_invoice_data: InvoiceData) -> None:
         """No business process type → empty string parsed."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -4138,9 +3905,7 @@ class TestBusinessProcessTypeRoundtrip:
 class TestXmlParserExceptionHandlers:
     """Cover defensive exception handlers in xml_parser.py."""
 
-    def test_sales_order_exception_returns_empty(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_sales_order_exception_returns_empty(self, sample_invoice_data: InvoiceData) -> None:
         """Sales order attribute error → gracefully returns empty string."""
         xml_bytes = build_xml(sample_invoice_data)
         from drafthorse.models.document import Document
@@ -4180,9 +3945,7 @@ class TestXmlParserExceptionHandlers:
 
         doc = Document.parse(xml_bytes)
         broken = MagicMock()
-        type(broken).id = property(
-            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
-        )
+        type(broken).id = property(lambda s: (_ for _ in ()).throw(RuntimeError("broken")))
         doc.context._data["business_parameter"] = broken
         parsed = _extract_invoice(doc)
         assert parsed.business_process_type == ""
@@ -4192,34 +3955,34 @@ class TestXmlParserExceptionHandlers:
     ) -> None:
         """Allowances/charges block exception → empty list."""
         data = sample_invoice_data.model_copy(
-            update={"allowances_charges": [
-                AllowanceCharge(charge=False, amount=Decimal("10"), reason="Test"),
-            ]}
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(charge=False, amount=Decimal("10"), reason="Test"),
+                ]
+            }
         )
         xml_bytes = build_xml(data)
         from drafthorse.models.document import Document
 
         doc = Document.parse(xml_bytes)
         broken = MagicMock()
-        type(broken).children = property(
-            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
-        )
+        type(broken).children = property(lambda s: (_ for _ in ()).throw(RuntimeError("broken")))
         doc.trade.settlement._data["allowance_charge"] = broken
         parsed = _extract_invoice(doc)
         assert parsed.allowances_charges == []
 
-    def test_doc_level_indicator_without_value(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_doc_level_indicator_without_value(self, sample_invoice_data: InvoiceData) -> None:
         """Indicator without _value attribute → fallback bool."""
         data = sample_invoice_data.model_copy(
-            update={"allowances_charges": [
-                AllowanceCharge(
-                    charge=True,
-                    amount=Decimal("5"),
-                    reason="Zuschlag",
-                ),
-            ]}
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=True,
+                        amount=Decimal("5"),
+                        reason="Zuschlag",
+                    ),
+                ]
+            }
         )
         xml_bytes = build_xml(data)
         from drafthorse.models.document import Document
@@ -4234,9 +3997,7 @@ class TestXmlParserExceptionHandlers:
         parsed = _extract_invoice(doc)
         assert isinstance(parsed.allowances_charges, list)
 
-    def test_line_level_indicator_without_value(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_line_level_indicator_without_value(self, sample_invoice_data: InvoiceData) -> None:
         """Line-level indicator without _value → fallback bool."""
         data = sample_invoice_data.model_copy(
             update={
@@ -4317,24 +4078,16 @@ class TestComplianceValueError:
 class TestIbanBicValidation:
     """Test IBAN and BIC format validation in InvoiceData."""
 
-    def _rebuild(
-        self, base: InvoiceData, **updates: object
-    ) -> InvoiceData:
+    def _rebuild(self, base: InvoiceData, **updates: object) -> InvoiceData:
         """Rebuild InvoiceData with updates to trigger validators."""
-        return InvoiceData.model_validate(
-            base.model_dump() | updates
-        )
+        return InvoiceData.model_validate(base.model_dump() | updates)
 
     def test_valid_german_iban(self, sample_invoice_data: InvoiceData) -> None:
         """Valid German IBAN accepted."""
-        data = self._rebuild(
-            sample_invoice_data, seller_iban="DE89370400440532013000"
-        )
+        data = self._rebuild(sample_invoice_data, seller_iban="DE89370400440532013000")
         assert data.seller_iban == "DE89370400440532013000"
 
-    def test_valid_iban_with_spaces(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_valid_iban_with_spaces(self, sample_invoice_data: InvoiceData) -> None:
         """IBAN with spaces normalized to uppercase without spaces."""
         data = self._rebuild(
             sample_invoice_data,
@@ -4342,34 +4095,22 @@ class TestIbanBicValidation:
         )
         assert data.seller_iban == "DE89370400440532013000"
 
-    def test_valid_iban_lowercase(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_valid_iban_lowercase(self, sample_invoice_data: InvoiceData) -> None:
         """Lowercase IBAN normalized to uppercase."""
-        data = self._rebuild(
-            sample_invoice_data, seller_iban="de89370400440532013000"
-        )
+        data = self._rebuild(sample_invoice_data, seller_iban="de89370400440532013000")
         assert data.seller_iban == "DE89370400440532013000"
 
-    def test_invalid_iban_too_short(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_iban_too_short(self, sample_invoice_data: InvoiceData) -> None:
         """IBAN too short → ValidationError."""
         with pytest.raises(ValidationError, match="IBAN"):
             self._rebuild(sample_invoice_data, seller_iban="DE89")
 
-    def test_invalid_iban_no_country(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_iban_no_country(self, sample_invoice_data: InvoiceData) -> None:
         """IBAN without country code → ValidationError."""
         with pytest.raises(ValidationError, match="IBAN"):
-            self._rebuild(
-                sample_invoice_data, seller_iban="12345678901234567890"
-            )
+            self._rebuild(sample_invoice_data, seller_iban="12345678901234567890")
 
-    def test_invalid_iban_special_chars(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_iban_special_chars(self, sample_invoice_data: InvoiceData) -> None:
         """IBAN with special characters → ValidationError."""
         with pytest.raises(ValidationError, match="IBAN"):
             self._rebuild(
@@ -4377,64 +4118,42 @@ class TestIbanBicValidation:
                 seller_iban="DE89-3704-0044-0532-0130-00",
             )
 
-    def test_buyer_iban_validated(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_buyer_iban_validated(self, sample_invoice_data: InvoiceData) -> None:
         """Buyer IBAN also validated."""
-        data = self._rebuild(
-            sample_invoice_data, buyer_iban="AT611904300234573201"
-        )
+        data = self._rebuild(sample_invoice_data, buyer_iban="AT611904300234573201")
         assert data.buyer_iban == "AT611904300234573201"
 
-    def test_invalid_buyer_iban(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_buyer_iban(self, sample_invoice_data: InvoiceData) -> None:
         """Invalid buyer IBAN → ValidationError."""
         with pytest.raises(ValidationError, match="IBAN"):
             self._rebuild(sample_invoice_data, buyer_iban="INVALID")
 
-    def test_none_iban_accepted(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_none_iban_accepted(self, sample_invoice_data: InvoiceData) -> None:
         """None IBAN (not set) accepted."""
         data = self._rebuild(sample_invoice_data, seller_iban=None)
         assert data.seller_iban is None
 
-    def test_valid_bic_8_chars(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_valid_bic_8_chars(self, sample_invoice_data: InvoiceData) -> None:
         """Valid 8-char BIC accepted."""
-        data = self._rebuild(
-            sample_invoice_data, seller_bic="COBADEFF"
-        )
+        data = self._rebuild(sample_invoice_data, seller_bic="COBADEFF")
         assert data.seller_bic == "COBADEFF"
 
-    def test_valid_bic_11_chars(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_valid_bic_11_chars(self, sample_invoice_data: InvoiceData) -> None:
         """Valid 11-char BIC accepted."""
-        data = self._rebuild(
-            sample_invoice_data, seller_bic="COBADEFFXXX"
-        )
+        data = self._rebuild(sample_invoice_data, seller_bic="COBADEFFXXX")
         assert data.seller_bic == "COBADEFFXXX"
 
-    def test_invalid_bic_wrong_length(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_bic_wrong_length(self, sample_invoice_data: InvoiceData) -> None:
         """BIC with wrong length → ValidationError."""
         with pytest.raises(ValidationError, match="BIC"):
             self._rebuild(sample_invoice_data, seller_bic="COBADE")
 
-    def test_invalid_bic_digits_start(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_invalid_bic_digits_start(self, sample_invoice_data: InvoiceData) -> None:
         """BIC starting with digits → ValidationError."""
         with pytest.raises(ValidationError, match="BIC"):
             self._rebuild(sample_invoice_data, seller_bic="12345678")
 
-    def test_none_bic_accepted(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_none_bic_accepted(self, sample_invoice_data: InvoiceData) -> None:
         """None BIC (not set) accepted."""
         data = self._rebuild(sample_invoice_data, seller_bic=None)
         assert data.seller_bic is None
@@ -4612,11 +4331,7 @@ class TestLeitwegIdFormatCompliance:
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "XRECHNUNG")
-        advisory = [
-            fc["field"]
-            for fc in result.get("field_checks", [])
-            if fc["field"] == "LW-FMT"
-        ]
+        advisory = [fc["field"] for fc in result.get("field_checks", []) if fc["field"] == "LW-FMT"]
         assert advisory == []
         await client.close()
 
@@ -4715,10 +4430,7 @@ class TestLeitwegIdFormatCompliance:
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "XRECHNUNG")
-        vat_checks = [
-            fc for fc in result.get("field_checks", [])
-            if fc["field"] == "VAT-FMT"
-        ]
+        vat_checks = [fc for fc in result.get("field_checks", []) if fc["field"] == "VAT-FMT"]
         assert vat_checks == []
         await client.close()
 
@@ -4750,10 +4462,7 @@ class TestLeitwegIdFormatCompliance:
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "XRECHNUNG")
-        vat_checks = [
-            fc for fc in result.get("field_checks", [])
-            if fc["field"] == "VAT-FMT"
-        ]
+        vat_checks = [fc for fc in result.get("field_checks", []) if fc["field"] == "VAT-FMT"]
         assert vat_checks == []
         await client.close()
 
@@ -4761,9 +4470,7 @@ class TestLeitwegIdFormatCompliance:
 class TestBuyerAccountingReferenceRoundtrip:
     """Test BT-133 buyer accounting reference roundtrip."""
 
-    def test_accounting_reference_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_accounting_reference_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
         """BT-133 generates and parses correctly."""
         data = sample_invoice_data.model_copy(
             update={
@@ -4780,9 +4487,7 @@ class TestBuyerAccountingReferenceRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.items[0].buyer_accounting_reference == "KST-4711"
 
-    def test_no_accounting_reference(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
+    def test_no_accounting_reference(self, sample_invoice_data: InvoiceData) -> None:
         """No BT-133 → None in parsed output."""
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
@@ -5397,6 +5102,7 @@ class TestEdgeCases:
     def test_all_type_codes(self) -> None:
         """All valid type codes (380, 381, 384, 389, 875, 876, 877) build."""
         from einvoice_mcp.models import VALID_TYPE_CODES
+
         for code in sorted(VALID_TYPE_CODES):
             data = InvoiceData(
                 invoice_id=f"TC-{code}",
@@ -5599,8 +5305,10 @@ class TestSellerTaxRepresentativeRoundtrip:
             seller=Party(
                 name="Foreign Co",
                 address=Address(
-                    street="1 Rue A", city="Paris",
-                    postal_code="75001", country_code="FR",
+                    street="1 Rue A",
+                    city="Paris",
+                    postal_code="75001",
+                    country_code="FR",
                 ),
                 tax_id="FR12345678901",
             ),
@@ -5813,19 +5521,25 @@ class TestAdditionalComplianceChecks:
             "seller": Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="S", city="C", postal_code="00000",
+                    street="S",
+                    city="C",
+                    postal_code="00000",
                 ),
                 tax_id="DE123456789",
             ),
             "buyer": Party(
                 name="Buyer AG",
                 address=Address(
-                    street="B", city="C", postal_code="00000",
+                    street="B",
+                    city="C",
+                    postal_code="00000",
                 ),
             ),
             "items": [
                 LineItem(
-                    description="Item", quantity="1", unit_price="100",
+                    description="Item",
+                    quantity="1",
+                    unit_price="100",
                 ),
             ],
         }
@@ -5879,7 +5593,9 @@ class TestAdditionalComplianceChecks:
         rep = Party(
             name="Rep GmbH",
             address=Address(
-                street="R", city="C", postal_code="00000",
+                street="R",
+                city="C",
+                postal_code="00000",
             ),
             # No tax_id
         )
@@ -5899,7 +5615,9 @@ class TestAdditionalComplianceChecks:
         rep = Party(
             name="Rep GmbH",
             address=Address(
-                street="R", city="C", postal_code="00000",
+                street="R",
+                city="C",
+                postal_code="00000",
             ),
             tax_id="DE999888777",
         )
@@ -6092,7 +5810,7 @@ class TestBRDE22BuyerEASCode:
         # Find the buyer's schemeID — it's the second occurrence
         first_idx = xml.index('schemeID="EM"')
         second_idx = xml.index('schemeID="EM"', first_idx + 1)
-        xml = xml[:second_idx] + 'schemeID="BADCODE"' + xml[second_idx + len('schemeID="EM"'):]
+        xml = xml[:second_idx] + 'schemeID="BADCODE"' + xml[second_idx + len('schemeID="EM"') :]
         respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
         client = KoSITClient(base_url=KOSIT_URL)
         result = await check_compliance(xml, client, "XRECHNUNG")
@@ -6188,8 +5906,10 @@ class TestBRDE3NonDESellerTaxRep:
             seller=Party(
                 name="Wiener GmbH",
                 address=Address(
-                    street="Ringstr. 1", city="Wien",
-                    postal_code="1010", country_code="AT",
+                    street="Ringstr. 1",
+                    city="Wien",
+                    postal_code="1010",
+                    country_code="AT",
                 ),
                 tax_id="ATU12345678",
                 electronic_address="seller@wien.at",
@@ -6222,8 +5942,10 @@ class TestBRDE3NonDESellerTaxRep:
             seller=Party(
                 name="Berliner GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE123456789",
                 electronic_address="seller@berlin.de",
@@ -6254,8 +5976,10 @@ class TestBRDE3NonDESellerTaxRep:
             seller=Party(
                 name="Wiener GmbH",
                 address=Address(
-                    street="Ringstr. 1", city="Wien",
-                    postal_code="1010", country_code="AT",
+                    street="Ringstr. 1",
+                    city="Wien",
+                    postal_code="1010",
+                    country_code="AT",
                 ),
                 tax_id="ATU12345678",
                 electronic_address="seller@wien.at",
@@ -6273,8 +5997,10 @@ class TestBRDE3NonDESellerTaxRep:
             seller_tax_representative=Party(
                 name="Steuervertreter DE",
                 address=Address(
-                    street="V-Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="V-Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE987654321",
             ),
@@ -6294,8 +6020,10 @@ class TestBRDE3NonDESellerTaxRep:
             seller=Party(
                 name="Wiener GmbH",
                 address=Address(
-                    street="Ringstr. 1", city="Wien",
-                    postal_code="1010", country_code="AT",
+                    street="Ringstr. 1",
+                    city="Wien",
+                    postal_code="1010",
+                    country_code="AT",
                 ),
                 tax_id="ATU12345678",
             ),
@@ -6326,7 +6054,8 @@ class TestItemCountryOfOriginRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6335,7 +6064,8 @@ class TestItemCountryOfOriginRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6382,7 +6112,8 @@ class TestItemAttributesRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6391,7 +6122,8 @@ class TestItemAttributesRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6411,9 +6143,7 @@ class TestItemAttributesRoundtrip:
         )
 
     def test_single_attribute_roundtrip(self) -> None:
-        data = self._base_data(
-            attributes=[ItemAttribute(name="Farbe", value="Rot")]
-        )
+        data = self._base_data(attributes=[ItemAttribute(name="Farbe", value="Rot")])
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert len(parsed.items[0].attributes) == 1
@@ -6459,7 +6189,8 @@ class TestReceivingAdviceRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6468,7 +6199,8 @@ class TestReceivingAdviceRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6515,7 +6247,8 @@ class TestDeliveryLocationIdRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6524,7 +6257,8 @@ class TestDeliveryLocationIdRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6579,7 +6313,8 @@ class TestPaymentMeansTextRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6588,7 +6323,8 @@ class TestPaymentMeansTextRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6608,9 +6344,7 @@ class TestPaymentMeansTextRoundtrip:
         )
 
     def test_payment_means_text_roundtrip(self) -> None:
-        data = self._base_data(
-            payment_means_text="SEPA-Überweisung"
-        )
+        data = self._base_data(payment_means_text="SEPA-Überweisung")
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.payment_means_text == "SEPA-Überweisung"
@@ -6637,7 +6371,8 @@ class TestSupportingDocumentsRoundtrip:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6646,7 +6381,8 @@ class TestSupportingDocumentsRoundtrip:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6736,9 +6472,7 @@ class TestSupportingDocumentsRoundtrip:
         """BG-24 docs (TypeCode=916) should not interfere with BT-17 (TypeCode=50)."""
         data = self._base_data(
             tender_or_lot_reference="TENDER-2026",
-            supporting_documents=[
-                SupportingDocument(id="DOC-X", description="Extra")
-            ],
+            supporting_documents=[SupportingDocument(id="DOC-X", description="Extra")],
         )
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
@@ -6762,7 +6496,8 @@ class TestCombinedItemFeatures:
             seller=Party(
                 name="Seller",
                 address=Address(
-                    street="S1", city="Berlin",
+                    street="S1",
+                    city="Berlin",
                     postal_code="10115",
                 ),
                 tax_id="DE111111111",
@@ -6771,7 +6506,8 @@ class TestCombinedItemFeatures:
             buyer=Party(
                 name="Buyer",
                 address=Address(
-                    street="B1", city="Munich",
+                    street="B1",
+                    city="Munich",
                     postal_code="80331",
                 ),
                 electronic_address="buyer@test.de",
@@ -6827,8 +6563,10 @@ class TestCorrectiveInvoiceCompliance:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -6836,15 +6574,18 @@ class TestCorrectiveInvoiceCompliance:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Str. 2",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
             items=[
                 LineItem(
                     description="Korrekturposition",
-                    quantity="1", unit_price="100.00",
+                    quantity="1",
+                    unit_price="100.00",
                 ),
             ],
             buyer_reference="LW-12345",
@@ -6861,9 +6602,7 @@ class TestCorrectiveInvoiceCompliance:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        bt25_check = next(
-            (c for c in checks if c.field == "384-BT-25"), None
-        )
+        bt25_check = next((c for c in checks if c.field == "384-BT-25"), None)
         assert bt25_check is not None
         assert bt25_check.present is True
         assert bt25_check.value == "RE-2026-001"
@@ -6874,9 +6613,7 @@ class TestCorrectiveInvoiceCompliance:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        bt25_check = next(
-            (c for c in checks if c.field == "384-BT-25"), None
-        )
+        bt25_check = next((c for c in checks if c.field == "384-BT-25"), None)
         assert bt25_check is not None
         assert bt25_check.present is False
         assert bt25_check.required is True
@@ -6893,9 +6630,7 @@ class TestCorrectiveInvoiceCompliance:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        bt25_check = next(
-            (c for c in checks if c.field == "BT-25"), None
-        )
+        bt25_check = next((c for c in checks if c.field == "BT-25"), None)
         assert bt25_check is not None
         assert bt25_check.present is False  # no preceding ref
 
@@ -6927,8 +6662,10 @@ class TestReverseChargeCountryValidation:
             seller=Party(
                 name="DE Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code=seller_country,
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code=seller_country,
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -6936,8 +6673,10 @@ class TestReverseChargeCountryValidation:
             buyer=Party(
                 name="AT Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="Wien",
-                    postal_code="1010", country_code=buyer_country,
+                    street="Str. 2",
+                    city="Wien",
+                    postal_code="1010",
+                    country_code=buyer_country,
                 ),
                 tax_id="ATU12345678",
                 electronic_address="b@test.at",
@@ -6945,7 +6684,8 @@ class TestReverseChargeCountryValidation:
             items=[
                 LineItem(
                     description="Beratung",
-                    quantity="10", unit_code="HUR",
+                    quantity="10",
+                    unit_code="HUR",
                     unit_price="100.00",
                     tax_rate="0.00",
                     tax_category=TaxCategory.AE,
@@ -6966,9 +6706,7 @@ class TestReverseChargeCountryValidation:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        rc_country = next(
-            (c for c in checks if c.field == "RC-COUNTRY"), None
-        )
+        rc_country = next((c for c in checks if c.field == "RC-COUNTRY"), None)
         assert rc_country is None  # no warning when countries differ
 
     def test_ae_same_country_advisory_warning(self) -> None:
@@ -6977,9 +6715,7 @@ class TestReverseChargeCountryValidation:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        rc_country = next(
-            (c for c in checks if c.field == "RC-COUNTRY"), None
-        )
+        rc_country = next((c for c in checks if c.field == "RC-COUNTRY"), None)
         assert rc_country is not None
         assert rc_country.required is False  # advisory only
         assert "DE=DE" in rc_country.value
@@ -7008,8 +6744,10 @@ class TestIntraCommunityCountryValidation:
             seller=Party(
                 name="DE Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code=seller_country,
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code=seller_country,
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7017,8 +6755,10 @@ class TestIntraCommunityCountryValidation:
             buyer=Party(
                 name="FR Buyer SARL",
                 address=Address(
-                    street="Rue 2", city="Paris",
-                    postal_code="75001", country_code=buyer_country,
+                    street="Rue 2",
+                    city="Paris",
+                    postal_code="75001",
+                    country_code=buyer_country,
                 ),
                 tax_id="FR12345678901",
                 electronic_address="b@test.fr",
@@ -7026,7 +6766,8 @@ class TestIntraCommunityCountryValidation:
             items=[
                 LineItem(
                     description="Maschine",
-                    quantity="1", unit_code="H87",
+                    quantity="1",
+                    unit_code="H87",
                     unit_price="5000.00",
                     tax_rate="0.00",
                     tax_category=TaxCategory.K,
@@ -7046,9 +6787,7 @@ class TestIntraCommunityCountryValidation:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        ic_country = next(
-            (c for c in checks if c.field == "IC-COUNTRY"), None
-        )
+        ic_country = next((c for c in checks if c.field == "IC-COUNTRY"), None)
         assert ic_country is None
 
     def test_k_same_country_hard_error(self) -> None:
@@ -7057,9 +6796,7 @@ class TestIntraCommunityCountryValidation:
         from einvoice_mcp.tools.compliance_checks import check_fields
 
         checks = check_fields(xml)
-        ic_country = next(
-            (c for c in checks if c.field == "IC-COUNTRY"), None
-        )
+        ic_country = next((c for c in checks if c.field == "IC-COUNTRY"), None)
         assert ic_country is not None
         assert ic_country.required is True  # hard error for K
         assert "DE=DE" in ic_country.value
@@ -7084,8 +6821,10 @@ class TestCountrySubdivisionRoundtrip:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Str. 1",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                     country_subdivision="BY",
                 ),
                 tax_id="DE111111111",
@@ -7094,15 +6833,19 @@ class TestCountrySubdivisionRoundtrip:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="Köln",
-                    postal_code="50667", country_code="DE",
+                    street="Str. 2",
+                    city="Köln",
+                    postal_code="50667",
+                    country_code="DE",
                     country_subdivision="NW",
                 ),
                 electronic_address="b@test.de",
             ),
             items=[
                 LineItem(
-                    description="Service", quantity="1", unit_price="100.00",
+                    description="Service",
+                    quantity="1",
+                    unit_price="100.00",
                 ),
             ],
             buyer_reference="REF-001",
@@ -7125,8 +6868,10 @@ class TestCountrySubdivisionRoundtrip:
             seller=Party(
                 name="Foreign Seller",
                 address=Address(
-                    street="Foreign St 1", city="London",
-                    postal_code="SW1A", country_code="GB",
+                    street="Foreign St 1",
+                    city="London",
+                    postal_code="SW1A",
+                    country_code="GB",
                 ),
                 tax_id="GB999999999",
                 electronic_address="s@test.co.uk",
@@ -7134,14 +6879,18 @@ class TestCountrySubdivisionRoundtrip:
             buyer=Party(
                 name="DE Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 2",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
             items=[
                 LineItem(
-                    description="Service", quantity="1", unit_price="100.00",
+                    description="Service",
+                    quantity="1",
+                    unit_price="100.00",
                 ),
             ],
             buyer_reference="REF-REP",
@@ -7152,8 +6901,10 @@ class TestCountrySubdivisionRoundtrip:
             seller_tax_representative=Party(
                 name="DE Vertreter GmbH",
                 address=Address(
-                    street="Vertretung 1", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Vertretung 1",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                     country_subdivision="BY",
                 ),
                 tax_id="DE222222222",
@@ -7171,8 +6922,10 @@ class TestCountrySubdivisionRoundtrip:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7180,14 +6933,18 @@ class TestCountrySubdivisionRoundtrip:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="Hamburg",
-                    postal_code="20095", country_code="DE",
+                    street="Str. 2",
+                    city="Hamburg",
+                    postal_code="20095",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
             items=[
                 LineItem(
-                    description="Service", quantity="1", unit_price="100.00",
+                    description="Service",
+                    quantity="1",
+                    unit_price="100.00",
                 ),
             ],
             buyer_reference="REF-002",
@@ -7320,8 +7077,10 @@ class TestMixedTaxCategoryInvoice:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7329,8 +7088,10 @@ class TestMixedTaxCategoryInvoice:
             buyer=Party(
                 name="Buyer Ltd",
                 address=Address(
-                    street="Road 1", city="London",
-                    postal_code="SW1A 1AA", country_code="GB",
+                    street="Road 1",
+                    city="London",
+                    postal_code="SW1A 1AA",
+                    country_code="GB",
                 ),
                 tax_id="GB123456789",
                 electronic_address="b@test.co.uk",
@@ -7338,14 +7099,16 @@ class TestMixedTaxCategoryInvoice:
             items=[
                 LineItem(
                     description="Domestic service",
-                    quantity="5", unit_code="HUR",
+                    quantity="5",
+                    unit_code="HUR",
                     unit_price="200.00",
                     tax_rate="19.00",
                     tax_category=TaxCategory.S,
                 ),
                 LineItem(
                     description="Export service",
-                    quantity="10", unit_code="HUR",
+                    quantity="10",
+                    unit_code="HUR",
                     unit_price="100.00",
                     tax_rate="0.00",
                     tax_category=TaxCategory.G,
@@ -7426,10 +7189,10 @@ class TestHighValueInvoice:
     def test_50_line_items(self) -> None:
         items = [
             LineItem(
-                description=f"Position {i+1}: Dienstleistung",
+                description=f"Position {i + 1}: Dienstleistung",
                 quantity="1",
                 unit_price=f"{(i + 1) * 10:.2f}",
-                seller_item_id=f"ART-{i+1:03d}",
+                seller_item_id=f"ART-{i + 1:03d}",
             )
             for i in range(50)
         ]
@@ -7439,8 +7202,10 @@ class TestHighValueInvoice:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7448,8 +7213,10 @@ class TestHighValueInvoice:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Str. 2",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
@@ -7478,8 +7245,10 @@ class TestReducedTaxRate:
             seller=Party(
                 name="Buchhandlung GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7487,8 +7256,10 @@ class TestReducedTaxRate:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Str. 2",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
@@ -7537,8 +7308,10 @@ class TestSmallAmountInvoice:
             seller=Party(
                 name="Seller GmbH",
                 address=Address(
-                    street="Str. 1", city="Berlin",
-                    postal_code="10115", country_code="DE",
+                    street="Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
                 ),
                 tax_id="DE111111111",
                 electronic_address="s@test.de",
@@ -7546,8 +7319,10 @@ class TestSmallAmountInvoice:
             buyer=Party(
                 name="Buyer GmbH",
                 address=Address(
-                    street="Str. 2", city="München",
-                    postal_code="80999", country_code="DE",
+                    street="Str. 2",
+                    city="München",
+                    postal_code="80999",
+                    country_code="DE",
                 ),
                 electronic_address="b@test.de",
             ),
@@ -7679,7 +7454,6 @@ class TestNewMCPResources:
             assert "description" in rule
             assert "field" in rule
             assert "fix" in rule
-
 
     def test_skr04_mapping_resource(self) -> None:
         from einvoice_mcp.resources import skr04_mapping
@@ -8118,12 +7892,12 @@ def _quick_invoice(**overrides: object) -> InvoiceData:
         "issue_date": "2026-03-01",
         "seller": Party(
             name="Seller GmbH",
-            address=Address(
-                street="Str. 1", city="Berlin", postal_code="10115", country_code="DE"
-            ),
+            address=Address(street="Str. 1", city="Berlin", postal_code="10115", country_code="DE"),
             tax_id="DE123456789",
             electronic_address="info@seller.de",
-            contact_name="Max", contact_phone="+49 30 1", contact_email="m@s.de",
+            contact_name="Max",
+            contact_phone="+49 30 1",
+            contact_email="m@s.de",
         ),
         "buyer": Party(
             name="Buyer GmbH",
@@ -8134,8 +7908,11 @@ def _quick_invoice(**overrides: object) -> InvoiceData:
         ),
         "items": [
             LineItem(
-                description="Test", quantity=Decimal("1"),
-                unit_code="C62", unit_price=Decimal("100.00"), tax_rate=Decimal("19.00"),
+                description="Test",
+                quantity=Decimal("1"),
+                unit_code="C62",
+                unit_price=Decimal("100.00"),
+                tax_rate=Decimal("19.00"),
             ),
         ],
         "buyer_reference": "REF-001",
@@ -8229,6 +8006,7 @@ class TestPydanticErrorFormatting:
 
     def test_missing_seller_name_shows_bt27(self) -> None:
         from einvoice_mcp.services.invoice_data_builder import build_invoice_data
+
         result = build_invoice_data(
             invoice_id="X-001",
             issue_date="2026-01-01",
@@ -8250,6 +8028,7 @@ class TestPydanticErrorFormatting:
 
     def test_invalid_iban_shows_bt84(self) -> None:
         from einvoice_mcp.services.invoice_data_builder import build_invoice_data
+
         result = build_invoice_data(
             invoice_id="X-001",
             issue_date="2026-01-01",
@@ -8319,9 +8098,7 @@ class TestDefensiveExceptionHandlers:
         sabotage_fn(doc)
         return _extract_invoice(doc)
 
-    def test_buyer_reference_exception_handled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_buyer_reference_exception_handled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Lines 87-88: exception during buyer_reference extraction → empty."""
 
         class _Boom:
@@ -8336,9 +8113,7 @@ class TestDefensiveExceptionHandlers:
         parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
         assert parsed.buyer_reference == ""
 
-    def test_seller_tax_rep_exception_handled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_seller_tax_rep_exception_handled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Lines 356-357: exception during tax rep extraction → None."""
 
         class _Trap:
@@ -8353,9 +8128,7 @@ class TestDefensiveExceptionHandlers:
         parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
         assert parsed.seller_tax_representative is None
 
-    def test_exemption_reason_exception_handled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_exemption_reason_exception_handled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Lines 384-385: exception during tax exemption reason extraction."""
 
         class _Boom:
@@ -8380,9 +8153,7 @@ class TestDefensiveExceptionHandlers:
         assert parsed.tax_exemption_reason == ""
         assert parsed.tax_exemption_reason_code == ""
 
-    def test_payee_exception_handled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_payee_exception_handled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Lines 492-493: exception during payee extraction → empty."""
 
         class _Boom:
@@ -8434,10 +8205,7 @@ class TestBRDE25GrandTotal:
         data = _quick_invoice()
         xml_str = build_xml(data).decode("utf-8")
         # Replace the grand total with a negative value
-        xml_str = xml_str.replace(
-            "<ram:GrandTotalAmount",
-            "<ram:GrandTotalAmount"
-        ).replace(
+        xml_str = xml_str.replace("<ram:GrandTotalAmount", "<ram:GrandTotalAmount").replace(
             ">119.00</ram:GrandTotalAmount>",
             ">-50.00</ram:GrandTotalAmount>",
         )
@@ -8491,8 +8259,7 @@ class TestBRDEDateFormats:
         xml_bytes = build_xml(data)
         checks = check_fields(xml_bytes.decode("utf-8"))
         date_rules = [
-            c for c in checks
-            if c.field.startswith("BR-DE-") and "Datumsformat" in c.name
+            c for c in checks if c.field.startswith("BR-DE-") and "Datumsformat" in c.name
         ]
         assert len(date_rules) == 0, "Valid format 102 should not be flagged"
 
@@ -8542,14 +8309,10 @@ class TestNewBTFieldsRoundtrip:
 
     def test_bt33_seller_additional_legal_info(self) -> None:
         """BT-33: Seller additional legal information roundtrip."""
-        data = _quick_invoice(
-            seller_additional_legal_info="Eingetragen HRB 12345 AG Muenchen"
-        )
+        data = _quick_invoice(seller_additional_legal_info="Eingetragen HRB 12345 AG Muenchen")
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
-        assert parsed.seller_additional_legal_info == (
-            "Eingetragen HRB 12345 AG Muenchen"
-        )
+        assert parsed.seller_additional_legal_info == ("Eingetragen HRB 12345 AG Muenchen")
 
     def test_bt90_creditor_reference_id(self) -> None:
         """BT-90: Creditor reference ID for SEPA direct debit."""
@@ -8761,16 +8524,12 @@ class TestSepaDirectDebitBT90Compliance:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -8799,16 +8558,12 @@ class TestSepaDirectDebitBT90Compliance:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -8926,9 +8681,7 @@ class TestLineLevelFieldsParsing:
         data.items[0].line_purchase_order_reference = "PO-LINE-99"
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
-        assert (
-            parsed.items[0].line_purchase_order_reference == "PO-LINE-99"
-        )
+        assert parsed.items[0].line_purchase_order_reference == "PO-LINE-99"
 
     def test_line_fields_absent_by_default(self) -> None:
         """Without setting line fields, they should be None."""
@@ -9035,6 +8788,7 @@ class TestNewPromptRegistration:
 
 # ─── New Resource Tests ──────────────────────────────────────────────────
 
+
 class TestNewResources:
     """New reference resources return valid JSON with expected keys."""
 
@@ -9076,16 +8830,12 @@ class TestBRDE567SellerContact:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller GmbH",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9113,9 +8863,7 @@ class TestBRDE567SellerContact:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller GmbH",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
                 contact_name="Max Mustermann",
                 contact_phone="+49 30 12345",
@@ -9123,9 +8871,7 @@ class TestBRDE567SellerContact:
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9153,16 +8899,12 @@ class TestBRDE567SellerContact:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9197,17 +8939,13 @@ class TestBRDE26DualTaxId:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
                 tax_number="123/456/78901",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9251,9 +8989,7 @@ class TestPartyContactFallback:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller GmbH",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
                 contact_name="Anna Schmidt",
                 contact_phone="+49 89 9999",
@@ -9261,9 +8997,7 @@ class TestPartyContactFallback:
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9287,18 +9021,14 @@ class TestPartyContactFallback:
             issue_date="2026-01-01",
             seller=Party(
                 name="Seller GmbH",
-                address=Address(
-                    street="S", city="C", postal_code="00000"
-                ),
+                address=Address(street="S", city="C", postal_code="00000"),
                 tax_id="DE123456789",
                 contact_name="Party Name",
                 contact_email="party@seller.de",
             ),
             buyer=Party(
                 name="Buyer",
-                address=Address(
-                    street="B", city="C", postal_code="00000"
-                ),
+                address=Address(street="B", city="C", postal_code="00000"),
             ),
             items=[
                 LineItem(
@@ -9318,6 +9048,7 @@ class TestPartyContactFallback:
 
 
 # ─── BR-DE-20 Single Payment Instruction ───────────────────────────────
+
 
 class TestBRDE20SinglePaymentInstruction:
     """BR-DE-20: Cannot mix credit transfer and direct debit codes."""
@@ -9425,6 +9156,7 @@ class TestBRDE20SinglePaymentInstruction:
 
 # ─── Grand Total Non-Negative (BR-DE-25) ────────────────────────────────
 
+
 class TestBRDE25GrandTotalNonNeg:
     """BR-DE-25: Grand total (BT-112) must be >= 0."""
 
@@ -9531,12 +9263,17 @@ class TestBRDE25GrandTotalNonNeg:
 
 # ─── Non-DE Seller Tax Representative (BR-DE-3/4) ──────────────────────
 
+
 class TestBRDE34NonDESellerTaxRep:
     """BR-DE-3: Non-DE seller must have tax representative.
     BR-DE-4: Tax rep must have VAT ID (BT-63)."""
 
     def _make_xml(
-        self, country: str = "DE", *, tax_rep: bool = False, tax_rep_vat: str = "",
+        self,
+        country: str = "DE",
+        *,
+        tax_rep: bool = False,
+        tax_rep_vat: str = "",
     ) -> str:
         tax_rep_block = ""
         if tax_rep:
@@ -9634,6 +9371,7 @@ class TestBRDE34NonDESellerTaxRep:
 
 # ─── Credit Card Payment BT-87 ──────────────────────────────────────────
 
+
 class TestCreditCardBT87:
     """CC-BT-87: Credit card (code 48) requires card PAN."""
 
@@ -9719,6 +9457,7 @@ class TestCreditCardBT87:
 
 # ─── Date Format Compliance (BR-DE-8/9/10/11/13) ────────────────────────
 
+
 class TestDateFormatCompliance:
     """BR-DE-8/9/10/11/13: Date format code must be 102 (YYYYMMDD)."""
 
@@ -9786,6 +9525,7 @@ class TestDateFormatCompliance:
 
 
 # ─── SEPA Direct Debit Mandate and Buyer IBAN ──────────────────────────
+
 
 class TestSepaDirectDebitDD:
     """DD-BT-89/91: SEPA DD requires mandate reference + buyer IBAN."""
@@ -9872,6 +9612,7 @@ class TestSepaDirectDebitDD:
 
 # ─── Payment Terms Required (BR-DE-15) ──────────────────────────────────
 
+
 class TestPaymentTermsBRDE15:
     """BR-DE-15: Payment terms text (BT-20) required."""
 
@@ -9927,6 +9668,7 @@ class TestPaymentTermsBRDE15:
 
 
 # ─── EAS Scheme ID Validation (BR-DE-16/22) ─────────────────────────────
+
 
 class TestEASSchemeValidation:
     """BR-DE-16/22: EAS scheme IDs must be valid."""
@@ -10225,7 +9967,9 @@ class TestBRCO11LineNetSum:
     """BR-CO-11: BT-106 = sum of all line net amounts."""
 
     def _build_xml_with_lines(
-        self, line_nets: list[str], declared_total: str,
+        self,
+        line_nets: list[str],
+        declared_total: str,
     ) -> str:
         lines_xml = ""
         for net in line_nets:
@@ -10285,7 +10029,10 @@ class TestBRCO13TaxGroupCalc:
     """BR-CO-13: Tax amount = basis x rate per group."""
 
     def _build_tax_xml(
-        self, basis: str, rate: str, calculated: str,
+        self,
+        basis: str,
+        rate: str,
+        calculated: str,
     ) -> str:
         return f"""<?xml version="1.0"?>
         <rsm:CrossIndustryInvoice
@@ -10375,30 +10122,38 @@ class TestGenerateErrorPaths:
         seller = Party(
             name="Test GmbH",
             address=Address(
-                street="Str. 1", city="Berlin",
-                postal_code="10115", country_code="DE",
+                street="Str. 1",
+                city="Berlin",
+                postal_code="10115",
+                country_code="DE",
             ),
             tax_id="DE123456789",
         )
         buyer = Party(
             name="Buyer GmbH",
             address=Address(
-                street="Str. 2", city="München",
-                postal_code="80331", country_code="DE",
+                street="Str. 2",
+                city="München",
+                postal_code="80331",
+                country_code="DE",
             ),
             tax_id="DE987654321",
         )
         items = [
             LineItem(
-                description="Test", quantity="1",
-                unit_price="100.00", tax_rate="19.00",
+                description="Test",
+                quantity="1",
+                unit_price="100.00",
+                tax_rate="19.00",
                 tax_category=TaxCategory.S,
             ),
         ]
         return InvoiceData(
             invoice_id="TEST-ERR",
             issue_date="2026-01-01",
-            seller=seller, buyer=buyer, items=items,
+            seller=seller,
+            buyer=buyer,
+            items=items,
         )
 
     @pytest.mark.asyncio
@@ -10427,12 +10182,15 @@ class TestGenerateErrorPaths:
 
         data = self._make_invoice_data()
         mock_kosit = AsyncMock()
-        with patch(
-            "einvoice_mcp.tools.generate.build_xml",
-            return_value=b"<xml/>",
-        ), patch(
-            "einvoice_mcp.tools.generate.generate_invoice_pdf",
-            side_effect=InvoiceGenerationError("PDF failed"),
+        with (
+            patch(
+                "einvoice_mcp.tools.generate.build_xml",
+                return_value=b"<xml/>",
+            ),
+            patch(
+                "einvoice_mcp.tools.generate.generate_invoice_pdf",
+                side_effect=InvoiceGenerationError("PDF failed"),
+            ),
         ):
             result = await generate_zugferd(data, mock_kosit)
         assert result["success"] is False
@@ -10474,9 +10232,12 @@ class TestKoSITClientErrorPaths:
 
         client = KoSITClient()
         with patch.object(
-            client, "_client", create=True,
+            client,
+            "_client",
+            create=True,
         ):
             import httpx
+
             mock_client = AsyncMock()
             mock_client.get.side_effect = httpx.ConnectError("refused")
             client._client = mock_client
@@ -11140,16 +10901,22 @@ class TestEdgeCaseModelValidation:
                 issue_date="2026-01-01",
                 type_code="999",
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
     def test_invalid_currency_rejected(self) -> None:
@@ -11170,16 +10937,22 @@ class TestEdgeCaseModelValidation:
                 issue_date="2026-01-01",
                 currency="eur",  # lowercase
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
     def test_invalid_iban_rejected(self) -> None:
@@ -11200,16 +10973,22 @@ class TestEdgeCaseModelValidation:
                 issue_date="2026-01-01",
                 seller_iban="INVALID",
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
     def test_valid_iban_accepted(self) -> None:
@@ -11227,16 +11006,22 @@ class TestEdgeCaseModelValidation:
             issue_date="2026-01-01",
             seller_iban="DE89 3704 0044 0532 0130 00",
             seller=Party(
-                name="S", address=Address(street="S", city="C", postal_code="1"),
+                name="S",
+                address=Address(street="S", city="C", postal_code="1"),
                 tax_id="DE111",
             ),
             buyer=Party(
-                name="B", address=Address(street="S", city="C", postal_code="1"),
+                name="B",
+                address=Address(street="S", city="C", postal_code="1"),
                 tax_id="DE222",
             ),
-            items=[LineItem(
-                description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-            )],
+            items=[
+                LineItem(
+                    description="X",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("1"),
+                )
+            ],
         )
         assert inv.seller_iban == "DE89370400440532013000"
 
@@ -11259,16 +11044,22 @@ class TestEdgeCaseModelValidation:
                 service_period_start="2026-03-01",
                 service_period_end="2026-02-01",
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
     def test_due_date_before_issue_rejected(self) -> None:
@@ -11289,16 +11080,22 @@ class TestEdgeCaseModelValidation:
                 issue_date="2026-03-01",
                 due_date="2026-02-01",
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
 
@@ -11337,10 +11134,7 @@ class TestEdgeCaseSkonto:
             ],
             skonto_percent=Decimal("2.00"),
             skonto_days=10,
-            payment_terms_text=(
-                "#SKONTO#TAGE=10#PROZENT=2.00#\n"
-                "#SKONTO#TAGE=30#PROZENT=0.00#"
-            ),
+            payment_terms_text=("#SKONTO#TAGE=10#PROZENT=2.00#\n#SKONTO#TAGE=30#PROZENT=0.00#"),
         )
         assert inv.skonto_percent == Decimal("2.00")
         assert inv.skonto_days == 10
@@ -11439,8 +11233,10 @@ class TestEdgeCaseTaxRepresentative:
             seller=Party(
                 name="US Corp Inc.",
                 address=Address(
-                    street="123 Main St", city="New York",
-                    postal_code="10001", country_code="US",
+                    street="123 Main St",
+                    city="New York",
+                    postal_code="10001",
+                    country_code="US",
                 ),
                 tax_id="EIN12345",
             ),
@@ -11566,16 +11362,22 @@ class TestEdgeCasePaymentMeans:
                 issue_date="2026-01-01",
                 payment_means_type_code="99",
                 seller=Party(
-                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE111",
                 ),
                 buyer=Party(
-                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    name="B",
+                    address=Address(street="S", city="C", postal_code="1"),
                     tax_id="DE222",
                 ),
-                items=[LineItem(
-                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
-                )],
+                items=[
+                    LineItem(
+                        description="X",
+                        quantity=Decimal("1"),
+                        unit_price=Decimal("1"),
+                    )
+                ],
             )
 
 
@@ -11601,7 +11403,9 @@ class TestEdgeCaseBuildXMLRoundtrip:
             seller=Party(
                 name="Roundtrip GmbH",
                 address=Address(
-                    street="Teststr. 1", city="Berlin", postal_code="10115",
+                    street="Teststr. 1",
+                    city="Berlin",
+                    postal_code="10115",
                 ),
                 tax_id="DE111111111",
                 electronic_address="test@roundtrip.de",
@@ -11609,7 +11413,9 @@ class TestEdgeCaseBuildXMLRoundtrip:
             buyer=Party(
                 name="Käufer AG",
                 address=Address(
-                    street="Empfängerstr. 2", city="München", postal_code="80331",
+                    street="Empfängerstr. 2",
+                    city="München",
+                    postal_code="80331",
                 ),
                 tax_id="DE222222222",
                 electronic_address="buyer@test.de",
@@ -11709,5 +11515,3 @@ class TestTaxDecisionTreeResource:
         assert "S" in tree
         assert "AE" in tree
         assert "K" in tree
-
-

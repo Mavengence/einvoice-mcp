@@ -67,8 +67,7 @@ SUGGESTIONS_MAP = {
         "muss die USt-IdNr. des Käufers (BT-48) angegeben sein."
     ),
     "RC-TAX-RATE": (
-        "Bei Reverse Charge (§13b UStG / Kategorie AE) "
-        "muss der Steuersatz 0% betragen."
+        "Bei Reverse Charge (§13b UStG / Kategorie AE) muss der Steuersatz 0% betragen."
     ),
     "LW-FMT": (
         "Die Leitweg-ID hat kein gültiges Format. "
@@ -78,17 +77,13 @@ SUGGESTIONS_MAP = {
         "Die deutsche USt-IdNr. hat kein gültiges Format. "
         "Erwartet: DE + 9 Ziffern (z.B. DE123456789)."
     ),
-    "EX-TAX-RATE": (
-        "Bei Drittlandslieferung (Kategorie G) "
-        "muss der Steuersatz 0% betragen."
-    ),
+    "EX-TAX-RATE": ("Bei Drittlandslieferung (Kategorie G) muss der Steuersatz 0% betragen."),
     "IC-BT-48": (
         "Bei innergemeinschaftlicher Lieferung (Steuerkategorie K / §4 Nr. 1b UStG) "
         "muss die USt-IdNr. des Käufers (BT-48) angegeben sein."
     ),
     "IC-TAX-RATE": (
-        "Bei innergemeinschaftlicher Lieferung (Kategorie K) "
-        "muss der Steuersatz 0% betragen."
+        "Bei innergemeinschaftlicher Lieferung (Kategorie K) muss der Steuersatz 0% betragen."
     ),
     "KB-INFO": (
         "Der Rechnungsbetrag liegt unter 250€ — diese Rechnung könnte als "
@@ -112,8 +107,7 @@ SUGGESTIONS_MAP = {
         "(BT-89) gemäß BR-DE-24 erforderlich."
     ),
     "DD-BT-91": (
-        "Bei SEPA-Lastschrift (PaymentMeansCode 59) ist die IBAN des Käufers "
-        "(BT-91) erforderlich."
+        "Bei SEPA-Lastschrift (PaymentMeansCode 59) ist die IBAN des Käufers (BT-91) erforderlich."
     ),
     "BT-20": (
         "BT-20 (Zahlungsbedingungen) fehlt — "
@@ -216,16 +210,12 @@ async def check_compliance(
     suggestions = [SUGGESTIONS_MAP[f] for f in missing_fields if f in SUGGESTIONS_MAP]
 
     # Add non-required advisory checks (warnings + informational notes)
-    advisory_fields = [
-        fc.field for fc in field_checks if not fc.required and not fc.present
-    ]
+    advisory_fields = [fc.field for fc in field_checks if not fc.required and not fc.present]
     for af in advisory_fields:
         if af in SUGGESTIONS_MAP:
             suggestions.append(SUGGESTIONS_MAP[af])
     # Informational advisories (present=True, required=False)
-    info_fields = [
-        fc.field for fc in field_checks if not fc.required and fc.present
-    ]
+    info_fields = [fc.field for fc in field_checks if not fc.required and fc.present]
     for inf in info_fields:
         if inf in SUGGESTIONS_MAP:
             suggestions.append(SUGGESTIONS_MAP[inf])

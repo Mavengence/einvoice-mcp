@@ -298,9 +298,7 @@ def reference_vatex_codes() -> str:
                 "example": "Warenlieferung DE → USA",
             },
             "vatex-eu-i": {
-                "description": (
-                    "Innergemeinschaftlicher Erwerb neuer Fahrzeuge"
-                ),
+                "description": ("Innergemeinschaftlicher Erwerb neuer Fahrzeuge"),
                 "tax_category": "K",
                 "legal_basis": "Art. 138(2)(a) MwStSystRL",
                 "example": "Neuwagen-Lieferung DE → AT",
@@ -490,8 +488,7 @@ def example_line_items() -> str:
             },
             "innergemeinschaftlich_k": {
                 "beschreibung": (
-                    "Innergemeinschaftliche Lieferung "
-                    "(§4 Nr. 1b UStG) — steuerfreie EU-Lieferung"
+                    "Innergemeinschaftliche Lieferung (§4 Nr. 1b UStG) — steuerfreie EU-Lieferung"
                 ),
                 "hinweis": (
                     "tax_category='K', tax_rate='0.00'. "
@@ -586,4 +583,3 @@ def reference_currency_codes() -> str:
         ensure_ascii=False,
         indent=2,
     )
-

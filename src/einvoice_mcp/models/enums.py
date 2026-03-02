@@ -26,7 +26,20 @@ class TaxCategory(StrEnum):
 VALID_TYPE_CODES = frozenset({"380", "381", "384", "389", "875", "876", "877"})
 
 # UN/CEFACT UNTDID 4461 payment means codes used in EN 16931
-VALID_PAYMENT_MEANS_CODES = frozenset({
-    "1", "10", "20", "30", "31", "42", "48", "49", "57", "58", "59", "97",
-    "ZZZ",  # Mutually defined
-})
+VALID_PAYMENT_MEANS_CODES = frozenset(
+    {
+        "1",
+        "10",
+        "20",
+        "30",
+        "31",
+        "42",
+        "48",
+        "49",
+        "57",
+        "58",
+        "59",
+        "97",
+        "ZZZ",  # Mutually defined
+    }
+)

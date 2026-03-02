@@ -44,16 +44,23 @@ class TestGenerateInvoicePdf:
             ),
             items=[
                 LineItem(
-                    description="Standard", quantity="1", unit_price="100",
+                    description="Standard",
+                    quantity="1",
+                    unit_price="100",
                     tax_rate=Decimal("19"),
                 ),
                 LineItem(
-                    description="Reduced", quantity="1", unit_price="50",
+                    description="Reduced",
+                    quantity="1",
+                    unit_price="50",
                     tax_rate=Decimal("7"),
                 ),
                 LineItem(
-                    description="Exempt", quantity="1", unit_price="200",
-                    tax_rate=Decimal("0"), tax_category=TaxCategory.E,
+                    description="Exempt",
+                    quantity="1",
+                    unit_price="200",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.E,
                 ),
             ],
             tax_exemption_reason="Steuerbefreit gemäß §4 UStG",
@@ -78,18 +85,24 @@ class TestGenerateInvoicePdf:
             ),
             items=[
                 LineItem(
-                    description="A", quantity="1", unit_price="100",
+                    description="A",
+                    quantity="1",
+                    unit_price="100",
                     tax_rate=Decimal("19"),
                 ),
                 LineItem(
-                    description="B", quantity="1", unit_price="50",
+                    description="B",
+                    quantity="1",
+                    unit_price="50",
                     tax_rate=Decimal("7"),
                 ),
             ],
             allowances_charges=[
                 AllowanceCharge(
-                    charge=True, amount=Decimal("10"),
-                    reason="Versandkosten", tax_rate=Decimal("19"),
+                    charge=True,
+                    amount=Decimal("10"),
+                    reason="Versandkosten",
+                    tax_rate=Decimal("19"),
                 ),
             ],
         )

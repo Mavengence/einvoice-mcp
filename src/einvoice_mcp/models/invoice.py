@@ -51,9 +51,7 @@ class InvoiceData(BaseModel):
     def validate_payment_means(cls, v: str) -> str:
         if v not in VALID_PAYMENT_MEANS_CODES:
             allowed = ", ".join(sorted(VALID_PAYMENT_MEANS_CODES))
-            raise ValueError(
-                f"Ungültiger Zahlungsart-Code '{v}'. Erlaubt: {allowed}"
-            )
+            raise ValueError(f"Ungültiger Zahlungsart-Code '{v}'. Erlaubt: {allowed}")
         return v
 
     @field_validator("seller_iban", "buyer_iban")
@@ -78,8 +76,7 @@ class InvoiceData(BaseModel):
         normalized = v.replace(" ", "").upper()
         if not _BIC_RE.match(normalized):
             raise ValueError(
-                f"Ungültiges BIC-Format '{v}'. "
-                "Erwartet: 8 oder 11 Zeichen (z.B. COBADEFFXXX)."
+                f"Ungültiges BIC-Format '{v}'. Erwartet: 8 oder 11 Zeichen (z.B. COBADEFFXXX)."
             )
         return normalized
 
@@ -246,8 +243,7 @@ class InvoiceData(BaseModel):
         default=None,
         max_length=100,
         description=(
-            "Vorherige Rechnungsnummer (BT-25) -- "
-            "Pflicht bei Gutschrift (381) per SS14 Abs. 4 UStG"
+            "Vorherige Rechnungsnummer (BT-25) -- Pflicht bei Gutschrift (381) per SS14 Abs. 4 UStG"
         ),
     )
     preceding_invoice_date: str | None = Field(
@@ -280,25 +276,20 @@ class InvoiceData(BaseModel):
         default=None,
         max_length=200,
         description=(
-            "Geschaeftsprozesstyp (BT-23) -- "
-            "z.B. 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'"
+            "Geschaeftsprozesstyp (BT-23) -- z.B. 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'"
         ),
     )
     buyer_iban: str | None = Field(
         default=None,
         max_length=34,
         description=(
-            "IBAN des Kaeufers (BT-91) -- "
-            "Pflicht bei SEPA-Lastschrift (PaymentMeansCode 59)"
+            "IBAN des Kaeufers (BT-91) -- Pflicht bei SEPA-Lastschrift (PaymentMeansCode 59)"
         ),
     )
     mandate_reference_id: str | None = Field(
         default=None,
         max_length=100,
-        description=(
-            "SEPA-Mandatsreferenz (BT-89) -- "
-            "Pflicht bei SEPA-Lastschrift"
-        ),
+        description=("SEPA-Mandatsreferenz (BT-89) -- Pflicht bei SEPA-Lastschrift"),
     )
     tax_exemption_reason: str | None = Field(
         default=None,
@@ -311,10 +302,7 @@ class InvoiceData(BaseModel):
     tax_exemption_reason_code: str | None = Field(
         default=None,
         max_length=100,
-        description=(
-            "Befreiungsgrund Code (BT-121) -- "
-            "z.B. 'vatex-eu-132' (MwStSystRL Art. 132)"
-        ),
+        description=("Befreiungsgrund Code (BT-121) -- z.B. 'vatex-eu-132' (MwStSystRL Art. 132)"),
     )
     skonto_percent: Decimal | None = Field(
         default=None,
@@ -334,17 +322,13 @@ class InvoiceData(BaseModel):
     skonto_base_amount: Decimal | None = Field(
         default=None,
         ge=0,
-        description=(
-            "Skonto-Basisbetrag -- "
-            "falls abweichend vom Rechnungsbetrag (BT-115)"
-        ),
+        description=("Skonto-Basisbetrag -- falls abweichend vom Rechnungsbetrag (BT-115)"),
     )
     payee_name: str | None = Field(
         default=None,
         max_length=200,
         description=(
-            "Zahlungsempfaenger Name (BT-59) -- "
-            "falls abweichend vom Verkaeufer (z.B. Factoring)"
+            "Zahlungsempfaenger Name (BT-59) -- falls abweichend vom Verkaeufer (z.B. Factoring)"
         ),
     )
     payee_id: str | None = Field(
@@ -361,8 +345,7 @@ class InvoiceData(BaseModel):
         default=None,
         max_length=20,
         description=(
-            "Zahlungskarten-PAN -- letzte 4-6 Stellen (BT-87), "
-            "z.B. '1234' fuer Kreditkartenzahlung"
+            "Zahlungskarten-PAN -- letzte 4-6 Stellen (BT-87), z.B. '1234' fuer Kreditkartenzahlung"
         ),
     )
     payment_card_holder: str | None = Field(
@@ -382,10 +365,7 @@ class InvoiceData(BaseModel):
     remittance_information: str | None = Field(
         default=None,
         max_length=140,
-        description=(
-            "Verwendungszweck (BT-83) -- "
-            "SEPA-Referenz fuer die Zahlungszuordnung"
-        ),
+        description=("Verwendungszweck (BT-83) -- SEPA-Referenz fuer die Zahlungszuordnung"),
     )
     receiving_advice_reference: str | None = Field(
         default=None,
@@ -395,10 +375,7 @@ class InvoiceData(BaseModel):
     delivery_location_id: str | None = Field(
         default=None,
         max_length=100,
-        description=(
-            "Kennung des Lieferorts -- "
-            "z.B. Lagerort-ID, GLN des Lieferstandorts"
-        ),
+        description=("Kennung des Lieferorts -- z.B. Lagerort-ID, GLN des Lieferstandorts"),
     )
     payment_means_text: str | None = Field(
         default=None,
@@ -441,8 +418,7 @@ class InvoiceData(BaseModel):
         default=None,
         ge=0,
         description=(
-            "Bereits gezahlter Betrag (BT-113) -- "
-            "z.B. Abschlagszahlungen bei Schlussrechnungen"
+            "Bereits gezahlter Betrag (BT-113) -- z.B. Abschlagszahlungen bei Schlussrechnungen"
         ),
     )
 
@@ -454,16 +430,9 @@ class InvoiceData(BaseModel):
             and self.service_period_end is not None
             and self.service_period_start > self.service_period_end
         ):
-            raise ValueError(
-                "Leistungszeitraum-Ende (BT-74) liegt vor dem Beginn (BT-73)."
-            )
-        if (
-            self.due_date is not None
-            and self.due_date < self.issue_date
-        ):
-            raise ValueError(
-                "Fälligkeitsdatum (BT-9) liegt vor dem Rechnungsdatum (BT-2)."
-            )
+            raise ValueError("Leistungszeitraum-Ende (BT-74) liegt vor dem Beginn (BT-73).")
+        if self.due_date is not None and self.due_date < self.issue_date:
+            raise ValueError("Fälligkeitsdatum (BT-9) liegt vor dem Rechnungsdatum (BT-2).")
         return self
 
     @staticmethod
@@ -500,9 +469,9 @@ class InvoiceData(BaseModel):
 
     def tax_basis(self) -> Decimal:
         """Tax basis = line total - allowances + charges (BT-109)."""
-        return (
-            self.total_net() - self.total_allowances() + self.total_charges()
-        ).quantize(Decimal("0.01"))
+        return (self.total_net() - self.total_allowances() + self.total_charges()).quantize(
+            Decimal("0.01")
+        )
 
     def total_tax(self) -> Decimal:
         """Calculate tax total using per-group rounding (EN 16931 / BR-CO-14).

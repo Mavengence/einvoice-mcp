@@ -25,10 +25,12 @@ from einvoice_mcp.services.cii_extractors import (
 logger = logging.getLogger(__name__)
 
 
-_UBL_NAMESPACES = frozenset({
-    "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
-    "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2",
-})
+_UBL_NAMESPACES = frozenset(
+    {
+        "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+        "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2",
+    }
+)
 
 
 def parse_xml(xml_bytes: bytes) -> ParsedInvoice:
@@ -330,14 +332,10 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             for ref in add_refs.children:
                 tc = str_element(getattr(ref, "type_code", ""))
                 if tc == "916":
-                    ref_id = str_element(
-                        getattr(ref, "issuer_assigned_id", "")
-                    )
+                    ref_id = str_element(getattr(ref, "issuer_assigned_id", ""))
                     if ref_id:
                         desc = str_element(getattr(ref, "name", ""))
-                        uri = str_element(
-                            getattr(ref, "uri_id", "")
-                        ) or None
+                        uri = str_element(getattr(ref, "uri_id", "")) or None
                         content_b64 = None
                         mime = "application/pdf"
                         fname = ""
@@ -387,9 +385,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     # Creditor reference ID (BT-90)
     creditor_reference_id = ""
     try:
-        cri = str_element(
-            getattr(doc.trade.settlement, "creditor_reference_id", "")
-        )
+        cri = str_element(getattr(doc.trade.settlement, "creditor_reference_id", ""))
         if cri:
             creditor_reference_id = cri
     except Exception:
@@ -487,12 +483,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 tax_container = getattr(ac_item, "trade_tax", None)
                 if tax_container and hasattr(tax_container, "children"):
                     for tax_child in tax_container.children:
-                        rate_val = safe_decimal(
-                            getattr(tax_child, "rate_applicable_percent", "0")
-                        )
-                        cat_val = str_element(
-                            getattr(tax_child, "category_code", "S")
-                        ) or "S"
+                        rate_val = safe_decimal(getattr(tax_child, "rate_applicable_percent", "0"))
+                        cat_val = str_element(getattr(tax_child, "category_code", "S")) or "S"
                         ac_tax_rate = rate_val
                         ac_tax_cat = cat_val
                         break

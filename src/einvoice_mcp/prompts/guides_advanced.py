@@ -34,7 +34,7 @@ def reiseleistungen_25_guide() -> str:
         "```json\n"
         "{\n"
         '  "invoice_note": "Sonderregelung fuer Reisebueros '
-        '- Margenbesteuerung gemaess §25 UStG. '
+        "- Margenbesteuerung gemaess §25 UStG. "
         'Kein separater Steuerausweis.",\n'
         '  "items": [{\n'
         '    "description": "Pauschalreise Mallorca 7 Tage",\n'

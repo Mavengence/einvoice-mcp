@@ -62,9 +62,7 @@ class ParsedInvoice(BaseModel):
     invoice_id: str = Field(default="", description="Rechnungsnummer")
     type_code: str = Field(default="380", description="Rechnungsartcode (BT-3)")
     issue_date: str = Field(default="", description="Rechnungsdatum")
-    vat_point_date_code: str = Field(
-        default="", description="Steuerzeitpunkt-Code (BT-8)"
-    )
+    vat_point_date_code: str = Field(default="", description="Steuerzeitpunkt-Code (BT-8)")
     seller: Party | None = Field(default=None, description="Verkaeufer")
     buyer: Party | None = Field(default=None, description="Kaeufer")
     items: list[LineItem] = Field(default_factory=list, description="Positionen")
@@ -92,51 +90,29 @@ class ParsedInvoice(BaseModel):
         description="Alle Freitext-Bemerkungen (BG-1, BT-22) -- mehrere moeglich",
     )
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
-    tax_exemption_reason: str = Field(
-        default="", description="Befreiungsgrund (BT-120)"
-    )
-    tax_exemption_reason_code: str = Field(
-        default="", description="Befreiungsgrund Code (BT-121)"
-    )
+    tax_exemption_reason: str = Field(default="", description="Befreiungsgrund (BT-120)")
+    tax_exemption_reason_code: str = Field(default="", description="Befreiungsgrund Code (BT-121)")
     skonto_percent: str = Field(default="", description="Skonto-Prozentsatz")
     skonto_days: str = Field(default="", description="Skonto-Frist in Tagen")
-    purchase_order_reference: str = Field(
-        default="", description="Bestellnummer (BT-13)"
-    )
-    sales_order_reference: str = Field(
-        default="", description="Auftragsbestaetigung (BT-14)"
-    )
-    contract_reference: str = Field(
-        default="", description="Vertragsnummer (BT-12)"
-    )
-    project_reference: str = Field(
-        default="", description="Projektreferenz (BT-11)"
-    )
+    purchase_order_reference: str = Field(default="", description="Bestellnummer (BT-13)")
+    sales_order_reference: str = Field(default="", description="Auftragsbestaetigung (BT-14)")
+    contract_reference: str = Field(default="", description="Vertragsnummer (BT-12)")
+    project_reference: str = Field(default="", description="Projektreferenz (BT-11)")
     preceding_invoice_number: str = Field(
         default="", description="Vorherige Rechnungsnummer (BT-25)"
     )
     preceding_invoice_date: str = Field(
         default="", description="Datum der vorherigen Rechnung (BT-26)"
     )
-    despatch_advice_reference: str = Field(
-        default="", description="Lieferscheinnummer (BT-16)"
-    )
-    tender_or_lot_reference: str = Field(
-        default="", description="Vergabe- / Losnummer (BT-17)"
-    )
+    despatch_advice_reference: str = Field(default="", description="Lieferscheinnummer (BT-16)")
+    tender_or_lot_reference: str = Field(default="", description="Vergabe- / Losnummer (BT-17)")
     invoiced_object_identifier: str = Field(
         default="", description="Kennung des Abrechnungsobjekts (BT-18)"
     )
-    business_process_type: str = Field(
-        default="", description="Geschaeftsprozesstyp (BT-23)"
-    )
-    remittance_information: str = Field(
-        default="", description="Verwendungszweck (BT-83)"
-    )
+    business_process_type: str = Field(default="", description="Geschaeftsprozesstyp (BT-23)")
+    remittance_information: str = Field(default="", description="Verwendungszweck (BT-83)")
     buyer_iban: str = Field(default="", description="IBAN des Kaeufers (BT-91)")
-    mandate_reference_id: str = Field(
-        default="", description="SEPA-Mandatsreferenz (BT-89)"
-    )
+    mandate_reference_id: str = Field(default="", description="SEPA-Mandatsreferenz (BT-89)")
     seller_tax_representative: Party | None = Field(
         default=None, description="Steuerlicher Vertreter des Verkaeufers (BG-11)"
     )
@@ -145,30 +121,18 @@ class ParsedInvoice(BaseModel):
     payee_legal_registration_id: str = Field(
         default="", description="Handelsregisternummer des Zahlungsempfaengers (BT-61)"
     )
-    payment_card_pan: str = Field(
-        default="", description="Zahlungskarten-PAN (BT-87)"
-    )
-    payment_card_holder: str = Field(
-        default="", description="Name des Karteninhabers (BT-88)"
-    )
+    payment_card_pan: str = Field(default="", description="Zahlungskarten-PAN (BT-87)")
+    payment_card_holder: str = Field(default="", description="Name des Karteninhabers (BT-88)")
     seller_iban: str = Field(default="", description="IBAN des Verkaeufers (BT-84)")
     seller_bic: str = Field(default="", description="BIC des Verkaeufers (BT-86)")
     seller_bank_name: str = Field(default="", description="Bankname des Verkaeufers")
-    receiving_advice_reference: str = Field(
-        default="", description="Wareneingangsreferenz (BT-15)"
-    )
-    delivery_location_id: str = Field(
-        default="", description="Kennung des Lieferorts"
-    )
+    receiving_advice_reference: str = Field(default="", description="Wareneingangsreferenz (BT-15)")
+    delivery_location_id: str = Field(default="", description="Kennung des Lieferorts")
     payment_means_type_code: str = Field(
         default="", description="Zahlungsart-Code (BT-81, z.B. 58=SEPA)"
     )
-    payment_means_text: str = Field(
-        default="", description="Zahlungsart Freitext (BT-82)"
-    )
-    buyer_reference: str = Field(
-        default="", description="Kaeufer-Referenz / Leitweg-ID (BT-10)"
-    )
+    payment_means_text: str = Field(default="", description="Zahlungsart Freitext (BT-82)")
+    buyer_reference: str = Field(default="", description="Kaeufer-Referenz / Leitweg-ID (BT-10)")
     supporting_documents: list[SupportingDocument] = Field(
         default_factory=list,
         description="Zusaetzliche Belegdokumente (BG-24)",

@@ -419,7 +419,7 @@ def kleinunternehmer_guide() -> str:
         "```\n\n"
         "## Beispielaufruf\n"
         "```json\n"
-        '{\n'
+        "{\n"
         '  "invoice_id": "KU-2026-001",\n'
         '  "issue_date": "2026-03-01",\n'
         '  "seller_name": "Anna Muster",\n'
@@ -489,7 +489,7 @@ def bauleistungen_13b_guide() -> str:
         "```\n\n"
         "## Beispiel items_json\n"
         "```json\n"
-        '[{\n'
+        "[{\n"
         '  "description": "Elektroinstallation Bürogebäude, 2. OG",\n'
         '  "quantity": "1",\n'
         '  "unit_code": "C62",\n'

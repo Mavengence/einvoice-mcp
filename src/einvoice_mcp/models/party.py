@@ -27,8 +27,7 @@ class Address(BaseModel):
     def validate_country_code(cls, v: str) -> str:
         if not v.isalpha() or not v.isupper():
             raise ValueError(
-                f"Ungültiger Ländercode '{v}'. "
-                "ISO 3166-1 alpha-2 erwartet (z.B. DE, AT, CH)."
+                f"Ungültiger Ländercode '{v}'. ISO 3166-1 alpha-2 erwartet (z.B. DE, AT, CH)."
             )
         return v
 

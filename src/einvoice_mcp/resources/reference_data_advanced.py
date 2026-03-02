@@ -25,8 +25,7 @@ def leitweg_id_format() -> str:
                     "grobadressat": {
                         "laenge": "2-12 Ziffern",
                         "beschreibung": (
-                            "Identifiziert die übergeordnete Stelle "
-                            "(Bund, Land, Kommune)"
+                            "Identifiziert die übergeordnete Stelle (Bund, Land, Kommune)"
                         ),
                         "beispiele": {
                             "bund": "991-00000-00 (Bundesministerien)",
@@ -38,17 +37,13 @@ def leitweg_id_format() -> str:
                     "feinadressat": {
                         "laenge": "1-30 Zeichen (Ziffern + Großbuchstaben)",
                         "beschreibung": (
-                            "Identifiziert die konkrete Organisationseinheit "
-                            "oder Kostenstelle"
+                            "Identifiziert die konkrete Organisationseinheit oder Kostenstelle"
                         ),
                     },
                     "pruefziffer": {
                         "laenge": "2 Ziffern",
                         "beschreibung": "Modulo-97-Prüfziffer (ISO 7064)",
-                        "berechnung": (
-                            "98 - (Grobadressat + Feinadressat als Zahl "
-                            "mod 97)"
-                        ),
+                        "berechnung": ("98 - (Grobadressat + Feinadressat als Zahl mod 97)"),
                     },
                 },
             },
@@ -63,11 +58,9 @@ def leitweg_id_format() -> str:
                 ),
             },
             "bezugsquellen": [
-                "E-Rechnungsportal des Bundes: "
-                "https://xrechnung.bund.de",
+                "E-Rechnungsportal des Bundes: https://xrechnung.bund.de",
                 "Rechnungsempfänger-Verzeichnis der Länder",
-                "Kommunale Auftraggeber: "
-                "beim jeweiligen Vergabeamt erfragen",
+                "Kommunale Auftraggeber: beim jeweiligen Vergabeamt erfragen",
             ],
         },
         ensure_ascii=False,
@@ -91,12 +84,10 @@ def tax_category_decision_tree() -> str:
                     "wann": [
                         "Normaler B2B-/B2C-Inlandsumsatz",
                         "Lieferung oder Leistung innerhalb Deutschlands",
-                        "Steuersatz 19% (Regelsteuersatz) "
-                        "oder 7% (ermäßigt)",
+                        "Steuersatz 19% (Regelsteuersatz) oder 7% (ermäßigt)",
                     ],
                     "beispiel": (
-                        "Beratungsleistung an deutschen Kunden, "
-                        "Warenlieferung innerhalb DE"
+                        "Beratungsleistung an deutschen Kunden, Warenlieferung innerhalb DE"
                     ),
                 },
                 "Z": {
@@ -114,15 +105,10 @@ def tax_category_decision_tree() -> str:
                     "steuersatz": "0%",
                     "wann": [
                         "Umsätze nach §4 UStG (echte Befreiung)",
-                        "Kleinunternehmer §19 UStG "
-                        "(freiwillige Anwendung)",
-                        "Medizinische Leistungen, "
-                        "Bildungsleistungen, Versicherungen",
+                        "Kleinunternehmer §19 UStG (freiwillige Anwendung)",
+                        "Medizinische Leistungen, Bildungsleistungen, Versicherungen",
                     ],
-                    "beispiel": (
-                        "Arztleistung (§4 Nr. 14 UStG), "
-                        "Kleinunternehmer-Rechnung"
-                    ),
+                    "beispiel": ("Arztleistung (§4 Nr. 14 UStG), Kleinunternehmer-Rechnung"),
                     "pflichtfelder": [
                         "BT-120: Befreiungsgrund angeben",
                         "BT-121: VATEX-Code angeben",
@@ -133,14 +119,11 @@ def tax_category_decision_tree() -> str:
                     "steuersatz": "0%",
                     "wann": [
                         "Bauleistungen §13b Abs. 2 Nr. 4 UStG",
-                        "Sonstige Leistungen §13b (Schrott, "
-                        "CO2-Zertifikate)",
-                        "Leistungen ausländischer Unternehmer "
-                        "§13b Abs. 1 UStG",
+                        "Sonstige Leistungen §13b (Schrott, CO2-Zertifikate)",
+                        "Leistungen ausländischer Unternehmer §13b Abs. 1 UStG",
                     ],
                     "beispiel": (
-                        "Subunternehmer-Rechnung Bau, "
-                        "IT-Dienstleistung aus USA an DE-Kunde"
+                        "Subunternehmer-Rechnung Bau, IT-Dienstleistung aus USA an DE-Kunde"
                     ),
                     "pflichtfelder": [
                         "BT-31: Verkäufer USt-IdNr.",
@@ -152,16 +135,11 @@ def tax_category_decision_tree() -> str:
                     "name": "Innergemeinschaftliche Lieferung",
                     "steuersatz": "0%",
                     "wann": [
-                        "Warenlieferung an Unternehmer in "
-                        "anderem EU-Staat",
+                        "Warenlieferung an Unternehmer in anderem EU-Staat",
                         "Käufer hat gültige USt-IdNr.",
-                        "Ware gelangt physisch in anderen "
-                        "Mitgliedstaat",
+                        "Ware gelangt physisch in anderen Mitgliedstaat",
                     ],
-                    "beispiel": (
-                        "Maschinenverkauf DE → AT, "
-                        "Materialsendung DE → FR"
-                    ),
+                    "beispiel": ("Maschinenverkauf DE → AT, Materialsendung DE → FR"),
                     "pflichtfelder": [
                         "BT-31: Verkäufer USt-IdNr.",
                         "BT-48: Käufer USt-IdNr. (anderes Land!)",
@@ -173,13 +151,9 @@ def tax_category_decision_tree() -> str:
                     "steuersatz": "0%",
                     "wann": [
                         "Lieferung in Nicht-EU-Staat",
-                        "Ausfuhrnachweis vorhanden "
-                        "(Zoll-Ausgangsvermerk)",
+                        "Ausfuhrnachweis vorhanden (Zoll-Ausgangsvermerk)",
                     ],
-                    "beispiel": (
-                        "Maschinenexport nach USA, "
-                        "Warenlieferung in die Schweiz"
-                    ),
+                    "beispiel": ("Maschinenexport nach USA, Warenlieferung in die Schweiz"),
                     "pflichtfelder": [
                         "BT-31: Verkäufer USt-IdNr.",
                         "BT-121: VATEX-EU-G",
@@ -190,48 +164,31 @@ def tax_category_decision_tree() -> str:
                     "steuersatz": "0%",
                     "wann": [
                         "Leistungsort nicht in Deutschland",
-                        "Kein steuerbarer Umsatz "
-                        "(z.B. Schadenersatz)",
-                        "Margenbesteuerung §25 UStG "
-                        "(Reiseleistungen)",
+                        "Kein steuerbarer Umsatz (z.B. Schadenersatz)",
+                        "Margenbesteuerung §25 UStG (Reiseleistungen)",
                     ],
-                    "beispiel": (
-                        "Pauschalreise §25 UStG, "
-                        "Leistung mit Ort im Ausland"
-                    ),
+                    "beispiel": ("Pauschalreise §25 UStG, Leistung mit Ort im Ausland"),
                 },
                 "L": {
                     "name": "IGIC (Kanarische Inseln)",
                     "steuersatz": "7% (Canarias)",
-                    "wann": [
-                        "Lieferung/Leistung auf den "
-                        "Kanarischen Inseln"
-                    ],
+                    "wann": ["Lieferung/Leistung auf den Kanarischen Inseln"],
                     "beispiel": "Warenlieferung nach Teneriffa",
                 },
                 "M": {
                     "name": "IPSI (Ceuta/Melilla)",
                     "steuersatz": "variabel",
-                    "wann": [
-                        "Lieferung/Leistung in Ceuta "
-                        "oder Melilla"
-                    ],
+                    "wann": ["Lieferung/Leistung in Ceuta oder Melilla"],
                     "beispiel": "Warenlieferung nach Ceuta",
                 },
             },
             "entscheidungslogik": [
-                "1. Ist der Umsatz in Deutschland steuerbar? "
-                "→ Nein → Kategorie O",
-                "2. Ist der Umsatz steuerbefreit (§4 UStG)? "
-                "→ Ja → Kategorie E",
-                "3. Greift Reverse Charge (§13b UStG)? "
-                "→ Ja → Kategorie AE",
-                "4. Ist es eine innergemeinschaftliche Lieferung? "
-                "→ Ja → Kategorie K",
-                "5. Ist es eine Ausfuhrlieferung (Drittland)? "
-                "→ Ja → Kategorie G",
-                "6. Gilt der Nullsteuersatz (§12 Abs. 3)? "
-                "→ Ja → Kategorie Z",
+                "1. Ist der Umsatz in Deutschland steuerbar? → Nein → Kategorie O",
+                "2. Ist der Umsatz steuerbefreit (§4 UStG)? → Ja → Kategorie E",
+                "3. Greift Reverse Charge (§13b UStG)? → Ja → Kategorie AE",
+                "4. Ist es eine innergemeinschaftliche Lieferung? → Ja → Kategorie K",
+                "5. Ist es eine Ausfuhrlieferung (Drittland)? → Ja → Kategorie G",
+                "6. Gilt der Nullsteuersatz (§12 Abs. 3)? → Ja → Kategorie Z",
                 "7. Standardfall → Kategorie S mit 19% oder 7%",
             ],
         },
@@ -401,8 +358,7 @@ def business_process_identifiers() -> str:
                     "id": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
                     "name": "XRechnung (nutzt Peppol-Prozesskennung)",
                     "verwendung": (
-                        "XRechnung verwendet dieselbe Prozesskennung "
-                        "wie Peppol BIS Billing"
+                        "XRechnung verwendet dieselbe Prozesskennung wie Peppol BIS Billing"
                     ),
                 },
             },
@@ -454,8 +410,7 @@ def vat_exemption_reason_texts() -> str:
                 "kleinunternehmer": {
                     "paragraph": "§19 UStG",
                     "bt_120": (
-                        "Kein Ausweis von Umsatzsteuer, da Kleinunternehmer "
-                        "gemäß §19 UStG."
+                        "Kein Ausweis von Umsatzsteuer, da Kleinunternehmer gemäß §19 UStG."
                     ),
                     "bt_121": "VATEX-EU-O",
                     "tax_category": "E",
@@ -473,10 +428,7 @@ def vat_exemption_reason_texts() -> str:
                 },
                 "ausfuhrlieferung": {
                     "paragraph": "§4 Nr. 1a i.V.m. §6 UStG",
-                    "bt_120": (
-                        "Steuerfreie Ausfuhrlieferung gemäß "
-                        "§4 Nr. 1a i.V.m. §6 UStG."
-                    ),
+                    "bt_120": ("Steuerfreie Ausfuhrlieferung gemäß §4 Nr. 1a i.V.m. §6 UStG."),
                     "bt_121": "VATEX-EU-G",
                     "tax_category": "G",
                     "hinweis": "Ausfuhrnachweis (Zoll) erforderlich",
@@ -484,8 +436,7 @@ def vat_exemption_reason_texts() -> str:
                 "reverse_charge_13b_1": {
                     "paragraph": "§13b Abs. 1 UStG",
                     "bt_120": (
-                        "Steuerschuldnerschaft des Leistungsempfängers "
-                        "gemäß §13b Abs. 1 UStG."
+                        "Steuerschuldnerschaft des Leistungsempfängers gemäß §13b Abs. 1 UStG."
                     ),
                     "bt_121": "VATEX-EU-AE",
                     "tax_category": "AE",
@@ -513,30 +464,21 @@ def vat_exemption_reason_texts() -> str:
                 },
                 "bildungsleistung": {
                     "paragraph": "§4 Nr. 21 UStG",
-                    "bt_120": (
-                        "Steuerbefreite Bildungsleistung gemäß "
-                        "§4 Nr. 21 UStG."
-                    ),
+                    "bt_120": ("Steuerbefreite Bildungsleistung gemäß §4 Nr. 21 UStG."),
                     "bt_121": "VATEX-EU-O",
                     "tax_category": "E",
                     "hinweis": "Staatlich anerkannte Bildungseinrichtungen",
                 },
                 "versicherungsleistung": {
                     "paragraph": "§4 Nr. 10 UStG",
-                    "bt_120": (
-                        "Steuerbefreite Versicherungsleistung gemäß "
-                        "§4 Nr. 10 UStG."
-                    ),
+                    "bt_120": ("Steuerbefreite Versicherungsleistung gemäß §4 Nr. 10 UStG."),
                     "bt_121": "VATEX-EU-O",
                     "tax_category": "E",
                     "hinweis": "Versicherungsumsätze und Vermittlung",
                 },
                 "finanzdienstleistung": {
                     "paragraph": "§4 Nr. 8 UStG",
-                    "bt_120": (
-                        "Steuerbefreite Finanzdienstleistung gemäß "
-                        "§4 Nr. 8 UStG."
-                    ),
+                    "bt_120": ("Steuerbefreite Finanzdienstleistung gemäß §4 Nr. 8 UStG."),
                     "bt_121": "VATEX-EU-O",
                     "tax_category": "E",
                     "hinweis": "Kreditgewährung, Wertpapierhandel",
@@ -550,8 +492,7 @@ def vat_exemption_reason_texts() -> str:
                     "bt_121": "VATEX-EU-O",
                     "tax_category": "E",
                     "hinweis": (
-                        "Option zur Steuerpflicht möglich (§9 UStG) "
-                        "bei Vermietung an Unternehmer"
+                        "Option zur Steuerpflicht möglich (§9 UStG) bei Vermietung an Unternehmer"
                     ),
                 },
             },
@@ -679,8 +620,7 @@ def payment_terms_templates() -> str:
                         "netto zahlbar innerhalb 30 Tagen."
                     ),
                     "bt_20_kodierung": (
-                        "#SKONTO#TAGE=10#PROZENT=2.00#\n"
-                        "#SKONTO#TAGE=30#PROZENT=0.00#"
+                        "#SKONTO#TAGE=10#PROZENT=2.00#\n#SKONTO#TAGE=30#PROZENT=0.00#"
                     ),
                 },
                 "3_prozent_7_tage": {
@@ -699,12 +639,10 @@ def payment_terms_templates() -> str:
             "xrechnung_kodierung": {
                 "format": "#SKONTO#TAGE=<n>#PROZENT=<p.pp>#",
                 "mehrere_staffeln": (
-                    "Mehrere Zeilen, jeweils mit "
-                    "#SKONTO#...#, letzte Zeile mit PROZENT=0.00"
+                    "Mehrere Zeilen, jeweils mit #SKONTO#...#, letzte Zeile mit PROZENT=0.00"
                 ),
                 "basis": (
-                    "Optional: #SKONTO#TAGE=10#PROZENT=2.00"
-                    "#BASISBETRAG=1190.00# (wenn abweichend)"
+                    "Optional: #SKONTO#TAGE=10#PROZENT=2.00#BASISBETRAG=1190.00# (wenn abweichend)"
                 ),
             },
             "hinweise": [

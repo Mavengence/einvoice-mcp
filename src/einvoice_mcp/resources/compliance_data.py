@@ -70,10 +70,7 @@ def br_de_rules() -> str:
         },
         {
             "code": "BR-DE-3",
-            "description": (
-                "Wenn Verkäufer nicht in DE ansässig: "
-                "Steuervertreter (BG-11) Pflicht"
-            ),
+            "description": ("Wenn Verkäufer nicht in DE ansässig: Steuervertreter (BG-11) Pflicht"),
             "field": "seller_tax_rep_name",
             "fix": (
                 "seller_tax_rep_name, seller_tax_rep_street, "
@@ -83,9 +80,7 @@ def br_de_rules() -> str:
         },
         {
             "code": "BR-DE-4",
-            "description": (
-                "Steuervertreter muss USt-IdNr. (BT-63) haben"
-            ),
+            "description": ("Steuervertreter muss USt-IdNr. (BT-63) haben"),
             "field": "seller_tax_rep_tax_id",
             "fix": "seller_tax_rep_tax_id setzen (DE-USt-IdNr.)",
         },
@@ -115,41 +110,32 @@ def br_de_rules() -> str:
         },
         {
             "code": "BR-DE-9",
-            "description": (
-                "Rechnungsdatum (BT-2) Format muss YYYYMMDD sein"
-            ),
+            "description": ("Rechnungsdatum (BT-2) Format muss YYYYMMDD sein"),
             "field": "issue_date",
             "fix": "issue_date im Format YYYY-MM-DD setzen",
         },
         {
             "code": "BR-DE-10",
-            "description": (
-                "Leistungszeitraum-Beginn (BT-73) Format muss YYYYMMDD sein"
-            ),
+            "description": ("Leistungszeitraum-Beginn (BT-73) Format muss YYYYMMDD sein"),
             "field": "service_period_start",
             "fix": "service_period_start im Format YYYY-MM-DD setzen",
         },
         {
             "code": "BR-DE-11",
-            "description": (
-                "Leistungszeitraum-Ende (BT-74) Format muss YYYYMMDD sein"
-            ),
+            "description": ("Leistungszeitraum-Ende (BT-74) Format muss YYYYMMDD sein"),
             "field": "service_period_end",
             "fix": "service_period_end im Format YYYY-MM-DD setzen",
         },
         {
             "code": "BR-DE-13",
-            "description": (
-                "Fälligkeitsdatum (BT-9) Format muss YYYYMMDD sein"
-            ),
+            "description": ("Fälligkeitsdatum (BT-9) Format muss YYYYMMDD sein"),
             "field": "due_date",
             "fix": "due_date im Format YYYY-MM-DD setzen",
         },
         {
             "code": "BR-DE-14",
             "description": (
-                "Steuernummer (BT-32) oder USt-IdNr. (BT-31) des "
-                "Verkäufers muss vorhanden sein"
+                "Steuernummer (BT-32) oder USt-IdNr. (BT-31) des Verkäufers muss vorhanden sein"
             ),
             "field": "seller_tax_id / seller_tax_number",
             "fix": "seller_tax_id (DE...) oder seller_tax_number setzen",
@@ -172,8 +158,7 @@ def br_de_rules() -> str:
         {
             "code": "BR-DE-17",
             "description": (
-                "Lieferdatum (BT-72) oder Leistungszeitraum "
-                "(BT-73/BT-74) muss vorhanden sein"
+                "Lieferdatum (BT-72) oder Leistungszeitraum (BT-73/BT-74) muss vorhanden sein"
             ),
             "field": "delivery_date / service_period_start+end",
             "fix": "delivery_date ODER service_period_start/end setzen",
@@ -189,37 +174,28 @@ def br_de_rules() -> str:
         },
         {
             "code": "BR-DE-19",
-            "description": (
-                "Zahlungsart (BT-81) muss ein in DE zulässiger Code sein"
-            ),
+            "description": ("Zahlungsart (BT-81) muss ein in DE zulässiger Code sein"),
             "field": "payment_means_type_code",
-            "fix": (
-                "Zulässig: 10, 20, 30, 42, 48, 49, 57, 58, 59, 97, ZZZ"
-            ),
+            "fix": ("Zulässig: 10, 20, 30, 42, 48, 49, 57, 58, 59, 97, ZZZ"),
         },
         {
             "code": "BR-DE-20",
             "description": (
-                "Maximal eine Zahlungsanweisung je Gruppe "
-                "(Credit Transfer oder Direct Debit)"
+                "Maximal eine Zahlungsanweisung je Gruppe (Credit Transfer oder Direct Debit)"
             ),
             "field": "payment_means_type_code",
             "fix": "Nur eine Zahlungsart pro Rechnung verwenden",
         },
         {
             "code": "BR-DE-21",
-            "description": (
-                "Elektronische Adresse des Verkäufers (BT-34) "
-                "muss vorhanden sein"
-            ),
+            "description": ("Elektronische Adresse des Verkäufers (BT-34) muss vorhanden sein"),
             "field": "seller_electronic_address",
             "fix": "seller_electronic_address setzen (z.B. E-Mail)",
         },
         {
             "code": "BR-DE-22",
             "description": (
-                "Elektronische Adresse des Käufers (BT-49) "
-                "schemeID muss ein gültiger EAS-Code sein"
+                "Elektronische Adresse des Käufers (BT-49) schemeID muss ein gültiger EAS-Code sein"
             ),
             "field": "buyer_electronic_address_scheme",
             "fix": "Gültigen EAS-Code verwenden (z.B. EM, 9930)",
@@ -232,30 +208,20 @@ def br_de_rules() -> str:
         },
         {
             "code": "BR-DE-24",
-            "description": (
-                "Mandatsreferenz + Käufer-IBAN bei "
-                "SEPA-Lastschrift (Code 59)"
-            ),
+            "description": ("Mandatsreferenz + Käufer-IBAN bei SEPA-Lastschrift (Code 59)"),
             "field": "mandate_reference_id + buyer_iban",
             "fix": "mandate_reference_id (BT-89) und buyer_iban (BT-91) setzen",
         },
         {
             "code": "BR-DE-25",
-            "description": (
-                "Gesamtbetrag (BT-112) muss >= 0 sein "
-                "(keine negativen Rechnungen)"
-            ),
+            "description": ("Gesamtbetrag (BT-112) muss >= 0 sein (keine negativen Rechnungen)"),
             "field": "grand_total",
-            "fix": (
-                "Für Gutschriften type_code=381 verwenden, "
-                "nicht negative Beträge"
-            ),
+            "fix": ("Für Gutschriften type_code=381 verwenden, nicht negative Beträge"),
         },
         {
             "code": "BR-DE-26",
             "description": (
-                "Beide Steuerkennzeichen (BT-31 und BT-32) "
-                "dürfen nicht gleichzeitig fehlen"
+                "Beide Steuerkennzeichen (BT-31 und BT-32) dürfen nicht gleichzeitig fehlen"
             ),
             "field": "seller_tax_id / seller_tax_number",
             "fix": "Mindestens seller_tax_id oder seller_tax_number setzen",
