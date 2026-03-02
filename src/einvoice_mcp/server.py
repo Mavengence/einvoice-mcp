@@ -114,6 +114,8 @@ mcp = FastMCP(
         "von elektronischen Rechnungen gemäß EN 16931."
     ),
     lifespan=app_lifespan,
+    host=settings.mcp_host,
+    port=settings.mcp_port,
 )
 
 
@@ -168,7 +170,7 @@ async def kosit_status(ctx: Context) -> str:
     return json.dumps(
         {
             "healthy": healthy,
-            "url": settings.kosit_url,
+            "url": "configured",
             "message": (
                 "KoSIT-Validator ist erreichbar und bereit."
                 if healthy
@@ -766,7 +768,7 @@ async def einvoice_check_compliance(
 
 def main() -> None:
     """Run the MCP server."""
-    mcp.run(transport="stdio")
+    mcp.run(transport=settings.mcp_transport)
 
 
 if __name__ == "__main__":

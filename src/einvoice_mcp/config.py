@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     kosit_url: str = "http://localhost:8081"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    mcp_transport: Literal["stdio", "streamable-http"] = "stdio"
+    mcp_host: str = "0.0.0.0"
+    mcp_port: int = 8000
 
     @field_validator("kosit_url")
     @classmethod
