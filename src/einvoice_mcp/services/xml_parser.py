@@ -27,19 +27,35 @@ from einvoice_mcp.models import (
 logger = logging.getLogger(__name__)
 
 
+_UBL_NAMESPACES = frozenset({
+    "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+    "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2",
+})
+
+
 def parse_xml(xml_bytes: bytes) -> ParsedInvoice:
     """Parse CII XML bytes into a ParsedInvoice.
 
     Pre-screens with defusedxml to block XXE/DTD attacks before
     passing to drafthorse (which uses lxml without entity protection).
+    Detects UBL format and returns a clear error — only CII is supported.
     """
     # Pre-screen for XXE, DTD, and entity expansion attacks
     try:
-        ElementTree.fromstring(xml_bytes)
+        root = ElementTree.fromstring(xml_bytes)
     except (EntitiesForbidden, DTDForbidden, ExternalReferenceForbidden) as exc:
         raise InvoiceParsingError() from exc
     except ElementTree.ParseError as exc:
         raise InvoiceParsingError() from exc
+
+    # Detect UBL format — this server only supports CII (Cross Industry Invoice)
+    ns = root.tag.split("}")[0].lstrip("{") if "}" in root.tag else ""
+    if ns in _UBL_NAMESPACES:
+        raise InvoiceParsingError(
+            "UBL-Format erkannt. Dieses Tool unterstützt nur CII "
+            "(Cross Industry Invoice / ZUGFeRD / XRechnung CII). "
+            "UBL-Rechnungen müssen zunächst in CII konvertiert werden."
+        )
 
     try:
         doc = Document.parse(xml_bytes)

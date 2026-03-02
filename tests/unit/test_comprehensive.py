@@ -7388,6 +7388,210 @@ class TestPaymentMeansTypeCodeParsing:
         assert parsed.payment_means_type_code == "58"
 
 
+class TestUBLFormatDetection:
+    """Verify that UBL XML is detected and rejected with a clear German error."""
+
+    def test_ubl_invoice_rejected(self) -> None:
+        """UBL Invoice namespace should be detected and rejected."""
+        ubl_xml = (
+            b'<?xml version="1.0" encoding="UTF-8"?>'
+            b'<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">'
+            b"</Invoice>"
+        )
+        with pytest.raises(InvoiceParsingError, match="UBL-Format erkannt"):
+            parse_xml(ubl_xml)
+
+    def test_ubl_credit_note_rejected(self) -> None:
+        """UBL CreditNote namespace should be detected and rejected."""
+        ubl_xml = (
+            b'<?xml version="1.0" encoding="UTF-8"?>'
+            b'<CreditNote xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2">'
+            b"</CreditNote>"
+        )
+        with pytest.raises(InvoiceParsingError, match="UBL-Format erkannt"):
+            parse_xml(ubl_xml)
+
+    def test_cii_xml_accepted(self) -> None:
+        """CII XML (regular XRechnung) should still parse fine."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoice_id == "QI-2026-001"
+
+
+class TestPydanticErrorFormatting:
+    """Verify that Pydantic validation errors include BT references."""
+
+    def test_missing_seller_name_shows_bt27(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+        result = _build_invoice_data(
+            invoice_id="X-001",
+            issue_date="2026-01-01",
+            seller_name="",  # empty = invalid
+            seller_street="S",
+            seller_city="C",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123456789",
+            buyer_name="B",
+            buyer_street="S",
+            buyer_city="C",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":"1","unit_code":"C62","unit_price":"100","tax_rate":"19"}]',
+        )
+        assert isinstance(result, str)
+        assert "Fehler: Ungültige Rechnungsdaten" in result
+
+    def test_invalid_iban_shows_bt84(self) -> None:
+        from einvoice_mcp.server import _build_invoice_data
+        result = _build_invoice_data(
+            invoice_id="X-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="C",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="DE123456789",
+            buyer_name="B",
+            buyer_street="S",
+            buyer_city="C",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json='[{"description":"X","quantity":"1","unit_code":"C62","unit_price":"100","tax_rate":"19"}]',
+            seller_iban="INVALID",
+        )
+        assert isinstance(result, str)
+        assert "Fehler: Ungültige Rechnungsdaten" in result
+        assert "BT-84" in result
+
+
+class TestClassificationVersionRoundtrip:
+    """Cover xml_parser.py line 832 — item_classification_version extraction."""
+
+    def test_classification_with_version_roundtrip(self) -> None:
+        data = _quick_invoice(
+            items=[
+                LineItem(
+                    description="IT Consulting",
+                    quantity=Decimal("10"),
+                    unit_code="HUR",
+                    unit_price=Decimal("150"),
+                    tax_rate=Decimal("19.00"),
+                    item_classification_id="72000000",
+                    item_classification_scheme="CPV",
+                    item_classification_version="2008",
+                ),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].item_classification_id == "72000000"
+        assert parsed.items[0].item_classification_scheme == "CPV"
+        assert parsed.items[0].item_classification_version == "2008"
+
+
+class TestDefensiveExceptionHandlers:
+    """Cover xml_parser.py defensive except blocks at lines 87-88, 356-357,
+    384-385, 492-493 by injecting objects whose attribute access raises,
+    triggering the exception handlers."""
+
+    def _parsed_with_sabotage(
+        self, monkeypatch: pytest.MonkeyPatch, sabotage_fn: object
+    ) -> ParsedInvoice:
+        """Build valid XML, parse via Document, sabotage it, then
+        call _extract_invoice directly."""
+        from einvoice_mcp.services.xml_parser import _extract_invoice
+
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+
+        from drafthorse.models.document import Document as DDoc
+
+        doc = DDoc.parse(xml_bytes)
+        assert callable(sabotage_fn)
+        sabotage_fn(doc)
+        return _extract_invoice(doc)
+
+    def test_buyer_reference_exception_handled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lines 87-88: exception during buyer_reference extraction → empty."""
+
+        class _Boom:
+            def __str__(self) -> str:
+                raise ValueError("boom")
+
+        def sabotage(doc: object) -> None:
+            # Inject an object whose __str__ raises into the agreement's
+            # buyer_reference slot, making _str_element() fail
+            object.__setattr__(doc.trade.agreement, "buyer_reference", _Boom())  # type: ignore[union-attr]
+
+        parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
+        assert parsed.buyer_reference == ""
+
+    def test_seller_tax_rep_exception_handled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lines 356-357: exception during tax rep extraction → None."""
+
+        class _Trap:
+            @property
+            def name(self) -> str:
+                raise RuntimeError("boom")
+
+        def sabotage(doc: object) -> None:
+            # drafthorse Field stores data in instance._data[field_name]
+            doc.trade.agreement._data["seller_tax_representative_party"] = _Trap()  # type: ignore[union-attr]
+
+        parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
+        assert parsed.seller_tax_representative is None
+
+    def test_exemption_reason_exception_handled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lines 384-385: exception during tax exemption reason extraction."""
+
+        class _Boom:
+            """Object whose __str__ raises, injected as exemption_reason."""
+
+            def __str__(self) -> str:
+                raise ValueError("boom")
+
+        def sabotage(doc: object) -> None:
+            # Replace trade_tax data with a container whose children have
+            # poisoned exemption_reason attrs, but preserve the real trade_tax
+            # so _extract_tax_breakdown still works (it's called before this block)
+            real_trade_tax = doc.trade.settlement.trade_tax  # type: ignore[union-attr]
+            # Now inject the poisoned container just for the exemption block
+            # by patching getattr to return poisoned for exemption_reason
+            real_children = list(real_trade_tax.children)
+            for child in real_children:
+                object.__setattr__(child, "exemption_reason", _Boom())
+                object.__setattr__(child, "exemption_reason_code", _Boom())
+
+        parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
+        assert parsed.tax_exemption_reason == ""
+        assert parsed.tax_exemption_reason_code == ""
+
+    def test_payee_exception_handled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Lines 492-493: exception during payee extraction → empty."""
+
+        class _Boom:
+            @property
+            def name(self) -> str:
+                raise RuntimeError("boom")
+
+        def sabotage(doc: object) -> None:
+            doc.trade.settlement._data["payee"] = _Boom()  # type: ignore[union-attr]
+
+        parsed = self._parsed_with_sabotage(monkeypatch, sabotage)
+        assert parsed.payee_name == ""
+
+
 class TestBuyerReferenceParsing:
     """Test that BT-10 (buyer reference / Leitweg-ID) survives roundtrip."""
 

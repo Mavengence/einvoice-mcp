@@ -612,6 +612,45 @@ def typecode_entscheidungshilfe() -> str:
     )
 
 
+# Map Pydantic field paths to German BT descriptions for user-friendly errors
+_FIELD_TO_BT: dict[str, str] = {
+    "invoice_id": "BT-1 (Rechnungsnummer)",
+    "issue_date": "BT-2 (Rechnungsdatum)",
+    "type_code": "BT-3 (Rechnungsart)",
+    "currency": "BT-5 (Währung)",
+    "seller": "BG-4 (Verkäufer)",
+    "seller.name": "BT-27 (Verkäufername)",
+    "seller.address": "BG-5 (Verkäuferadresse)",
+    "seller.address.street": "BT-35 (Straße Verkäufer)",
+    "seller.address.city": "BT-37 (Ort Verkäufer)",
+    "seller.address.postal_code": "BT-38 (PLZ Verkäufer)",
+    "seller.address.country_code": "BT-40 (Land Verkäufer)",
+    "seller.tax_id": "BT-31 (USt-IdNr. Verkäufer)",
+    "seller.electronic_address": "BT-34 (Elektr. Adresse Verkäufer)",
+    "buyer": "BG-7 (Käufer)",
+    "buyer.name": "BT-44 (Käufername)",
+    "buyer.address": "BG-8 (Käuferadresse)",
+    "buyer.address.street": "BT-50 (Straße Käufer)",
+    "buyer.address.city": "BT-52 (Ort Käufer)",
+    "buyer.address.postal_code": "BT-53 (PLZ Käufer)",
+    "buyer.address.country_code": "BT-55 (Land Käufer)",
+    "items": "BG-25 (Rechnungsposition)",
+    "seller_iban": "BT-84 (IBAN)",
+    "seller_bic": "BT-86 (BIC)",
+    "leitweg_id": "BT-10 (Leitweg-ID)",
+}
+
+
+def _format_pydantic_errors(exc: PydanticValidationError) -> str:
+    """Format Pydantic validation errors with BT number references."""
+    parts: list[str] = []
+    for err in exc.errors()[:5]:
+        loc = ".".join(str(p) for p in err["loc"])
+        bt_ref = _FIELD_TO_BT.get(loc, loc)
+        parts.append(f"{bt_ref}: {err['msg']}")
+    return "Fehler: Ungültige Rechnungsdaten:\n" + "\n".join(f"  - {p}" for p in parts)
+
+
 def _build_invoice_data(
     *,
     invoice_id: str,
@@ -847,8 +886,7 @@ def _build_invoice_data(
             }
         )
     except PydanticValidationError as exc:
-        errors = "; ".join(e["msg"] for e in exc.errors()[:3])
-        return f"Fehler: Ungültige Rechnungsdaten — {errors}"
+        return _format_pydantic_errors(exc)
 
 
 # --- Tool 1: Validate XRechnung ---
