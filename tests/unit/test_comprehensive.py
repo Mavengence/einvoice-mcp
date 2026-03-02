@@ -51,6 +51,7 @@ from einvoice_mcp.services.xml_parser import (
     parse_xml,
 )
 from einvoice_mcp.tools.compliance import check_compliance
+from einvoice_mcp.tools.compliance_checks import check_fields
 from einvoice_mcp.tools.generate import generate_xrechnung, generate_zugferd
 from einvoice_mcp.tools.parse import parse_einvoice
 from einvoice_mcp.tools.validate import validate_zugferd
@@ -8415,5 +8416,90 @@ class TestBuyerReferenceParsing:
         pi = ParsedInvoice()
         assert pi.buyer_reference == ""
         assert pi.payment_means_type_code == ""
+
+
+class TestBRDE25GrandTotal:
+    """BR-DE-25: Grand total must be >= 0."""
+
+    def test_positive_total_passes(self) -> None:
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        checks = check_fields(xml_bytes.decode("utf-8"))
+        br_de_25 = [c for c in checks if c.field == "BR-DE-25"]
+        assert len(br_de_25) == 0, "Positive total should not trigger BR-DE-25"
+
+    def test_negative_total_flagged(self) -> None:
+        """Inject a negative grand total to trigger BR-DE-25."""
+        data = _quick_invoice()
+        xml_str = build_xml(data).decode("utf-8")
+        # Replace the grand total with a negative value
+        xml_str = xml_str.replace(
+            "<ram:GrandTotalAmount",
+            "<ram:GrandTotalAmount"
+        ).replace(
+            ">119.00</ram:GrandTotalAmount>",
+            ">-50.00</ram:GrandTotalAmount>",
+        )
+        checks = check_fields(xml_str)
+        br_de_25 = [c for c in checks if c.field == "BR-DE-25"]
+        assert len(br_de_25) == 1
+        assert br_de_25[0].present is False
+        assert "-50.00" in br_de_25[0].value
+
+
+class TestBRCOArithmetic:
+    """BR-CO-10/15/16: Mathematical integrity checks."""
+
+    def test_valid_arithmetic_no_flags(self) -> None:
+        """Normal invoice should not trigger arithmetic failures."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        checks = check_fields(xml_bytes.decode("utf-8"))
+        br_co = [c for c in checks if c.field.startswith("BR-CO-")]
+        assert len(br_co) == 0, f"Valid invoice should have no BR-CO flags: {br_co}"
+
+    def test_wrong_grand_total_flagged(self) -> None:
+        """Inject wrong grand total to trigger BR-CO-15."""
+        data = _quick_invoice()
+        xml_str = build_xml(data).decode("utf-8")
+        # Replace grand total with wrong value
+        xml_str = xml_str.replace(
+            ">119.00</ram:GrandTotalAmount>",
+            ">999.99</ram:GrandTotalAmount>",
+        )
+        checks = check_fields(xml_str)
+        br_co_15 = [c for c in checks if c.field == "BR-CO-15"]
+        assert len(br_co_15) == 1
+        assert "999.99" in br_co_15[0].value
+
+    def test_wrong_due_payable_with_prepaid(self) -> None:
+        """Invoice with prepaid should check BT-115 = BT-112 - BT-113."""
+        data = _quick_invoice(prepaid_amount=Decimal("50"))
+        xml_bytes = build_xml(data)
+        checks = check_fields(xml_bytes.decode("utf-8"))
+        br_co_16 = [c for c in checks if c.field == "BR-CO-16"]
+        assert len(br_co_16) == 0, "Correct prepaid math should pass"
+
+
+class TestBRDEDateFormats:
+    """BR-DE-8/9/10/11/13: Date format code must be 102."""
+
+    def test_valid_format_102_passes(self) -> None:
+        """Normal invoice should not trigger date format errors."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        checks = check_fields(xml_bytes.decode("utf-8"))
+        date_rules = [c for c in checks if c.field.startswith("BR-DE-") and "Datumsformat" in c.name]
+        assert len(date_rules) == 0, "Valid format 102 should not be flagged"
+
+    def test_wrong_format_flagged(self) -> None:
+        """Inject format='203' to trigger BR-DE-9."""
+        data = _quick_invoice()
+        xml_str = build_xml(data).decode("utf-8")
+        xml_str = xml_str.replace('format="102"', 'format="203"', 1)
+        checks = check_fields(xml_str)
+        br_de_9 = [c for c in checks if c.field == "BR-DE-9"]
+        assert len(br_de_9) == 1
+        assert "203" in br_de_9[0].value
 
 

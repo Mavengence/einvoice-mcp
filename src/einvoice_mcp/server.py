@@ -22,6 +22,10 @@ from einvoice_mcp.prompts import (
     typecode_entscheidungshilfe,
     xrechnung_schnellstart,
 )
+from einvoice_mcp.prompts.guides import (
+    bauleistungen_13b_guide,
+    kleinunternehmer_guide,
+)
 from einvoice_mcp.resources import (
     br_de_rules,
     credit_note_reasons,
@@ -40,6 +44,7 @@ from einvoice_mcp.resources import (
     skr03_mapping,
     skr04_mapping,
 )
+from einvoice_mcp.resources.reference_data import example_line_items
 from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.tools.compliance import check_compliance
@@ -104,6 +109,7 @@ mcp.resource("einvoice://reference/payment-means-codes")(reference_payment_means
 mcp.resource("einvoice://reference/tax-categories")(reference_tax_categories)
 mcp.resource("einvoice://reference/unit-codes")(reference_unit_codes)
 mcp.resource("einvoice://reference/eas-codes")(reference_eas_codes)
+mcp.resource("einvoice://examples/line-items")(example_line_items)
 
 # ---------------------------------------------------------------------------
 # Resources — compliance & regulation
@@ -156,6 +162,8 @@ mcp.prompt()(abschlagsrechnung_guide)
 mcp.prompt()(ratenzahlung_rechnung)
 mcp.prompt()(handwerkerrechnung_35a)
 mcp.prompt()(typecode_entscheidungshilfe)
+mcp.prompt()(kleinunternehmer_guide)
+mcp.prompt()(bauleistungen_13b_guide)
 
 
 # ---------------------------------------------------------------------------
@@ -668,6 +676,17 @@ async def einvoice_generate_zugferd(
 async def einvoice_parse(file_content: str, file_type: str = "xml") -> str:
     """Parst eine E-Rechnung (XML oder PDF) und gibt strukturierte Daten zurück.
 
+    Unterstützt CII-XML (XRechnung) und ZUGFeRD/Factur-X PDFs.
+    Gibt JSON mit allen extrahierten Feldern zurück:
+    - Kopfdaten: invoice_id, issue_date, type_code, currency, profile
+    - Parteien: seller, buyer (Name, Adresse, USt-IdNr., Kontakt)
+    - Positionen: items[] mit Beschreibung, Menge, Preis, Steuersatz
+    - Summen: totals (BT-106 net, BT-109 tax_basis, BT-112 gross, BT-113 prepaid)
+    - Steuer: tax_breakdown[], tax_exemption_reason
+    - Referenzen: purchase_order, contract, project, preceding_invoice
+    - Zahlung: IBAN, BIC, payment_means, skonto
+    - Lieferung: delivery_date, service_period, delivery_address
+
     Args:
         file_content: XML-String oder Base64-kodierte PDF.
         file_type: Dateityp — "xml" oder "pdf".
@@ -698,6 +717,16 @@ async def einvoice_check_compliance(
 
     Kombiniert KoSIT-Validierung mit Pflichtfeldprüfung und gibt
     Verbesserungsvorschläge auf Deutsch zurück.
+
+    Geprüfte Regeln:
+    - EN 16931 Pflichtfelder (BT-1..BT-55)
+    - BR-DE-1..BR-DE-26 (XRechnung-Geschäftsregeln)
+    - BR-DE-8..BR-DE-13 (Datumsformat-Prüfung)
+    - BR-DE-25 (Bruttobetrag >= 0)
+    - Steuerkategorie-Regeln (Reverse Charge, ig. Lieferung, Export, §19)
+    - SEPA-Prüfungen (IBAN, Mandatsreferenz, BIC)
+    - EAS-Code-Validierung (BR-DE-16/21/22)
+    - Leitweg-ID Format (XRechnung)
 
     Args:
         xml_content: Der CII-XML-Inhalt als String.

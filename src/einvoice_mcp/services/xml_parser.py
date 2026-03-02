@@ -100,7 +100,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if br_val:
             buyer_reference = br_val
     except Exception:
-        pass
+        logger.debug("Failed to extract buyer reference (BT-10)", exc_info=True)
 
     # Delivery location (BT-70..BT-80)
     delivery_party_name = ""
@@ -128,7 +128,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             if dcc:
                 delivery_country_code = dcc
     except Exception:
-        pass
+        logger.debug("Failed to extract delivery location (BT-70..BT-80)", exc_info=True)
 
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     delivery_date = ""
@@ -140,7 +140,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             if val and val != "None":
                 delivery_date = val
     except Exception:
-        pass
+        logger.debug("Failed to extract delivery date (BT-72)", exc_info=True)
 
     # Service period (BT-73/BT-74)
     service_period_start = ""
@@ -158,7 +158,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             if val and val != "None":
                 service_period_end = val
     except Exception:
-        pass
+        logger.debug("Failed to extract service period (BT-73/BT-74)", exc_info=True)
 
     # Invoice note (BT-22)
     invoice_note = ""
@@ -172,7 +172,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     invoice_note = text
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract invoice note (BT-22)", exc_info=True)
 
     # Payment terms (BT-20) and due date (BT-9) and Skonto
     payment_terms = ""
@@ -205,7 +205,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if payment_terms or due_date:
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract payment terms (BT-20)", exc_info=True)
 
     # Purchase order reference (BT-13)
     purchase_order_reference = ""
@@ -215,7 +215,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             purchase_order_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract purchase order reference (BT-13)", exc_info=True)
 
     # Sales order reference (BT-14)
     sales_order_reference = ""
@@ -225,7 +225,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             sales_order_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract sales order reference (BT-14)", exc_info=True)
 
     # Contract reference (BT-12)
     contract_reference = ""
@@ -235,7 +235,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             contract_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract contract reference (BT-12)", exc_info=True)
 
     # Project reference (BT-11)
     project_reference = ""
@@ -245,7 +245,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             project_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract project reference (BT-11)", exc_info=True)
 
     # Despatch advice reference (BT-16)
     despatch_advice_reference = ""
@@ -255,7 +255,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             despatch_advice_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract despatch advice reference (BT-16)", exc_info=True)
 
     # Receiving advice reference (BT-15)
     receiving_advice_reference = ""
@@ -265,7 +265,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             receiving_advice_reference = val
     except Exception:
-        pass
+        logger.debug("Failed to extract receiving advice reference (BT-15)", exc_info=True)
 
     # Delivery location identifier (BT-71)
     delivery_location_id = ""
@@ -275,7 +275,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             delivery_location_id = val
     except Exception:
-        pass
+        logger.debug("Failed to extract delivery location ID", exc_info=True)
 
     # Payment means type code (BT-81) and text (BT-82)
     payment_means_type_code = ""
@@ -299,7 +299,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if payment_means_text:
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract payment means (BT-81/BT-82)", exc_info=True)
 
     # Tender/lot reference (BT-17) and Invoiced object identifier (BT-18)
     # Both stored as AdditionalReferencedDocument — TypeCode=50 for BT-17, 130 for BT-18
@@ -316,7 +316,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 elif tc == "130" and ref_id and not invoiced_object_identifier:
                     invoiced_object_identifier = ref_id
     except Exception:
-        pass
+        logger.debug("Failed to extract tender/lot reference (BT-17/BT-18)", exc_info=True)
 
     # Supporting documents (BG-24, BT-122..BT-125) — TypeCode=916
     supporting_documents: list[SupportingDocument] = []
@@ -359,7 +359,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                             )
                         )
     except Exception:
-        pass
+        logger.debug("Failed to extract supporting documents (BG-24)", exc_info=True)
 
     # Seller tax representative (BG-11, BT-62..BT-65)
     seller_tax_representative = None
@@ -369,7 +369,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if rep_name:
             seller_tax_representative = extract_party(rep_party)
     except Exception:
-        pass
+        logger.debug("Failed to extract seller tax representative (BG-11)", exc_info=True)
 
     # Business process type (BT-23)
     business_process_type = ""
@@ -379,7 +379,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             business_process_type = val
     except Exception:
-        pass
+        logger.debug("Failed to extract business process type (BT-23)", exc_info=True)
 
     # VAT exemption reason (BT-120/BT-121)
     tax_exemption_reason = ""
@@ -397,7 +397,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if tax_exemption_reason or tax_exemption_reason_code:
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract VAT exemption reason (BT-120/BT-121)", exc_info=True)
 
     # Preceding invoice number (BT-25) and date (BT-26)
     preceding_invoice_number = ""
@@ -415,7 +415,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             if dt_val and dt_val != "None":
                 preceding_invoice_date = dt_val
     except Exception:
-        pass
+        logger.debug("Failed to extract preceding invoice (BT-25/BT-26)", exc_info=True)
 
     # Remittance information (BT-83) / Verwendungszweck
     remittance_information = ""
@@ -425,7 +425,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if val:
             remittance_information = val
     except Exception:
-        pass
+        logger.debug("Failed to extract remittance information (BT-83)", exc_info=True)
 
     # Document-level allowances/charges (BG-20/BG-21)
     allowances_charges: list[ParsedAllowanceCharge] = []
@@ -466,7 +466,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     )
                 )
     except Exception:
-        pass
+        logger.debug("Failed to extract allowances/charges (BG-20/BG-21)", exc_info=True)
 
     # Payment card (BT-87/BT-88)
     payment_card_pan = ""
@@ -486,7 +486,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if payment_card_pan:
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract payment card (BT-87/BT-88)", exc_info=True)
 
     # Payee party (BG-10, BT-59..BT-61)
     payee_name = ""
@@ -511,7 +511,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if lo_id:
                     payee_legal_registration_id = lo_id
     except Exception:
-        pass
+        logger.debug("Failed to extract payee party (BG-10)", exc_info=True)
 
     # IBAN / BIC / Bank name (BT-84, BT-86) and buyer IBAN (BT-91)
     seller_iban = ""
@@ -544,7 +544,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 if seller_iban:
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract IBAN/BIC/bank (BT-84/BT-86)", exc_info=True)
 
     # SEPA mandate reference (BT-89)
     mandate_reference_id = ""
@@ -557,7 +557,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     mandate_reference_id = mid
                     break
     except Exception:
-        pass
+        logger.debug("Failed to extract SEPA mandate reference (BT-89)", exc_info=True)
 
     return ParsedInvoice(
         invoice_id=str_element(doc.header.id),

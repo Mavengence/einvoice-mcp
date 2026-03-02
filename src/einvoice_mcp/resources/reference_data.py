@@ -387,3 +387,164 @@ def reference_vatex_codes() -> str:
         ensure_ascii=False,
         indent=2,
     )
+
+
+def example_line_items() -> str:
+    """Praxisbeispiele für items_json — die häufigsten Szenarien.
+
+    Zeigt korrekte JSON-Arrays für verschiedene Steuerszenarien.
+    AI-Agenten können diese Beispiele als Vorlage verwenden.
+    """
+    return json.dumps(
+        {
+            "standard_19_prozent": {
+                "beschreibung": "Standardrechnung mit 19% MwSt",
+                "items": [
+                    {
+                        "description": "Webentwicklung",
+                        "quantity": "40",
+                        "unit_code": "HUR",
+                        "unit_price": "120.00",
+                        "tax_rate": "19.00",
+                        "tax_category": "S",
+                    },
+                    {
+                        "description": "Domain-Hosting (12 Monate)",
+                        "quantity": "1",
+                        "unit_code": "C62",
+                        "unit_price": "59.88",
+                        "tax_rate": "19.00",
+                        "tax_category": "S",
+                    },
+                ],
+            },
+            "ermaessigt_7_prozent": {
+                "beschreibung": "Ermäßigter Steuersatz 7% (Lebensmittel, Bücher, etc.)",
+                "items": [
+                    {
+                        "description": "Fachbuch: Python für Data Engineers",
+                        "quantity": "5",
+                        "unit_code": "C62",
+                        "unit_price": "49.90",
+                        "tax_rate": "7.00",
+                        "tax_category": "S",
+                    },
+                ],
+            },
+            "gemischte_steuersaetze": {
+                "beschreibung": "Rechnung mit 19% und 7% Positionen",
+                "items": [
+                    {
+                        "description": "IT-Beratung",
+                        "quantity": "8",
+                        "unit_code": "HUR",
+                        "unit_price": "150.00",
+                        "tax_rate": "19.00",
+                        "tax_category": "S",
+                    },
+                    {
+                        "description": "Schulungsunterlagen (Buch)",
+                        "quantity": "10",
+                        "unit_code": "C62",
+                        "unit_price": "29.90",
+                        "tax_rate": "7.00",
+                        "tax_category": "S",
+                    },
+                ],
+            },
+            "reverse_charge_13b": {
+                "beschreibung": "Reverse Charge (§13b UStG) — Bauleistungen",
+                "hinweis": (
+                    "tax_category='AE', tax_rate='0.00'. "
+                    "Käufer und Verkäufer brauchen USt-IdNr. "
+                    "Freitext: 'Steuerschuldnerschaft des Leistungsempfängers'"
+                ),
+                "items": [
+                    {
+                        "description": "Elektroinstallation Bürogebäude",
+                        "quantity": "1",
+                        "unit_code": "C62",
+                        "unit_price": "15000.00",
+                        "tax_rate": "0.00",
+                        "tax_category": "AE",
+                    },
+                ],
+            },
+            "kleinunternehmer_19_ustg": {
+                "beschreibung": "Kleinunternehmer (§19 UStG) — keine MwSt",
+                "hinweis": (
+                    "tax_category='E', tax_rate='0.00'. "
+                    "tax_exemption_reason='Gemäß §19 UStG wird keine "
+                    "Umsatzsteuer berechnet (Kleinunternehmerregelung).'"
+                ),
+                "items": [
+                    {
+                        "description": "Grafikdesign Logo",
+                        "quantity": "1",
+                        "unit_code": "C62",
+                        "unit_price": "800.00",
+                        "tax_rate": "0.00",
+                        "tax_category": "E",
+                    },
+                ],
+            },
+            "innergemeinschaftlich_k": {
+                "beschreibung": (
+                    "Innergemeinschaftliche Lieferung "
+                    "(§4 Nr. 1b UStG) — steuerfreie EU-Lieferung"
+                ),
+                "hinweis": (
+                    "tax_category='K', tax_rate='0.00'. "
+                    "Käufer braucht gültige USt-IdNr. aus anderem EU-Land."
+                ),
+                "items": [
+                    {
+                        "description": "Maschine Typ X-500",
+                        "quantity": "1",
+                        "unit_code": "C62",
+                        "unit_price": "25000.00",
+                        "tax_rate": "0.00",
+                        "tax_category": "K",
+                    },
+                ],
+            },
+            "mit_rabatt": {
+                "beschreibung": "Position mit Zeilenrabatt (BG-27)",
+                "items": [
+                    {
+                        "description": "Serverraum-Wartung (Jahresvertrag)",
+                        "quantity": "12",
+                        "unit_code": "MON",
+                        "unit_price": "500.00",
+                        "tax_rate": "19.00",
+                        "tax_category": "S",
+                        "allowances_charges": [
+                            {
+                                "charge": False,
+                                "amount": "600.00",
+                                "reason": "Jahresrabatt 10%",
+                            }
+                        ],
+                    },
+                ],
+            },
+            "einheitencodes": {
+                "beschreibung": "Häufige UN/ECE Einheitencodes",
+                "codes": {
+                    "C62": "Stück (Standardeinheit)",
+                    "HUR": "Stunde",
+                    "DAY": "Tag",
+                    "MON": "Monat",
+                    "KGM": "Kilogramm",
+                    "MTR": "Meter",
+                    "LTR": "Liter",
+                    "MTK": "Quadratmeter",
+                    "SET": "Set / Satz",
+                    "XPK": "Paket",
+                    "H87": "Stück (alternativ)",
+                },
+            },
+        },
+        ensure_ascii=False,
+        indent=2,
+    )

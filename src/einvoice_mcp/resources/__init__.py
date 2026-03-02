@@ -8,6 +8,7 @@ from einvoice_mcp.resources.compliance_data import (
     skr04_mapping,
 )
 from einvoice_mcp.resources.reference_data import (
+    example_line_items,
     reference_eas_codes,
     reference_payment_means_codes,
     reference_tax_categories,
@@ -27,6 +28,7 @@ __all__ = [
     "br_de_rules",
     "credit_note_reasons",
     "e_rechnung_pflichten",
+    "example_line_items",
     "reference_eas_codes",
     "reference_payment_means_codes",
     "reference_tax_categories",

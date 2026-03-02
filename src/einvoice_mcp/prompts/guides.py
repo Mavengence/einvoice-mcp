@@ -390,3 +390,123 @@ def typecode_entscheidungshilfe() -> str:
         "- **877**: `prepaid_amount` (BT-113) für bereits gezahlte Abschläge\n"
         "- **389**: Vereinbarung zwischen den Parteien erforderlich"
     )
+
+
+def kleinunternehmer_guide() -> str:
+    """Anleitung zur Erstellung einer Rechnung als Kleinunternehmer (§19 UStG).
+
+    Zeigt Pflichtfelder, steuerliche Hinweise und ein vollständiges Beispiel.
+    """
+    return (
+        "# Kleinunternehmerrechnung (§19 UStG)\n\n"
+        "## Voraussetzungen\n"
+        "- Vorjahresumsatz ≤ 22.000 EUR und\n"
+        "- Voraussichtlicher Umsatz im laufenden Jahr ≤ 50.000 EUR\n"
+        "- Option nach §19 Abs. 1 UStG nicht widerrufen\n\n"
+        "## Pflichtangaben auf der Rechnung\n"
+        "1. **Alle §14 UStG Pflichtangaben** (Name, Anschrift, Datum, etc.)\n"
+        "2. **Hinweis auf Steuerbefreiung** — PFLICHT per §19 Abs. 1 Satz 4:\n"
+        "   `tax_exemption_reason`: 'Gemäß §19 UStG wird keine "
+        "Umsatzsteuer berechnet (Kleinunternehmerregelung).'\n"
+        "3. **Kein gesonderter MwSt-Ausweis** — VERBOTEN!\n\n"
+        "## Technische Umsetzung\n"
+        "```\n"
+        "tax_category: E       (Exempt)\n"
+        "tax_rate: 0.00\n"
+        "tax_exemption_reason: 'Gemäß §19 UStG wird keine "
+        "Umsatzsteuer berechnet (Kleinunternehmerregelung).'\n"
+        "tax_exemption_reason_code: 'vatex-eu-ae'\n"
+        "```\n\n"
+        "## Beispielaufruf\n"
+        "```json\n"
+        '{\n'
+        '  "invoice_id": "KU-2026-001",\n'
+        '  "issue_date": "2026-03-01",\n'
+        '  "seller_name": "Anna Muster",\n'
+        '  "seller_street": "Hauptstr. 1",\n'
+        '  "seller_city": "München",\n'
+        '  "seller_postal_code": "80331",\n'
+        '  "seller_country_code": "DE",\n'
+        '  "seller_tax_id": "",\n'
+        '  "seller_tax_number": "123/456/78901",\n'
+        '  "buyer_name": "Kunde GmbH",\n'
+        '  "buyer_street": "Marktplatz 5",\n'
+        '  "buyer_city": "Berlin",\n'
+        '  "buyer_postal_code": "10115",\n'
+        '  "buyer_country_code": "DE",\n'
+        '  "tax_exemption_reason": "Gemäß §19 UStG wird keine '
+        'Umsatzsteuer berechnet (Kleinunternehmerregelung).",\n'
+        '  "tax_exemption_reason_code": "vatex-eu-ae",\n'
+        '  "items_json": "[{\\"description\\":\\"Grafikdesign Logo\\",'
+        '\\"quantity\\":\\"1\\",'
+        '\\"unit_code\\":\\"C62\\",'
+        '\\"unit_price\\":\\"800.00\\",'
+        '\\"tax_rate\\":\\"0.00\\",'
+        '\\"tax_category\\":\\"E\\"}]"\n'
+        "}\n"
+        "```\n\n"
+        "## Häufige Fehler\n"
+        "- MwSt-Ausweis auf der Rechnung → Steuerschuld nach §14c UStG!\n"
+        "- Fehlender §19-Hinweis → Finanzamt kann Nachforderung stellen\n"
+        "- USt-IdNr. angeben statt Steuernummer → nicht erforderlich, "
+        "Steuernummer reicht\n"
+        "- Rechnungsbetrag > 22.000 EUR → prüfen ob noch Kleinunternehmer"
+    )
+
+
+def bauleistungen_13b_guide() -> str:
+    """Anleitung für Rechnungen bei Bauleistungen (§13b Abs. 2 Nr. 4 UStG).
+
+    Reverse Charge bei Bauleistungen — Steuerschuldnerschaft des
+    Leistungsempfängers.
+    """
+    return (
+        "# Bauleistungen — Reverse Charge (§13b UStG)\n\n"
+        "## Wann gilt §13b bei Bauleistungen?\n"
+        "- Leistungsempfänger ist **selbst Bauleistender** (§13b Abs. 5 UStG)\n"
+        "- Leistung fällt unter §13b Abs. 2 Nr. 4 UStG:\n"
+        "  - Werklieferungen und Werkleistungen am Grundstück\n"
+        "  - Elektroinstallation, Sanitär, Heizung, Dachdeckerarbeiten\n"
+        "  - Gerüstbau, Abbrucharbeiten, Erdarbeiten\n"
+        "  - NICHT: reine Planungsleistungen, Reinigung, Gartenbau\n\n"
+        "## Pflichtangaben auf der Rechnung\n"
+        "1. **USt-IdNr. des Verkäufers** (BT-31) — PFLICHT\n"
+        "2. **USt-IdNr. des Käufers** (BT-48) — PFLICHT\n"
+        "3. **Hinweis auf Reverse Charge** (BT-22):\n"
+        "   'Steuerschuldnerschaft des Leistungsempfängers "
+        "gemäß §13b UStG'\n"
+        "4. **Nettobetrag ohne MwSt** — kein gesonderter Steuerausweis\n\n"
+        "## Technische Umsetzung\n"
+        "```\n"
+        "tax_category: AE      (Reverse Charge)\n"
+        "tax_rate: 0.00\n"
+        "seller_tax_id: DE123456789  (USt-IdNr. Verkäufer)\n"
+        "buyer_tax_id: DE987654321   (USt-IdNr. Käufer)\n"
+        "invoice_note: 'Steuerschuldnerschaft des Leistungsempfängers "
+        "gemäß §13b UStG'\n"
+        "tax_exemption_reason: 'Steuerschuldnerschaft des "
+        "Leistungsempfängers gemäß §13b Abs. 2 Nr. 4 UStG'\n"
+        "```\n\n"
+        "## Beispiel items_json\n"
+        "```json\n"
+        '[{\n'
+        '  "description": "Elektroinstallation Bürogebäude, 2. OG",\n'
+        '  "quantity": "1",\n'
+        '  "unit_code": "C62",\n'
+        '  "unit_price": "15000.00",\n'
+        '  "tax_rate": "0.00",\n'
+        '  "tax_category": "AE"\n'
+        "}]\n"
+        "```\n\n"
+        "## Compliance-Prüfung\n"
+        "Das `einvoice_check_compliance` Tool prüft automatisch:\n"
+        "- RC-BT-31: USt-IdNr. Verkäufer vorhanden\n"
+        "- RC-BT-48: USt-IdNr. Käufer vorhanden\n"
+        "- RC-TAX-RATE: Steuersatz = 0%\n"
+        "- RC-COUNTRY: Länderprüfung (bei Inland gleich)\n\n"
+        "## Häufige Fehler\n"
+        "- Steuerausweis trotz §13b → Steuerschuld nach §14c UStG!\n"
+        "- Fehlende USt-IdNr. des Käufers → keine Reverse Charge\n"
+        "- Falscher Hinweistext → formaler Mangel\n"
+        "- Leistung fällt nicht unter §13b → normaler Steuerausweis nötig"
+    )
