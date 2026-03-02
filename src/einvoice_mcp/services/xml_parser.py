@@ -278,6 +278,15 @@ def _extract_party(party_obj: object) -> Party | None:
                         # VA or unknown schemeID → treat as USt-IdNr.
                         tax_id = extracted
 
+        # Global ID / Registration ID (BT-29)
+        registration_id = None
+        global_id_container = getattr(party_obj, "global_id", None)
+        if global_id_container and hasattr(global_id_container, "children"):
+            for gid_entry in global_id_container.children:
+                if isinstance(gid_entry, tuple) and len(gid_entry) == 2:
+                    registration_id = str(gid_entry[1]).strip() or None
+                    break
+
         # Electronic address (BT-34/BT-49)
         electronic_address = None
         electronic_address_scheme = "EM"
@@ -318,6 +327,7 @@ def _extract_party(party_obj: object) -> Party | None:
             address=address,
             tax_id=tax_id,
             tax_number=tax_number,
+            registration_id=registration_id,
             electronic_address=electronic_address,
             electronic_address_scheme=electronic_address_scheme,
             contact_name=contact_name,

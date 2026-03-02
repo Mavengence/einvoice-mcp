@@ -72,6 +72,12 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.seller.address.city_name = data.seller.address.city
     doc.trade.agreement.seller.address.country_id = data.seller.address.country_code
 
+    # Seller global ID (BT-29) — Handelsregisternummer or GLN
+    if data.seller.registration_id:
+        doc.trade.agreement.seller.global_id.add(
+            ("0088", data.seller.registration_id)
+        )
+
     if data.seller.tax_id:
         seller_tax = TaxRegistration()
         seller_tax.id = ("VA", data.seller.tax_id)
@@ -108,6 +114,12 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.buyer.address.postcode = data.buyer.address.postal_code
     doc.trade.agreement.buyer.address.city_name = data.buyer.address.city
     doc.trade.agreement.buyer.address.country_id = data.buyer.address.country_code
+
+    # Buyer global ID (BT-46) — GLN or other identifier
+    if data.buyer.registration_id:
+        doc.trade.agreement.buyer.global_id.add(
+            ("0088", data.buyer.registration_id)
+        )
 
     if data.buyer.tax_id:
         buyer_tax = TaxRegistration()

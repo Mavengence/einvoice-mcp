@@ -2975,3 +2975,51 @@ class TestBuyerContactRoundtrip:
         assert parsed.buyer is not None
         assert parsed.buyer.contact_name == "Anna Schmidt"
         assert parsed.buyer.contact_email == "anna@buyer.de"
+
+
+# ============================================================================
+# 44. Registration ID (BT-29) roundtrip
+# ============================================================================
+
+
+class TestRegistrationIdRoundtrip:
+    def test_seller_registration_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Seller registration ID (BT-29) roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller": sample_invoice_data.seller.model_copy(
+                    update={"registration_id": "4000001000016"}
+                ),
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.registration_id == "4000001000016"
+
+    def test_no_registration_id(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No registration ID → parsed as None."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.registration_id is None
+
+    def test_buyer_registration_id(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Buyer registration ID roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "buyer": sample_invoice_data.buyer.model_copy(
+                    update={"registration_id": "9876543210123"}
+                ),
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer is not None
+        assert parsed.buyer.registration_id == "9876543210123"
