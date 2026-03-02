@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**285 tests | 97% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**356 tests | 99% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -51,6 +51,21 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-81 | Payment means type code | `test_payment_means_type_code_custom` | PASS |
 | BT-83 | Remittance information | `test_remittance_information_roundtrip` | PASS |
 | BT-84 | IBAN (SEPA credit transfer) | `test_iban_in_xml` | PASS |
+| BT-9 | Due date | `test_due_date_roundtrip` | PASS |
+| BT-14 | Sales order reference | `test_sales_order_roundtrip` | PASS |
+| BT-29 | Seller registration ID (GLN) | `test_seller_registration_id_roundtrip` | PASS |
+| BT-36/37 | Seller address lines 2/3 | `test_address_lines_full_roundtrip` | PASS |
+| BT-44 | Buyer contact name | `test_buyer_contact_roundtrip` | PASS |
+| BT-46 | Buyer contact phone | `test_buyer_contact_roundtrip` | PASS |
+| BT-47 | Buyer contact email | `test_buyer_contact_roundtrip` | PASS |
+| BT-51/52 | Buyer address lines 2/3 | `test_address_lines_full_roundtrip` | PASS |
+| BT-70..80 | Delivery location | `test_delivery_location_roundtrip` | PASS |
+| BT-127 | Line item note | `test_item_note_roundtrip` | PASS |
+| BT-155 | Seller item identifier | `test_seller_item_id_roundtrip` | PASS |
+| BT-156 | Buyer item identifier | `test_buyer_item_id_roundtrip` | PASS |
+| BT-157 | Standard item ID (GTIN) | `test_standard_item_id_roundtrip` | PASS |
+| BG-20/21 | Document-level allowances/charges | `test_allowance_roundtrip` | PASS |
+| BG-27/28 | Line-level allowances/charges | `test_line_allowance_roundtrip` | PASS |
 
 ### Calculation Rules
 
@@ -88,6 +103,17 @@ Every mandatory Business Term is tested in generated XML output:
 | Remittance roundtrip | BT-83 generate → parse | `test_remittance_information_roundtrip` | PASS |
 | Empty scheme stripping | `"PO-42 ()"` → `"PO-42"` | `test_strips_empty_parens` | PASS |
 | Roundtrip invoice | Generate → Parse → Verify key fields | `test_xrechnung_roundtrip` | PASS |
+| Due date roundtrip | BT-9 generate → parse | `test_due_date_roundtrip` | PASS |
+| Address line 2/3 roundtrip | BT-36/37, BT-51/52 generate → parse | `test_address_lines_full_roundtrip` | PASS |
+| Buyer contact roundtrip | BT-44/46/47 generate → parse | `test_buyer_contact_roundtrip` | PASS |
+| Registration ID roundtrip | BT-29 generate → parse | `test_seller_registration_id_roundtrip` | PASS |
+| Sales order roundtrip | BT-14 generate → parse | `test_sales_order_roundtrip` | PASS |
+| Item identifiers roundtrip | BT-155/156/157 generate → parse | `test_all_item_ids_together` | PASS |
+| Line item note roundtrip | BT-127 generate → parse | `test_item_note_roundtrip` | PASS |
+| Delivery location roundtrip | BT-70..80 generate → parse | `test_delivery_location_roundtrip` | PASS |
+| Allowance roundtrip | BG-20 generate → parse | `test_allowance_roundtrip` | PASS |
+| Charge roundtrip | BG-21 generate → parse | `test_charge_roundtrip` | PASS |
+| Line allowance roundtrip | BG-27 generate → parse | `test_line_allowance_roundtrip` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -139,16 +165,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 141 | 0 | **100%** |
-| `services/invoice_builder.py` | 144 | 0 | **100%** |
-| `services/kosit.py` | 80 | 1 | **99%** |
-| `services/pdf_generator.py` | 107 | 1 | **99%** |
-| `services/xml_parser.py` | 285 | 20 | **93%** |
-| `tools/compliance.py` | 91 | 2 | **98%** |
+| `models.py` | 220 | 0 | **100%** |
+| `services/invoice_builder.py` | 209 | 0 | **100%** |
+| `services/kosit.py` | 80 | 0 | **100%** |
+| `services/pdf_generator.py` | 130 | 0 | **100%** |
+| `services/xml_parser.py` | 408 | 5 | **99%** |
+| `tools/compliance.py` | 91 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
-| `tools/parse.py` | 39 | 1 | **97%** |
-| `tools/validate.py` | 33 | 2 | **94%** |
-| **TOTAL** | **1022** | **27** | **97%** |
+| `tools/parse.py` | 39 | 0 | **100%** |
+| `tools/validate.py` | 33 | 0 | **100%** |
+| **TOTAL** | **1312** | **5** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -164,6 +190,14 @@ Every mandatory Business Term is tested in generated XML output:
 | `einvoice_generate_zugferd` | Generates a ZUGFeRD hybrid PDF (visual + machine-readable) |
 | `einvoice_parse` | Parses e-invoices (XML or PDF) into structured data |
 | `einvoice_check_compliance` | Checks mandatory fields + KoSIT validation with German suggestions |
+
+### MCP Resources
+
+| Resource URI | Description |
+|-------------|-------------|
+| `einvoice://schemas/line-item` | JSON schema for line item objects (items array) |
+| `einvoice://schemas/allowance-charge` | JSON schema for allowance/charge objects |
+| `einvoice://schemas/invoice-data` | Full JSON schema for InvoiceData with all fields |
 
 ---
 
@@ -301,34 +335,45 @@ make docker-up  # Start Docker stack
 
 ## Supported Business Terms (EN 16931)
 
-| BT | Field | Generate | Parse | Compliance |
-|----|-------|----------|-------|------------|
+| BT/BG | Field | Generate | Parse | Compliance |
+|-------|-------|----------|-------|------------|
 | BT-1 | Invoice number | Yes | Yes | Yes |
 | BT-2 | Issue date | Yes | Yes | Yes |
 | BT-3 | Type code (380/381/384) | Yes | Yes | Yes |
 | BT-5 | Currency code | Yes | Yes | Yes |
+| BT-9 | Due date | Yes | Yes | — |
 | BT-10 | Buyer reference / Leitweg-ID | Yes | Yes | Yes |
 | BT-11 | Project reference | Yes | Yes | — |
 | BT-12 | Contract reference | Yes | Yes | — |
 | BT-13 | Purchase order reference | Yes | Yes | — |
+| BT-14 | Sales order reference | Yes | Yes | — |
 | BT-20 | Payment terms text | Yes | Yes | — |
 | BT-22 | Invoice note | Yes | Yes | — |
 | BT-25 | Preceding invoice (credit notes) | Yes | Yes | Yes |
-| BT-27..40 | Seller party + address | Yes | Yes | Yes |
+| BT-27..40 | Seller party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-29 | Seller registration ID (GLN) | Yes | Yes | — |
 | BT-31 | Seller VAT ID (schemeID=VA) | Yes | Yes | Yes |
 | BT-32 | Seller tax number (schemeID=FC) | Yes | Yes | Yes |
 | BT-34 | Seller electronic address | Yes | Yes | Yes |
-| BT-41 | Seller contact name | Yes | — | Yes |
-| BT-42 | Seller contact phone | Yes | — | — |
-| BT-43 | Seller contact email | Yes | — | Yes |
-| BT-44..55 | Buyer party + address | Yes | Yes | Yes |
+| BT-41 | Seller contact name | Yes | Yes | Yes |
+| BT-42 | Seller contact phone | Yes | Yes | Yes |
+| BT-43 | Seller contact email | Yes | Yes | Yes |
+| BT-44..55 | Buyer party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-46 | Buyer registration ID (GLN) | Yes | Yes | — |
 | BT-49 | Buyer electronic address | Yes | Yes | Yes |
+| BT-70..80 | Delivery location (name + address) | Yes | Yes | — |
 | BT-71 | Delivery date | Yes | Yes | Yes |
 | BT-73/74 | Service period | Yes | Yes | Yes |
-| BT-81 | Payment means type code | Yes | — | — |
+| BT-81 | Payment means type code | Yes | Yes | — |
 | BT-83 | Remittance information | Yes | Yes | — |
-| BT-84 | IBAN | Yes | — | Yes |
-| BT-86 | BIC | Yes | — | — |
+| BT-84 | IBAN | Yes | Yes | Yes |
+| BT-86 | BIC | Yes | Yes | — |
+| BT-127 | Line item note | Yes | Yes | — |
+| BT-155 | Seller item identifier | Yes | Yes | — |
+| BT-156 | Buyer item identifier | Yes | Yes | — |
+| BT-157 | Standard item ID (GTIN/EAN) | Yes | Yes | — |
+| BG-20/21 | Document-level allowances/charges | Yes | Yes | — |
+| BG-27/28 | Line-level allowances/charges | Yes | Yes | — |
 
 ---
 
@@ -358,7 +403,6 @@ Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
 ## Limitations
 
 - **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are tested for XRechnung 3.0 and ZUGFeRD EN16931 only.
-- **Document-level allowances/charges**: BT-128..131 (invoice-wide discounts/surcharges) are not yet supported. Line-item prices should include any adjustments.
 - **Batch processing**: Each tool call processes one invoice. For bulk operations, call the tools in sequence.
 
 ---
