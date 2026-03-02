@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**509 tests | 99% coverage (1994 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
+**521 tests | 99% coverage (2007 stmts, 9 defensive) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -182,6 +182,8 @@ Every mandatory Business Term is tested in generated XML output:
 | Supporting docs roundtrip | BG-24 generate → parse | `test_supporting_doc_with_uri` | PASS |
 | Supporting docs + tender ref | BG-24 + BT-17 coexistence | `test_supporting_docs_coexist_with_tender_ref` | PASS |
 | Country subdivision roundtrip | BT-39/BT-54 generate → parse | `test_country_subdivision_seller_buyer` | PASS |
+| Payment means type code roundtrip | BT-81 generate → parse | `test_sepa_type_code_roundtrip` | PASS |
+| Buyer reference roundtrip | BT-10 generate → parse | `test_buyer_reference_roundtrip` | PASS |
 | Tax rep subdivision roundtrip | BG-11 BT-39 generate → parse | `test_tax_rep_subdivision_roundtrip` | PASS |
 | Combined item features | BT-159 + BG-30 + BT-148 together | `test_all_item_features_together` | PASS |
 | Multi-reference coexistence | BT-17 + BT-18 in same invoice | `test_tender_and_invoiced_object_coexist` | PASS |
@@ -246,16 +248,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 312 | 0 | **100%** |
+| `models.py` | 314 | 0 | **100%** |
 | `services/invoice_builder.py` | 335 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
-| `services/xml_parser.py` | 694 | 7 | **99%** |
+| `services/xml_parser.py` | 705 | 9 | **99%** |
 | `tools/compliance.py` | 217 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1994** | **7** | **99%** |
+| **TOTAL** | **2007** | **9** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 

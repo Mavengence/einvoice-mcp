@@ -78,6 +78,15 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
 
     profile = _str_element(doc.context.guideline_parameter.id)
 
+    # Buyer reference / Leitweg-ID (BT-10)
+    buyer_reference = ""
+    try:
+        br_val = _str_element(getattr(doc.trade.agreement, "buyer_reference", ""))
+        if br_val:
+            buyer_reference = br_val
+    except Exception:
+        pass
+
     # Delivery location (BT-70..BT-80)
     delivery_party_name = ""
     delivery_street = ""
@@ -253,12 +262,18 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # Payment means text (BT-82) — MultiStringField → StringContainer
+    # Payment means type code (BT-81) and text (BT-82)
+    payment_means_type_code = ""
     payment_means_text = ""
     try:
         pm_container = doc.trade.settlement.payment_means
         if hasattr(pm_container, "children"):
             for pm in pm_container.children:
+                # BT-81: type code (e.g. "58" for SEPA)
+                tc = _str_element(getattr(pm, "type_code", ""))
+                if tc and not payment_means_type_code:
+                    payment_means_type_code = tc
+                # BT-82: information text
                 info_container = getattr(pm, "information", None)
                 if info_container and hasattr(info_container, "children"):
                     for info_val in info_container.children:
@@ -573,7 +588,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         seller_bank_name=seller_bank_name,
         receiving_advice_reference=receiving_advice_reference,
         delivery_location_id=delivery_location_id,
+        payment_means_type_code=payment_means_type_code,
         payment_means_text=payment_means_text,
+        buyer_reference=buyer_reference,
         supporting_documents=supporting_documents,
     )
 

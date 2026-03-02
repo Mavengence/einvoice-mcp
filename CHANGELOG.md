@@ -108,4 +108,4 @@ All notable changes to the einvoice-mcp project.
 - GitHub Actions CI (lint + test)
 - PyPI publish workflow
 - Makefile for common operations
-- 509 tests, 99% coverage (1994 stmts), ruff + mypy strict clean
+- 521 tests, 99% coverage (2007 stmts), ruff + mypy strict clean

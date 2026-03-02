@@ -27,6 +27,7 @@ from einvoice_mcp.models import (
     ItemAttribute,
     LineAllowanceCharge,
     LineItem,
+    ParsedInvoice,
     Party,
     SupportingDocument,
     TaxBreakdown,
@@ -7309,5 +7310,103 @@ class TestFullCycleRoundtrip:
         assert parsed.mandate_reference_id == "MREF-2026-001"
         assert parsed.buyer_iban == "DE02120300000000202051"
         assert parsed.seller_iban == "DE89370400440532013000"
+
+
+# ---------------------------------------------------------------------------
+# BT-81 Payment Means Type Code and BT-10 Buyer Reference Parsing
+# ---------------------------------------------------------------------------
+
+
+def _quick_invoice(**overrides: object) -> InvoiceData:
+    """Build minimal valid InvoiceData with overrides for roundtrip tests."""
+    defaults: dict[str, object] = {
+        "invoice_id": "QI-2026-001",
+        "issue_date": "2026-03-01",
+        "seller": Party(
+            name="Seller GmbH",
+            address=Address(
+                street="Str. 1", city="Berlin", postal_code="10115", country_code="DE"
+            ),
+            tax_id="DE123456789",
+            electronic_address="info@seller.de",
+            contact_name="Max", contact_phone="+49 30 1", contact_email="m@s.de",
+        ),
+        "buyer": Party(
+            name="Buyer GmbH",
+            address=Address(
+                street="Str. 2", city="München", postal_code="80331", country_code="DE"
+            ),
+            electronic_address="info@buyer.de",
+        ),
+        "items": [
+            LineItem(
+                description="Test", quantity=Decimal("1"),
+                unit_code="C62", unit_price=Decimal("100.00"), tax_rate=Decimal("19.00"),
+            ),
+        ],
+        "buyer_reference": "REF-001",
+        "delivery_date": "2026-03-01",
+    }
+    defaults.update(overrides)
+    return InvoiceData(**defaults)  # type: ignore[arg-type]
+
+
+class TestPaymentMeansTypeCodeParsing:
+    """Test that BT-81 (payment means type code) survives roundtrip."""
+
+    def test_sepa_type_code_roundtrip(self) -> None:
+        data = _quick_invoice(payment_means_type_code="58", seller_iban="DE89370400440532013000")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_means_type_code == "58"
+
+    def test_direct_debit_type_code_roundtrip(self) -> None:
+        data = _quick_invoice(
+            payment_means_type_code="59",
+            seller_iban="DE89370400440532013000",
+            mandate_reference_id="MREF-001",
+            buyer_iban="DE02120300000000202051",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_means_type_code == "59"
+
+    def test_credit_card_type_code_roundtrip(self) -> None:
+        data = _quick_invoice(
+            payment_means_type_code="48",
+            payment_card_pan="1234",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_means_type_code == "48"
+
+    def test_default_type_code_roundtrip(self) -> None:
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        # Default payment means type code should be "58"
+        assert parsed.payment_means_type_code == "58"
+
+
+class TestBuyerReferenceParsing:
+    """Test that BT-10 (buyer reference / Leitweg-ID) survives roundtrip."""
+
+    def test_buyer_reference_roundtrip(self) -> None:
+        data = _quick_invoice(buyer_reference="BUYER-REF-2026")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer_reference == "BUYER-REF-2026"
+
+    def test_leitweg_id_roundtrip(self) -> None:
+        data = _quick_invoice(leitweg_id="04011000-12345-67", buyer_reference=None)
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer_reference == "04011000-12345-67"
+
+    def test_buyer_reference_empty_when_not_set(self) -> None:
+        """buyer_reference defaults to empty string if not in invoice."""
+        pi = ParsedInvoice()
+        assert pi.buyer_reference == ""
+        assert pi.payment_means_type_code == ""
 
 

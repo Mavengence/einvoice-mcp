@@ -869,8 +869,14 @@ class ParsedInvoice(BaseModel):
     delivery_location_id: str = Field(
         default="", description="Kennung des Lieferorts (BT-71)"
     )
+    payment_means_type_code: str = Field(
+        default="", description="Zahlungsart-Code (BT-81, z.B. 58=SEPA)"
+    )
     payment_means_text: str = Field(
         default="", description="Zahlungsart Freitext (BT-82)"
+    )
+    buyer_reference: str = Field(
+        default="", description="Käufer-Referenz / Leitweg-ID (BT-10)"
     )
     supporting_documents: list["SupportingDocument"] = Field(
         default_factory=list,
