@@ -1,5 +1,9 @@
-# Pin to specific tag for reproducibility; update regularly.
-FROM python:3.11-slim AS builder
+# Pin to specific Debian release for reproducibility; update regularly.
+# To pin to a SHA-256 digest, run:
+#   docker pull python:3.11-slim-bookworm
+#   docker inspect --format='{{index .RepoDigests 0}}' python:3.11-slim-bookworm
+# Then replace with: FROM python:3.11-slim-bookworm@sha256:<digest>
+FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 COPY pyproject.toml .
@@ -7,8 +11,8 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir .
 
-# Pin to same specific tag for reproducibility.
-FROM python:3.11-slim
+# Same pinned image for runtime.
+FROM python:3.11-slim-bookworm
 
 RUN groupadd -r mcp && useradd -r -g mcp mcp
 WORKDIR /app

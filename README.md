@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**386 tests | 100% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**409 tests | 100% coverage | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -86,7 +86,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-3 | TypeCode validated against EN 16931 codes | `test_invalid_type_code_rejected` | PASS |
 | BT-25 | Credit note (381) must reference preceding invoice | `test_credit_note_without_bt25_flags_missing` | PASS |
 | §13b UStG | Reverse charge: seller+buyer VAT IDs, 0% rate | `test_reverse_charge_*` | PASS |
+| §4/1b UStG | Intra-community (K): buyer VAT ID, 0% rate | `test_k_*` | PASS |
 | §19 UStG | Kleinunternehmer: exemption note advisory | `test_exempt_without_note_suggests_ku` | PASS |
+| LW-FMT | Leitweg-ID format advisory | `test_invalid_leitweg_format` | PASS |
+| VAT-FMT | German USt-IdNr. format advisory (DE + 9 digits) | `test_invalid_german_vat_format` | PASS |
+| IBAN | IBAN format validation (ISO 13616) | `test_invalid_iban_*` | PASS |
+| BIC | BIC format validation (ISO 9362) | `test_invalid_bic_*` | PASS |
 
 ### Parsing Fidelity
 
@@ -160,6 +165,8 @@ Every mandatory Business Term is tested in generated XML output:
 | Container privilege | Non-root user (both containers) | `Dockerfile`, `Dockerfile.kosit` | HARDENED |
 | Port exposure | KoSIT bound to 127.0.0.1 only | `docker-compose.yml` | HARDENED |
 | Supply chain (Python) | `uv.lock` for reproducible builds | `uv.lock` | HARDENED |
+| IBAN injection | ISO 13616 format validation | `test_invalid_iban_*` | HARDENED |
+| BIC injection | ISO 9362 format validation | `test_invalid_bic_*` | HARDENED |
 
 ### Profile Coverage
 
@@ -178,16 +185,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 243 | 0 | **100%** |
+| `models.py` | 264 | 0 | **100%** |
 | `services/invoice_builder.py` | 244 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 164 | 0 | **100%** |
 | `services/xml_parser.py` | 493 | 0 | **100%** |
-| `tools/compliance.py` | 121 | 0 | **100%** |
+| `tools/compliance.py` | 150 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1519** | **0** | **100%** |
+| **TOTAL** | **1569** | **0** | **100%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -309,6 +316,27 @@ für 40 Stunden Software-Beratung à 150€/Stunde mit 19% USt.
 Parse diese E-Rechnung und zeig mir die Positionen.
 
 Prüfe ob diese Rechnung XRechnung-konform ist und gib Verbesserungsvorschläge.
+```
+
+### Advanced Examples
+
+```
+Erstelle eine Gutschrift (TypeCode 381) für Rechnung RE-2025-099 über
+200€ netto mit 19% USt.
+
+Erstelle eine Rechnung mit Reverse Charge (§13b UStG, Kategorie AE):
+Verkäufer DE123456789, Käufer ATU12345678, Dienstleistung 5.000€.
+
+Erstelle eine Rechnung mit 2% Skonto bei Zahlung innerhalb von 10 Tagen.
+
+Erstelle eine Rechnung mit SEPA-Lastschrift (PaymentMeansCode 59),
+Käufer-IBAN DE89370400440532013000, Mandatsreferenz MREF-2025-001.
+
+Erstelle eine Rechnung mit Lieferort: Lager Hamburg, Hafenstraße 42,
+20457 Hamburg.
+
+Erstelle eine innergemeinschaftliche Lieferung (Kategorie K) an
+einen französischen Kunden (FR12345678901).
 ```
 
 ---
@@ -440,9 +468,12 @@ Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
 - **BR-DE-7** — Seller contact email (mandatory for XRechnung)
 - **BR-DE-23** — IBAN mandatory when PaymentMeansCode = 58 (SEPA)
 - **§13b UStG** — Reverse charge: seller + buyer VAT IDs required, 0% tax rate
+- **§4 Nr. 1b UStG** — Intra-community supply: buyer VAT ID required, 0% tax rate
 - **§19 UStG** — Kleinunternehmerregelung: exemption note advisory for TaxCategory E
 - **BG-19** — SEPA direct debit (PaymentMeansCode = 59, buyer IBAN, mandate reference)
 - **Skonto** — Early payment discount terms (PaymentDiscountTerms in CII)
+- **ISO 13616** — IBAN format validation (seller + buyer)
+- **ISO 9362** — BIC/SWIFT format validation
 
 ---
 
