@@ -68,6 +68,7 @@ packages = ["src/einvoice_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "-m 'not integration'"
 markers = [
     "integration: marks tests requiring running KoSIT validator",
 ]
