@@ -97,11 +97,12 @@ def _build_pdf(data: InvoiceData) -> bytes:
             ]
         )
     )
-    # Preceding invoice reference (BT-25) for credit notes
+    # Preceding invoice reference (BT-25/BT-26) for credit notes
     if data.type_code == "381" and data.preceding_invoice_number:
-        header_data.append(
-            ["", "", f"Bezug: {data.preceding_invoice_number}"]
-        )
+        ref_text = f"Bezug: {data.preceding_invoice_number}"
+        if data.preceding_invoice_date:
+            ref_text += f" vom {data.preceding_invoice_date}"
+        header_data.append(["", "", ref_text])
 
     elements.append(header_table)
     elements.append(Spacer(1, 10 * mm))

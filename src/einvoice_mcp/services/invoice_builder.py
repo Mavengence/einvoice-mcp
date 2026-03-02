@@ -250,11 +250,18 @@ def _build_document(data: InvoiceData) -> bytes:
             sd_ref.attached_object._filename = sdoc.filename or sdoc.id
         doc.trade.agreement.additional_references.add(sd_ref)
 
-    # Preceding invoice reference (BT-25) — for credit notes (381)
+    # Preceding invoice reference (BT-25/BT-26) — for credit notes (381)
     if data.preceding_invoice_number:
         doc.trade.settlement.invoice_referenced_document.issuer_assigned_id = (
             data.preceding_invoice_number
         )
+        if data.preceding_invoice_date:
+            from datetime import date as date_type
+
+            parts = data.preceding_invoice_date.split("-")
+            doc.trade.settlement.invoice_referenced_document.issue_date_time = (
+                date_type(int(parts[0]), int(parts[1]), int(parts[2]))
+            )
 
     # Delivery location (BT-70..BT-80) — ShipToTradeParty
     if data.delivery_party_name or data.delivery_street:
@@ -352,7 +359,7 @@ def _build_document(data: InvoiceData) -> bytes:
         li.delivery.billed_quantity._amount = str(item.quantity)
         li.delivery.billed_quantity._unit_code = item.unit_code
 
-        net_amount = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        net_amount = InvoiceData._line_net_amount(item)
         li.settlement.monetary_summation.total_amount = net_amount
 
         # Line-level allowances/charges (BG-27/BG-28)
@@ -447,7 +454,7 @@ def _build_document(data: InvoiceData) -> bytes:
     tax_groups: dict[tuple[str, Decimal], Decimal] = {}
     for item in data.items:
         key = (item.tax_category.value, item.tax_rate)
-        net = item.quantity * item.unit_price
+        net = InvoiceData._line_net_amount(item)
         tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
     for ac in data.allowances_charges:
         key = (ac.tax_category.value, ac.tax_rate)
@@ -490,7 +497,11 @@ def _build_document(data: InvoiceData) -> bytes:
     ms.tax_basis_total = (tax_basis, data.currency)
     ms.tax_total = (tax_total, data.currency)
     ms.grand_total = (gross_total, data.currency)
-    ms.due_amount = gross_total
+    if data.prepaid_amount and data.prepaid_amount > 0:
+        ms.prepaid_total = data.prepaid_amount
+        ms.due_amount = (gross_total - data.prepaid_amount).quantize(Decimal("0.01"))
+    else:
+        ms.due_amount = gross_total
 
     # Payment terms (BT-20) and due date (BT-9)
     payment_text = data.payment_terms_text

@@ -61,6 +61,43 @@ class TestValidateXrechnung:
         await client.close()
 
 
+class TestValidateXrechnungPreScreen:
+    """Verify defusedxml pre-screen catches non-XML before KoSIT call."""
+
+    async def test_non_xml_content(self) -> None:
+        """Non-XML content returns German error without calling KoSIT."""
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await validate_xrechnung("This is not XML at all", client)
+        assert result["valid"] is False
+        assert any("kein gültiges XML" in e["message"] for e in result["errors"])
+        await client.close()
+
+    async def test_binary_junk(self) -> None:
+        """Binary-like content detected before KoSIT."""
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await validate_xrechnung("\x00\x01\x02 binary junk", client)
+        assert result["valid"] is False
+        assert any("kein gültiges XML" in e["message"] for e in result["errors"])
+        await client.close()
+
+    async def test_malformed_xml(self) -> None:
+        """Malformed XML (unclosed tag) caught by pre-screen."""
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await validate_xrechnung("<root><unclosed>", client)
+        assert result["valid"] is False
+        assert any("kein gültiges XML" in e["message"] for e in result["errors"])
+        await client.close()
+
+    async def test_xxe_attack_blocked(self) -> None:
+        """XXE entity attack blocked by defusedxml pre-screen."""
+        xxe = '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root>&xxe;</root>'
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await validate_xrechnung(xxe, client)
+        assert result["valid"] is False
+        assert any("DTD" in e["message"] or "Entity" in e["message"] for e in result["errors"])
+        await client.close()
+
+
 class TestValidateZugferd:
     async def test_invalid_base64(self) -> None:
         client = KoSITClient(base_url=KOSIT_URL)

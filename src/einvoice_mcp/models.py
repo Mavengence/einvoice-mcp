@@ -520,6 +520,14 @@ class InvoiceData(BaseModel):
             "Pflicht bei Gutschrift (381) per §14 Abs. 4 UStG"
         ),
     )
+    preceding_invoice_date: str | None = Field(
+        default=None,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description=(
+            "Datum der vorherigen Rechnung (BT-26, YYYY-MM-DD) — "
+            "empfohlen bei Gutschrift für Stornobuchhaltung"
+        ),
+    )
     despatch_advice_reference: str | None = Field(
         default=None,
         max_length=100,
@@ -675,11 +683,30 @@ class InvoiceData(BaseModel):
             "z.B. Zollpapiere, Zertifikate, Zeitnachweise"
         ),
     )
+    prepaid_amount: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Bereits gezahlter Betrag (BT-113) — "
+            "z.B. Abschlagszahlungen bei Schlussrechnungen"
+        ),
+    )
+
+    @staticmethod
+    def _line_net_amount(item: "LineItem") -> Decimal:
+        """Compute BT-131 per EN 16931: (qty * price) - allowances + charges."""
+        base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        for lac in item.allowances_charges:
+            if lac.charge:
+                base += lac.amount
+            else:
+                base -= lac.amount
+        return base
 
     def total_net(self) -> Decimal:
         """Sum of line item net amounts (BT-106)."""
         return sum(
-            ((item.quantity * item.unit_price).quantize(Decimal("0.01")) for item in self.items),
+            (self._line_net_amount(item) for item in self.items),
             Decimal("0"),
         )
 
@@ -713,7 +740,7 @@ class InvoiceData(BaseModel):
         tax_groups: dict[tuple[str, Decimal], Decimal] = {}
         for item in self.items:
             key = (item.tax_category.value, item.tax_rate)
-            net = item.quantity * item.unit_price
+            net = self._line_net_amount(item)
             tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
         for ac in self.allowances_charges:
             key = (ac.tax_category.value, ac.tax_rate)
@@ -760,6 +787,7 @@ class Totals(BaseModel):
     net_total: Decimal
     tax_total: Decimal
     gross_total: Decimal
+    prepaid_amount: Decimal = Field(default=Decimal("0"), description="Bereits gezahlt (BT-113)")
     due_payable: Decimal
 
 
@@ -826,6 +854,9 @@ class ParsedInvoice(BaseModel):
     )
     preceding_invoice_number: str = Field(
         default="", description="Vorherige Rechnungsnummer (BT-25)"
+    )
+    preceding_invoice_date: str = Field(
+        default="", description="Datum der vorherigen Rechnung (BT-26)"
     )
     despatch_advice_reference: str = Field(
         default="", description="Lieferscheinnummer (BT-16)"

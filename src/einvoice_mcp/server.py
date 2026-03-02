@@ -31,11 +31,13 @@ from einvoice_mcp.resources import (
     reference_tax_categories,
     reference_type_codes,
     reference_unit_codes,
+    reference_vatex_codes,
     schema_allowance_charge,
     schema_invoice_data,
     schema_item_attribute,
     schema_line_item,
     schema_supporting_document,
+    skr03_mapping,
     skr04_mapping,
 )
 from einvoice_mcp.services.invoice_data_builder import build_invoice_data
@@ -109,7 +111,9 @@ mcp.resource("einvoice://reference/eas-codes")(reference_eas_codes)
 
 mcp.resource("einvoice://reference/e-rechnung-pflichten")(e_rechnung_pflichten)
 mcp.resource("einvoice://reference/br-de-rules")(br_de_rules)
+mcp.resource("einvoice://reference/skr03-mapping")(skr03_mapping)
 mcp.resource("einvoice://reference/skr04-mapping")(skr04_mapping)
+mcp.resource("einvoice://reference/vatex-codes")(reference_vatex_codes)
 mcp.resource("einvoice://reference/credit-note-reasons")(credit_note_reasons)
 
 
@@ -292,6 +296,7 @@ async def einvoice_generate_xrechnung(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    preceding_invoice_date: str = "",
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
@@ -323,6 +328,7 @@ async def einvoice_generate_xrechnung(
     delivery_location_id: str = "",
     payment_means_text: str = "",
     supporting_documents: str = "",
+    prepaid_amount: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -386,6 +392,7 @@ async def einvoice_generate_xrechnung(
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        preceding_invoice_date: Datum der vorigen Rechnung (BT-26, YYYY-MM-DD).
         despatch_advice_reference: Lieferscheinnummer (BT-16).
         invoiced_object_identifier: Abrechnungsobjekt (BT-18).
         business_process_type: Geschäftsprozesstyp (BT-23).
@@ -419,6 +426,7 @@ async def einvoice_generate_xrechnung(
         delivery_location_id: Lieferort-Kennung (BT-71).
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
+        prepaid_amount: Bereits gezahlter Betrag (BT-113, z.B. Abschlagszahlungen).
     """
     data = build_invoice_data(**_collect_generate_params(locals()))
 
@@ -504,6 +512,7 @@ async def einvoice_generate_zugferd(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    preceding_invoice_date: str = "",
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
@@ -535,6 +544,7 @@ async def einvoice_generate_zugferd(
     delivery_location_id: str = "",
     payment_means_text: str = "",
     supporting_documents: str = "",
+    prepaid_amount: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -596,6 +606,7 @@ async def einvoice_generate_zugferd(
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        preceding_invoice_date: Datum der vorigen Rechnung (BT-26, YYYY-MM-DD).
         despatch_advice_reference: Lieferscheinnummer (BT-16).
         invoiced_object_identifier: Abrechnungsobjekt (BT-18).
         business_process_type: Geschäftsprozesstyp (BT-23).
@@ -629,6 +640,7 @@ async def einvoice_generate_zugferd(
         delivery_location_id: Lieferort-Kennung (BT-71).
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
+        prepaid_amount: Bereits gezahlter Betrag (BT-113, z.B. Abschlagszahlungen).
     """
     data = build_invoice_data(**_collect_generate_params(locals()))
 

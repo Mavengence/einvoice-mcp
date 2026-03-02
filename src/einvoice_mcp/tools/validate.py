@@ -4,6 +4,9 @@ import base64
 import logging
 from typing import Any
 
+from defusedxml import ElementTree
+from defusedxml.common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
+
 from einvoice_mcp.config import MAX_PDF_BASE64_SIZE, MAX_PDF_DECODED_SIZE, MAX_XML_SIZE
 from einvoice_mcp.errors import EInvoiceError
 from einvoice_mcp.services.kosit import KoSITClient
@@ -29,8 +32,24 @@ async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict[str, 
             "warnings": [],
         }
 
+    # Pre-screen: verify content is well-formed XML before sending to KoSIT.
     try:
         xml_bytes = xml_content.encode("utf-8")
+        ElementTree.fromstring(xml_bytes)
+    except (ElementTree.ParseError, UnicodeEncodeError):
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: Der Inhalt ist kein gültiges XML-Dokument."}],
+            "warnings": [],
+        }
+    except (DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden):
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: XML enthält unzulässige DTD- oder Entity-Referenzen."}],
+            "warnings": [],
+        }
+
+    try:
         result = await kosit.validate(xml_bytes)
         return result.model_dump()
     except EInvoiceError as exc:

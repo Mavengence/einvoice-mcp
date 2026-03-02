@@ -35,6 +35,7 @@ FIELD_TO_BT: dict[str, str] = {
     "seller_iban": "BT-84 (IBAN)",
     "seller_bic": "BT-86 (BIC)",
     "leitweg_id": "BT-10 (Leitweg-ID)",
+    "prepaid_amount": "BT-113 (Vorauszahlung)",
 }
 
 
@@ -109,6 +110,7 @@ def build_invoice_data(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    preceding_invoice_date: str = "",
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
@@ -140,6 +142,7 @@ def build_invoice_data(
     delivery_location_id: str = "",
     payment_means_text: str = "",
     supporting_documents_json: str = "",
+    prepaid_amount: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -242,6 +245,7 @@ def build_invoice_data(
                 "contract_reference": contract_reference or None,
                 "project_reference": project_reference or None,
                 "preceding_invoice_number": preceding_invoice_number or None,
+                "preceding_invoice_date": preceding_invoice_date or None,
                 "despatch_advice_reference": despatch_advice_reference or None,
                 "invoiced_object_identifier": invoiced_object_identifier or None,
                 "business_process_type": business_process_type or None,
@@ -264,6 +268,7 @@ def build_invoice_data(
                 "delivery_location_id": delivery_location_id or None,
                 "payment_means_text": payment_means_text or None,
                 "supporting_documents": sd_list,
+                "prepaid_amount": prepaid_amount or None,
                 **(
                     {
                         "seller_tax_representative": {

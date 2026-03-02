@@ -1,8 +1,6 @@
 """Parse CII XML and extract from ZUGFeRD PDFs."""
 
-import contextlib
 import logging
-from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from defusedxml import ElementTree
@@ -11,17 +9,17 @@ from drafthorse.models.document import Document
 
 from einvoice_mcp.errors import InvoiceParsingError
 from einvoice_mcp.models import (
-    Address,
-    ItemAttribute,
-    LineAllowanceCharge,
-    LineItem,
     ParsedAllowanceCharge,
     ParsedInvoice,
-    Party,
     SupportingDocument,
     TaxBreakdown,
-    TaxCategory,
     Totals,
+)
+from einvoice_mcp.services.cii_extractors import (
+    extract_items,
+    extract_party,
+    safe_decimal,
+    str_element,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,9 +80,9 @@ def extract_xml_from_pdf(pdf_bytes: bytes) -> bytes:
 
 
 def _extract_invoice(doc: Document) -> ParsedInvoice:
-    seller = _extract_party(doc.trade.agreement.seller)
-    buyer = _extract_party(doc.trade.agreement.buyer)
-    items = _extract_items(doc)
+    seller = extract_party(doc.trade.agreement.seller)
+    buyer = extract_party(doc.trade.agreement.buyer)
+    items = extract_items(doc)
     tax_breakdown = _extract_tax_breakdown(doc)
     totals = _extract_totals(doc)
 
@@ -92,12 +90,12 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     if doc.header.issue_date_time:
         issue_date = str(doc.header.issue_date_time)
 
-    profile = _str_element(doc.context.guideline_parameter.id)
+    profile = str_element(doc.context.guideline_parameter.id)
 
     # Buyer reference / Leitweg-ID (BT-10)
     buyer_reference = ""
     try:
-        br_val = _str_element(getattr(doc.trade.agreement, "buyer_reference", ""))
+        br_val = str_element(getattr(doc.trade.agreement, "buyer_reference", ""))
         if br_val:
             buyer_reference = br_val
     except Exception:
@@ -111,21 +109,21 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     delivery_country_code = ""
     try:
         ship_to = doc.trade.delivery.ship_to
-        dn = _str_element(getattr(ship_to, "name", ""))
+        dn = str_element(getattr(ship_to, "name", ""))
         if dn:
             delivery_party_name = dn
         addr = getattr(ship_to, "address", None)
         if addr:
-            ds = _str_element(getattr(addr, "line_one", ""))
+            ds = str_element(getattr(addr, "line_one", ""))
             if ds:
                 delivery_street = ds
-            dc = _str_element(getattr(addr, "city_name", ""))
+            dc = str_element(getattr(addr, "city_name", ""))
             if dc:
                 delivery_city = dc
-            dp = _str_element(getattr(addr, "postcode", ""))
+            dp = str_element(getattr(addr, "postcode", ""))
             if dp:
                 delivery_postal_code = dp
-            dcc = _str_element(getattr(addr, "country_id", ""))
+            dcc = str_element(getattr(addr, "country_id", ""))
             if dcc:
                 delivery_country_code = dcc
     except Exception:
@@ -168,7 +166,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if notes and hasattr(notes, "children"):
             for note in notes.children:
                 content = getattr(note, "content", None)
-                text = _str_element(content) if content else _str_element(note)
+                text = str_element(content) if content else str_element(note)
                 if text:
                     invoice_note = text
                     break
@@ -184,7 +182,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         terms = doc.trade.settlement.terms
         if hasattr(terms, "children"):
             for term in terms.children:
-                desc = _str_element(getattr(term, "description", ""))
+                desc = str_element(getattr(term, "description", ""))
                 if desc:
                     payment_terms = desc
                 due_obj = getattr(term, "due", None)
@@ -195,12 +193,12 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 # Skonto (PaymentDiscountTerms)
                 dt = getattr(term, "discount_terms", None)
                 if dt:
-                    pct = _safe_decimal(getattr(dt, "calculation_percent", "0"))
+                    pct = safe_decimal(getattr(dt, "calculation_percent", "0"))
                     if pct > 0:
                         skonto_percent = str(pct)
                     bpm = getattr(dt, "basis_period_measure", None)
                     if bpm:
-                        bpm_str = _str_element(bpm)
+                        bpm_str = str_element(bpm)
                         if bpm_str:
                             skonto_days = bpm_str
                 if payment_terms or due_date:
@@ -212,7 +210,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     purchase_order_reference = ""
     try:
         po_id = doc.trade.agreement.buyer_order.issuer_assigned_id
-        val = _str_element(po_id)
+        val = str_element(po_id)
         if val:
             purchase_order_reference = val
     except Exception:
@@ -222,7 +220,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     sales_order_reference = ""
     try:
         so_id = doc.trade.agreement.seller_order.issuer_assigned_id
-        val = _str_element(so_id)
+        val = str_element(so_id)
         if val:
             sales_order_reference = val
     except Exception:
@@ -232,7 +230,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     contract_reference = ""
     try:
         ct_id = doc.trade.agreement.contract.issuer_assigned_id
-        val = _str_element(ct_id)
+        val = str_element(ct_id)
         if val:
             contract_reference = val
     except Exception:
@@ -242,7 +240,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     project_reference = ""
     try:
         pr_id = doc.trade.agreement.procuring_project_type.id
-        val = _str_element(pr_id)
+        val = str_element(pr_id)
         if val:
             project_reference = val
     except Exception:
@@ -252,7 +250,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     despatch_advice_reference = ""
     try:
         da_id = doc.trade.delivery.despatch_advice.issuer_assigned_id
-        val = _str_element(da_id)
+        val = str_element(da_id)
         if val:
             despatch_advice_reference = val
     except Exception:
@@ -262,7 +260,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     receiving_advice_reference = ""
     try:
         ra_id = doc.trade.delivery.receiving_advice.issuer_assigned_id
-        val = _str_element(ra_id)
+        val = str_element(ra_id)
         if val:
             receiving_advice_reference = val
     except Exception:
@@ -272,7 +270,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     delivery_location_id = ""
     try:
         loc_id = doc.trade.delivery.ship_to.id
-        val = _str_element(loc_id)
+        val = str_element(loc_id)
         if val:
             delivery_location_id = val
     except Exception:
@@ -286,7 +284,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         if hasattr(pm_container, "children"):
             for pm in pm_container.children:
                 # BT-81: type code (e.g. "58" for SEPA)
-                tc = _str_element(getattr(pm, "type_code", ""))
+                tc = str_element(getattr(pm, "type_code", ""))
                 if tc and not payment_means_type_code:
                     payment_means_type_code = tc
                 # BT-82: information text
@@ -310,8 +308,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         add_refs = doc.trade.agreement.additional_references
         if hasattr(add_refs, "children"):
             for ref in add_refs.children:
-                tc = _str_element(getattr(ref, "type_code", ""))
-                ref_id = _str_element(getattr(ref, "issuer_assigned_id", ""))
+                tc = str_element(getattr(ref, "type_code", ""))
+                ref_id = str_element(getattr(ref, "issuer_assigned_id", ""))
                 if tc == "50" and ref_id and not tender_or_lot_reference:
                     tender_or_lot_reference = ref_id
                 elif tc == "130" and ref_id and not invoiced_object_identifier:
@@ -325,14 +323,14 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         add_refs = doc.trade.agreement.additional_references
         if hasattr(add_refs, "children"):
             for ref in add_refs.children:
-                tc = _str_element(getattr(ref, "type_code", ""))
+                tc = str_element(getattr(ref, "type_code", ""))
                 if tc == "916":
-                    ref_id = _str_element(
+                    ref_id = str_element(
                         getattr(ref, "issuer_assigned_id", "")
                     )
                     if ref_id:
-                        desc = _str_element(getattr(ref, "name", ""))
-                        uri = _str_element(
+                        desc = str_element(getattr(ref, "name", ""))
+                        uri = str_element(
                             getattr(ref, "uri_id", "")
                         ) or None
                         content_b64 = None
@@ -366,9 +364,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     seller_tax_representative = None
     try:
         rep_party = doc.trade.agreement.seller_tax_representative_party
-        rep_name = _str_element(getattr(rep_party, "name", ""))
+        rep_name = str_element(getattr(rep_party, "name", ""))
         if rep_name:
-            seller_tax_representative = _extract_party(rep_party)
+            seller_tax_representative = extract_party(rep_party)
     except Exception:
         pass
 
@@ -376,7 +374,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     business_process_type = ""
     try:
         bp_id = doc.context.business_parameter.id
-        val = _str_element(bp_id)
+        val = str_element(bp_id)
         if val:
             business_process_type = val
     except Exception:
@@ -389,8 +387,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         trade_tax_container = doc.trade.settlement.trade_tax
         if hasattr(trade_tax_container, "children"):
             for tax_entry in trade_tax_container.children:
-                er = _str_element(getattr(tax_entry, "exemption_reason", ""))
-                erc = _str_element(getattr(tax_entry, "exemption_reason_code", ""))
+                er = str_element(getattr(tax_entry, "exemption_reason", ""))
+                erc = str_element(getattr(tax_entry, "exemption_reason_code", ""))
                 if er:
                     tax_exemption_reason = er
                 if erc:
@@ -400,15 +398,21 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # Preceding invoice number (BT-25)
+    # Preceding invoice number (BT-25) and date (BT-26)
     preceding_invoice_number = ""
+    preceding_invoice_date = ""
     try:
         inv_ref = doc.trade.settlement.invoice_referenced_document
         prec_ref_id: object = getattr(inv_ref, "issuer_assigned_id", None)
         if prec_ref_id:
-            val = _str_element(prec_ref_id)
+            val = str_element(prec_ref_id)
             if val:
                 preceding_invoice_number = val
+        prec_ref_dt: object = getattr(inv_ref, "issue_date_time", None)
+        if prec_ref_dt is not None:
+            dt_val = str_element(prec_ref_dt)
+            if dt_val and dt_val != "None":
+                preceding_invoice_date = dt_val
     except Exception:
         pass
 
@@ -416,7 +420,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     remittance_information = ""
     try:
         pay_ref = doc.trade.settlement.payment_reference
-        val = _str_element(pay_ref)
+        val = str_element(pay_ref)
         if val:
             remittance_information = val
     except Exception:
@@ -435,17 +439,17 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     is_charge = bool(indicator_value)
                 else:
                     is_charge = bool(indicator) if indicator is not None else False
-                amount = _safe_decimal(getattr(ac_item, "actual_amount", "0"))
-                reason = _str_element(getattr(ac_item, "reason", ""))
+                amount = safe_decimal(getattr(ac_item, "actual_amount", "0"))
+                reason = str_element(getattr(ac_item, "reason", ""))
                 ac_tax_rate = Decimal("0")
                 ac_tax_cat = "S"
                 tax_container = getattr(ac_item, "trade_tax", None)
                 if tax_container and hasattr(tax_container, "children"):
                     for tax_child in tax_container.children:
-                        rate_val = _safe_decimal(
+                        rate_val = safe_decimal(
                             getattr(tax_child, "rate_applicable_percent", "0")
                         )
-                        cat_val = _str_element(
+                        cat_val = str_element(
                             getattr(tax_child, "category_code", "S")
                         ) or "S"
                         ac_tax_rate = rate_val
@@ -472,10 +476,10 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             for pm in pm_container.children:
                 fc = getattr(pm, "financial_card", None)
                 if fc:
-                    card_id = _str_element(getattr(fc, "id", ""))
+                    card_id = str_element(getattr(fc, "id", ""))
                     if card_id:
                         payment_card_pan = card_id
-                    ch = _str_element(getattr(fc, "cardholder_name", ""))
+                    ch = str_element(getattr(fc, "cardholder_name", ""))
                     if ch:
                         payment_card_holder = ch
                 if payment_card_pan:
@@ -489,7 +493,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     payee_legal_registration_id = ""
     try:
         payee_obj = doc.trade.settlement.payee
-        pn = _str_element(getattr(payee_obj, "name", ""))
+        pn = str_element(getattr(payee_obj, "name", ""))
         if pn:
             payee_name = pn
             # Global ID (BT-60)
@@ -502,7 +506,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             # Legal organization ID (BT-61)
             legal_org = getattr(payee_obj, "legal_organization", None)
             if legal_org:
-                lo_id = _str_element(getattr(legal_org, "id", ""))
+                lo_id = str_element(getattr(legal_org, "id", ""))
                 if lo_id:
                     payee_legal_registration_id = lo_id
     except Exception:
@@ -519,21 +523,21 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
             for pm in pm_container.children:
                 acct = getattr(pm, "payee_account", None)
                 if acct:
-                    iban_val = _str_element(getattr(acct, "iban", ""))
+                    iban_val = str_element(getattr(acct, "iban", ""))
                     if iban_val:
                         seller_iban = iban_val
-                    bank_name = _str_element(getattr(acct, "account_name", ""))
+                    bank_name = str_element(getattr(acct, "account_name", ""))
                     if bank_name:
                         seller_bank_name = bank_name
                 inst = getattr(pm, "payee_institution", None)
                 if inst:
-                    bic_val = _str_element(getattr(inst, "bic", ""))
+                    bic_val = str_element(getattr(inst, "bic", ""))
                     if bic_val:
                         seller_bic = bic_val
                 # Buyer/payer IBAN (BT-91) for SEPA direct debit
                 payer = getattr(pm, "payer_account", None)
                 if payer:
-                    payer_iban = _str_element(getattr(payer, "iban", ""))
+                    payer_iban = str_element(getattr(payer, "iban", ""))
                     if payer_iban:
                         buyer_iban = payer_iban
                 if seller_iban:
@@ -547,7 +551,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         terms = doc.trade.settlement.terms
         if hasattr(terms, "children"):
             for term in terms.children:
-                mid = _str_element(getattr(term, "debit_mandate_id", ""))
+                mid = str_element(getattr(term, "debit_mandate_id", ""))
                 if mid:
                     mandate_reference_id = mid
                     break
@@ -555,15 +559,15 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         pass
 
     return ParsedInvoice(
-        invoice_id=_str_element(doc.header.id),
-        type_code=_str_element(doc.header.type_code) or "380",
+        invoice_id=str_element(doc.header.id),
+        type_code=str_element(doc.header.type_code) or "380",
         issue_date=issue_date,
         seller=seller,
         buyer=buyer,
         items=items,
         totals=totals,
         tax_breakdown=tax_breakdown,
-        currency=_str_element(doc.trade.settlement.currency_code) or "EUR",
+        currency=str_element(doc.trade.settlement.currency_code) or "EUR",
         profile=profile,
         delivery_party_name=delivery_party_name,
         delivery_street=delivery_street,
@@ -585,6 +589,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
+        preceding_invoice_date=preceding_invoice_date,
         despatch_advice_reference=despatch_advice_reference,
         tender_or_lot_reference=tender_or_lot_reference,
         invoiced_object_identifier=invoiced_object_identifier,
@@ -611,336 +616,6 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     )
 
 
-def _extract_party(party_obj: object) -> Party | None:
-    try:
-        name = _str_element(getattr(party_obj, "name", ""))
-        if not name:
-            return None
-
-        addr_obj = getattr(party_obj, "address", None)
-        street_2_val = _str_element(getattr(addr_obj, "line_two", "")) or None
-        street_3_val = _str_element(getattr(addr_obj, "line_three", "")) or None
-        # Country subdivision (BT-39/BT-54)
-        subdivision_val = _str_element(getattr(addr_obj, "country_subdivision", ""))
-        address = Address(
-            street=_str_element(getattr(addr_obj, "line_one", "")),
-            street_2=street_2_val,
-            street_3=street_3_val,
-            city=_str_element(getattr(addr_obj, "city_name", "")),
-            postal_code=_str_element(getattr(addr_obj, "postcode", "")),
-            country_code=_str_element(getattr(addr_obj, "country_id", "DE")) or "DE",
-            country_subdivision=subdivision_val or None,
-        )
-
-        tax_id = None
-        tax_number = None
-        tax_regs = getattr(party_obj, "tax_registrations", None)
-        if tax_regs and hasattr(tax_regs, "children"):
-            for reg in tax_regs.children:
-                id_elem = getattr(reg, "id", None)
-                if id_elem:
-                    # drafthorse IDElement stores schemeID: check raw tuple/attr
-                    scheme_id = _extract_scheme_id(id_elem)
-                    extracted = _str_element(id_elem)
-                    if not extracted:
-                        continue
-                    if scheme_id == "FC":
-                        tax_number = extracted
-                    else:
-                        # VA or unknown schemeID → treat as USt-IdNr.
-                        tax_id = extracted
-
-        # Trading name (BT-28/BT-45)
-        trading_name = None
-        legal_org = getattr(party_obj, "legal_organization", None)
-        if legal_org:
-            tn = _str_element(getattr(legal_org, "trade_name", ""))
-            if tn:
-                trading_name = tn
-
-        # Global ID / Registration ID (BT-29)
-        registration_id = None
-        global_id_container = getattr(party_obj, "global_id", None)
-        if global_id_container and hasattr(global_id_container, "children"):
-            for gid_entry in global_id_container.children:
-                if isinstance(gid_entry, tuple) and len(gid_entry) == 2:
-                    registration_id = str(gid_entry[1]).strip() or None
-                    break
-
-        # Electronic address (BT-34/BT-49)
-        electronic_address = None
-        electronic_address_scheme = "EM"
-        ea_obj = getattr(party_obj, "electronic_address", None)
-        if ea_obj:
-            uri_id = getattr(ea_obj, "uri_ID", None)
-            if uri_id:
-                ea_str = _str_element(uri_id)
-                # Filter out empty/placeholder values like "()" or "None"
-                if ea_str and ea_str not in ("()", "None"):
-                    electronic_address = ea_str
-                    ea_scheme = _extract_scheme_id(uri_id)
-                    if ea_scheme:
-                        electronic_address_scheme = ea_scheme
-
-        # Seller/Buyer contact (BT-41, BT-42, BT-43)
-        contact_name = None
-        contact_phone = None
-        contact_email = None
-        contact_obj = getattr(party_obj, "contact", None)
-        if contact_obj:
-            cn = _str_element(getattr(contact_obj, "person_name", ""))
-            if cn:
-                contact_name = cn
-            tel_obj = getattr(contact_obj, "telephone", None)
-            if tel_obj:
-                tel = _str_element(getattr(tel_obj, "number", ""))
-                if tel:
-                    contact_phone = tel
-            email_obj = getattr(contact_obj, "email", None)
-            if email_obj:
-                em = _str_element(getattr(email_obj, "address", ""))
-                if em:
-                    contact_email = em
-
-        return Party(
-            name=name,
-            trading_name=trading_name,
-            address=address,
-            tax_id=tax_id,
-            tax_number=tax_number,
-            registration_id=registration_id,
-            electronic_address=electronic_address,
-            electronic_address_scheme=electronic_address_scheme,
-            contact_name=contact_name,
-            contact_phone=contact_phone,
-            contact_email=contact_email,
-        )
-    except Exception:
-        logger.warning("Failed to extract party data", exc_info=True)
-        return None
-
-
-def _extract_scheme_id(id_elem: object) -> str:
-    """Extract schemeID from a drafthorse IDElement."""
-    # drafthorse stores schemeID in _scheme_id attribute
-    scheme = getattr(id_elem, "_scheme_id", None)
-    if scheme:
-        return str(scheme)
-    # Fallback: check the string representation for " (XX)" pattern
-    s = str(id_elem).strip()
-    if s.endswith(")"):
-        paren_idx = s.rfind(" (")
-        if paren_idx > 0:
-            return s[paren_idx + 2 : -1]
-    return ""
-
-
-def _extract_items(doc: Document) -> list[LineItem]:
-    items: list[LineItem] = []
-    for li in doc.trade.items.children:
-        try:
-            description = _str_element(getattr(li.product, "name", "")) or "Unbekannt"
-
-            # Billed quantity
-            bq = li.delivery.billed_quantity
-            quantity = _safe_decimal(getattr(bq, "_amount", "1"))
-            unit_code = getattr(bq, "_unit_code", "H87") or "H87"
-
-            # Net unit price
-            unit_price = _safe_decimal(getattr(li.agreement.net, "amount", "0"))
-
-            # Tax from line item (single ApplicableTradeTax, not a container)
-            tax_rate = Decimal("19.00")
-            tax_category = TaxCategory.S
-            line_tax = getattr(li.settlement, "trade_tax", None)
-            if line_tax:
-                rate = getattr(line_tax, "rate_applicable_percent", None)
-                if rate is not None:
-                    tax_rate = _safe_decimal(rate)
-                cat = _str_element(getattr(line_tax, "category_code", ""))
-                if cat in TaxCategory.__members__:
-                    tax_category = TaxCategory(cat)
-
-            # Line item note (BT-127)
-            item_note = None
-            line_notes = getattr(li.document, "notes", None)
-            if line_notes and hasattr(line_notes, "children"):
-                for note in line_notes.children:
-                    content = getattr(note, "content", None)
-                    text = _str_element(content) if content else _str_element(note)
-                    if text:
-                        item_note = text
-                        break
-
-            # Line-level allowances/charges (BG-27/BG-28)
-            line_allowances: list[LineAllowanceCharge] = []
-            line_ac_container = getattr(li.settlement, "allowance_charge", None)
-            if line_ac_container and hasattr(line_ac_container, "children"):
-                for lac_item in line_ac_container.children:
-                    lac_indicator = getattr(lac_item, "indicator", None)
-                    lac_val = getattr(lac_indicator, "_value", None)
-                    if lac_val is not None:
-                        lac_is_charge = bool(lac_val)
-                    else:
-                        lac_is_charge = bool(lac_indicator) if lac_indicator is not None else False
-                    lac_amount = _safe_decimal(getattr(lac_item, "actual_amount", "0"))
-                    lac_reason = _str_element(getattr(lac_item, "reason", ""))
-                    line_allowances.append(
-                        LineAllowanceCharge(
-                            charge=lac_is_charge,
-                            amount=lac_amount,
-                            reason=lac_reason,
-                        )
-                    )
-
-            # Product identifiers (BT-155, BT-156, BT-157)
-            seller_item_id = _str_element(
-                getattr(li.product, "seller_assigned_id", "")
-            ) or None
-            buyer_item_id = _str_element(
-                getattr(li.product, "buyer_assigned_id", "")
-            ) or None
-            standard_item_id = None
-            standard_item_scheme = "0160"
-            gid = getattr(li.product, "global_id", None)
-            if gid:
-                gid_str = _str_element(gid)
-                if gid_str:
-                    standard_item_id = gid_str
-                    gid_scheme = _extract_scheme_id(gid)
-                    if gid_scheme:
-                        standard_item_scheme = gid_scheme
-
-            # Gross price (BT-148) and price discount (BT-147)
-            item_gross_price = None
-            item_price_discount = None
-            gross_obj = getattr(li.agreement, "gross", None)
-            if gross_obj:
-                gp = _safe_decimal(getattr(gross_obj, "amount", "0"))
-                if gp > 0:
-                    item_gross_price = gp
-                    charge_container = getattr(gross_obj, "charge", None)
-                    if charge_container and hasattr(charge_container, "children"):
-                        for ch in charge_container.children:
-                            disc = _safe_decimal(getattr(ch, "actual_amount", "0"))
-                            if disc > 0:
-                                item_price_discount = disc
-                                break
-
-            # Item classification (BT-158)
-            item_classification_id = None
-            item_classification_scheme = "STL"
-            item_classification_version = ""
-            cls_container = getattr(li.product, "classifications", None)
-            if cls_container and hasattr(cls_container, "children"):
-                for cls_item in cls_container.children:
-                    cc = getattr(cls_item, "class_code", None)
-                    if cc:
-                        # ClassificationElement has _text, _list_id, _list_version_id
-                        cc_text = getattr(cc, "_text", None)
-                        if cc_text:
-                            item_classification_id = str(cc_text).strip()
-                            cc_list_id = getattr(cc, "_list_id", "")
-                            if cc_list_id:
-                                item_classification_scheme = str(cc_list_id).strip()
-                            cc_version = getattr(cc, "_list_version_id", "")
-                            if cc_version:
-                                item_classification_version = str(cc_version).strip()
-                            break
-
-            # Item country of origin (BT-159)
-            item_country_of_origin = None
-            origin_obj = getattr(li.product, "origin", None)
-            if origin_obj:
-                origin_id = _str_element(getattr(origin_obj, "id", ""))
-                if origin_id and len(origin_id) == 2:
-                    item_country_of_origin = origin_id
-
-            # Item attributes (BG-30, BT-160/BT-161)
-            item_attributes: list[ItemAttribute] = []
-            char_container = getattr(li.product, "characteristics", None)
-            if char_container and hasattr(char_container, "children"):
-                for char_item in char_container.children:
-                    attr_name = _str_element(
-                        getattr(char_item, "type_code", "")
-                    )
-                    attr_value = _str_element(
-                        getattr(char_item, "value", "")
-                    )
-                    if attr_name and attr_value:
-                        item_attributes.append(
-                            ItemAttribute(name=attr_name, value=attr_value)
-                        )
-
-            # Line-level billing period (BT-134/BT-135)
-            line_period_start: date | None = None
-            line_period_end: date | None = None
-            line_period = getattr(li.settlement, "period", None)
-            if line_period:
-                lps = getattr(line_period, "start", None)
-                if lps:
-                    lps_val = str(lps).strip()
-                    if lps_val and lps_val != "None":
-                        with contextlib.suppress(ValueError):
-                            line_period_start = date.fromisoformat(lps_val[:10])
-                lpe = getattr(line_period, "end", None)
-                if lpe:
-                    lpe_val = str(lpe).strip()
-                    if lpe_val and lpe_val != "None":
-                        with contextlib.suppress(ValueError):
-                            line_period_end = date.fromisoformat(lpe_val[:10])
-
-            # Buyer accounting reference (BT-133)
-            buyer_accounting_reference = None
-            acct_obj = getattr(li.settlement, "accounting_account", None)
-            if acct_obj:
-                acct_id = _str_element(getattr(acct_obj, "id", ""))
-                if acct_id:
-                    buyer_accounting_reference = acct_id
-
-            # Preserve magnitude for negative quantities (credit notes, TypeCode 381);
-            # only fall back to 0.01 when the parsed quantity is exactly zero.
-            if quantity < 0:
-                logger.warning(
-                    "Negative quantity %s in line item '%s' — using absolute value",
-                    quantity,
-                    description,
-                )
-                quantity = abs(quantity)
-            if quantity == 0:
-                quantity = Decimal("0.01")
-
-            items.append(
-                LineItem(
-                    description=description,
-                    quantity=quantity,
-                    unit_code=unit_code,
-                    unit_price=unit_price,
-                    tax_rate=tax_rate,
-                    tax_category=tax_category,
-                    seller_item_id=seller_item_id,
-                    buyer_item_id=buyer_item_id,
-                    standard_item_id=standard_item_id,
-                    standard_item_scheme=standard_item_scheme,
-                    item_note=item_note,
-                    item_gross_price=item_gross_price,
-                    item_price_discount=item_price_discount,
-                    item_classification_id=item_classification_id,
-                    item_classification_scheme=item_classification_scheme,
-                    item_classification_version=item_classification_version,
-                    allowances_charges=line_allowances,
-                    buyer_accounting_reference=buyer_accounting_reference,
-                    line_period_start=line_period_start,
-                    line_period_end=line_period_end,
-                    item_country_of_origin=item_country_of_origin,
-                    attributes=item_attributes,
-                )
-            )
-        except Exception:
-            logger.warning("Failed to parse line item", exc_info=True)
-    return items
-
-
 def _extract_tax_breakdown(doc: Document) -> list[TaxBreakdown]:
     breakdown: list[TaxBreakdown] = []
     trade_tax_container = doc.trade.settlement.trade_tax
@@ -951,10 +626,10 @@ def _extract_tax_breakdown(doc: Document) -> list[TaxBreakdown]:
         try:
             breakdown.append(
                 TaxBreakdown(
-                    tax_rate=_safe_decimal(getattr(tax, "rate_applicable_percent", "0")),
-                    tax_category=_str_element(getattr(tax, "category_code", "S")) or "S",
-                    taxable_amount=_safe_decimal(getattr(tax, "basis_amount", "0")),
-                    tax_amount=_safe_decimal(getattr(tax, "calculated_amount", "0")),
+                    tax_rate=safe_decimal(getattr(tax, "rate_applicable_percent", "0")),
+                    tax_category=str_element(getattr(tax, "category_code", "S")) or "S",
+                    taxable_amount=safe_decimal(getattr(tax, "basis_amount", "0")),
+                    tax_amount=safe_decimal(getattr(tax, "calculated_amount", "0")),
                 )
             )
         except Exception:
@@ -968,15 +643,16 @@ def _extract_totals(doc: Document) -> Totals | None:
 
         # drafthorse routes TaxTotalAmount to tax_total_other_currency (MultiCurrencyField)
         # instead of tax_total (CurrencyField) — check both sources.
-        tax_total = _safe_decimal(getattr(ms, "tax_total", "0"))
+        tax_total = safe_decimal(getattr(ms, "tax_total", "0"))
         if tax_total == Decimal("0"):
             tax_total = _extract_tax_total_fallback(ms)
 
         return Totals(
-            net_total=_safe_decimal(getattr(ms, "tax_basis_total", "0")),
+            net_total=safe_decimal(getattr(ms, "tax_basis_total", "0")),
             tax_total=tax_total,
-            gross_total=_safe_decimal(getattr(ms, "grand_total", "0")),
-            due_payable=_safe_decimal(getattr(ms, "due_amount", "0")),
+            gross_total=safe_decimal(getattr(ms, "grand_total", "0")),
+            prepaid_amount=safe_decimal(getattr(ms, "prepaid_total", "0")),
+            due_payable=safe_decimal(getattr(ms, "due_amount", "0")),
         )
     except Exception:
         logger.warning("Failed to extract totals", exc_info=True)
@@ -995,70 +671,3 @@ def _extract_tax_total_fallback(ms: object) -> Decimal:
             except (InvalidOperation, ValueError):
                 continue
     return Decimal("0")
-
-
-def _str_element(value: object) -> str:
-    """Convert a drafthorse element to a clean string.
-
-    IDElement.__str__ returns "text (schemeID)" where schemeID is a short
-    uppercase code like "VA", "EM", "9930". Only strip this pattern — do NOT
-    strip arbitrary parenthetical text from descriptions or names.
-    """
-    if value is None:
-        return ""
-    s = str(value).strip()
-    # drafthorse empty IDElements produce "()" — treat as empty
-    if s == "()":
-        return ""
-    # Only strip trailing " (XX)" where XX is 1-10 ASCII alphanumeric chars
-    # without any lowercase letters.  This matches schemeID patterns like
-    # (VA), (EM), (9930) but NOT description text like "Reisekosten (pauschal)"
-    # or German abbreviations like "(3Ü)".
-    if s.endswith(")"):
-        paren_idx = s.rfind(" (")
-        if paren_idx > 0:
-            scheme = s[paren_idx + 2 : -1]
-            # Strip " ()" (empty schemeID) or " (XX)" where XX is
-            # uppercase alphanumeric (schemeID pattern).
-            if not scheme or (
-                len(scheme) <= 10
-                and scheme.isascii()
-                and scheme.isalnum()
-                and scheme == scheme.upper()
-            ):
-                s = s[:paren_idx]
-    return s
-
-
-def _safe_decimal(value: object) -> Decimal:
-    if value is None:
-        return Decimal("0")
-    if isinstance(value, Decimal):
-        return value
-    # drafthorse DecimalElement: ._value is Decimal
-    if hasattr(value, "_value"):
-        raw = getattr(value, "_value", None)
-        if isinstance(raw, Decimal):
-            return raw
-        if raw is None:
-            return Decimal("0")
-    # drafthorse CurrencyElement / QuantityElement: ._amount is Decimal or str
-    if hasattr(value, "_amount"):
-        raw = getattr(value, "_amount", None)
-        if isinstance(raw, Decimal):
-            return raw
-        if raw is not None:
-            try:
-                return Decimal(str(raw))
-            except (InvalidOperation, ValueError):
-                pass
-    try:
-        s = repr(value) if not isinstance(value, str) else value
-        s = s.strip()
-        if s.endswith(" ()"):
-            s = s[:-3]
-        if not s:
-            return Decimal("0")
-        return Decimal(s)
-    except (InvalidOperation, ValueError, TypeError):
-        return Decimal("0")

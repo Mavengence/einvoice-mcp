@@ -35,6 +35,10 @@ from einvoice_mcp.models import (
     TaxCategory,
     Totals,
 )
+from einvoice_mcp.services.cii_extractors import (
+    safe_decimal,
+    str_element,
+)
 from einvoice_mcp.services.invoice_builder import build_xml
 from einvoice_mcp.services.kosit import MAX_RESPONSE_SIZE, KoSITClient
 from einvoice_mcp.services.pdf_generator import (
@@ -43,8 +47,6 @@ from einvoice_mcp.services.pdf_generator import (
 )
 from einvoice_mcp.services.xml_parser import (
     _extract_invoice,
-    _safe_decimal,
-    _str_element,
     extract_xml_from_pdf,
     parse_xml,
 )
@@ -129,81 +131,81 @@ class TestXmlParserEdgeCases:
             extract_xml_from_pdf(b"")
 
     def test_str_element_none(self) -> None:
-        assert _str_element(None) == ""
+        assert str_element(None) == ""
 
     def test_str_element_strips_empty_parens(self) -> None:
         # Empty parens come from drafthorse IDElements with no schemeID
-        assert _str_element("DE123 ()") == "DE123"
+        assert str_element("DE123 ()") == "DE123"
 
     def test_strips_numeric_scheme(self) -> None:
-        assert _str_element("4000000000098 (9930)") == "4000000000098"
+        assert str_element("4000000000098 (9930)") == "4000000000098"
 
     def test_str_element_strips_scheme_id(self) -> None:
         # SchemeID patterns: short uppercase alphanumeric in parens
-        assert _str_element("DE123456789 (VA)") == "DE123456789"
-        assert _str_element("seller@example.com (EM)") == "seller@example.com"
-        assert _str_element("4000000000098 (9930)") == "4000000000098"
+        assert str_element("DE123456789 (VA)") == "DE123456789"
+        assert str_element("seller@example.com (EM)") == "seller@example.com"
+        assert str_element("4000000000098 (9930)") == "4000000000098"
 
     def test_str_element_preserves_description_parens(self) -> None:
         # Natural language parenthetical text must NOT be stripped
-        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
-        assert _str_element("Beratung (inkl. Reise)") == "Beratung (inkl. Reise)"
-        assert _str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
-        assert _str_element("Hosting (pro Monat)") == "Hosting (pro Monat)"
+        assert str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+        assert str_element("Beratung (inkl. Reise)") == "Beratung (inkl. Reise)"
+        assert str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
+        assert str_element("Hosting (pro Monat)") == "Hosting (pro Monat)"
 
     def test_str_element_normal_string(self) -> None:
-        assert _str_element("hello") == "hello"
+        assert str_element("hello") == "hello"
 
     def test_str_element_whitespace(self) -> None:
-        assert _str_element("  test  ") == "test"
+        assert str_element("  test  ") == "test"
 
     def test_safe_decimal_none(self) -> None:
-        assert _safe_decimal(None) == Decimal("0")
+        assert safe_decimal(None) == Decimal("0")
 
     def test_safe_decimal_from_decimal(self) -> None:
-        assert _safe_decimal(Decimal("42.50")) == Decimal("42.50")
+        assert safe_decimal(Decimal("42.50")) == Decimal("42.50")
 
     def test_safe_decimal_from_string(self) -> None:
-        assert _safe_decimal("19.00") == Decimal("19.00")
+        assert safe_decimal("19.00") == Decimal("19.00")
 
     def test_safe_decimal_empty_string(self) -> None:
-        assert _safe_decimal("") == Decimal("0")
+        assert safe_decimal("") == Decimal("0")
 
     def test_safe_decimal_invalid_string(self) -> None:
-        assert _safe_decimal("not-a-number") == Decimal("0")
+        assert safe_decimal("not-a-number") == Decimal("0")
 
     def test_safe_decimal_with_value_attr(self) -> None:
         class FakeDecimalElement:
             _value = Decimal("99.99")
 
-        assert _safe_decimal(FakeDecimalElement()) == Decimal("99.99")
+        assert safe_decimal(FakeDecimalElement()) == Decimal("99.99")
 
     def test_safe_decimal_with_none_value_attr(self) -> None:
         class FakeDecimalElement:
             _value = None
 
-        assert _safe_decimal(FakeDecimalElement()) == Decimal("0")
+        assert safe_decimal(FakeDecimalElement()) == Decimal("0")
 
     def test_safe_decimal_with_amount_attr_decimal(self) -> None:
         class FakeCurrencyElement:
             _amount = Decimal("100.00")
 
-        assert _safe_decimal(FakeCurrencyElement()) == Decimal("100.00")
+        assert safe_decimal(FakeCurrencyElement()) == Decimal("100.00")
 
     def test_safe_decimal_with_amount_attr_string(self) -> None:
         class FakeCurrencyElement:
             _amount = "55.50"
 
-        assert _safe_decimal(FakeCurrencyElement()) == Decimal("55.50")
+        assert safe_decimal(FakeCurrencyElement()) == Decimal("55.50")
 
     def test_safe_decimal_with_invalid_amount(self) -> None:
         class FakeCurrencyElement:
             _amount = "bad"
 
-        assert _safe_decimal(FakeCurrencyElement()) == Decimal("0")
+        assert safe_decimal(FakeCurrencyElement()) == Decimal("0")
 
     def test_safe_decimal_with_scheme_suffix(self) -> None:
-        assert _safe_decimal("100 ()") == Decimal("100")
+        assert safe_decimal("100 ()") == Decimal("100")
 
     def test_parse_xml_wraps_extraction_error(self) -> None:
         """If drafthorse parse succeeds but extraction fails, wrap in InvoiceParsingError."""
@@ -250,27 +252,27 @@ class TestXmlParserEdgeCases:
 
     def test_extract_scheme_id_from_string_fallback(self) -> None:
         """_extract_scheme_id falls back to string pattern matching."""
-        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+        from einvoice_mcp.services.cii_extractors import extract_scheme_id
 
         class FakeID:
             def __str__(self) -> str:
                 return "123/456/78901 (FC)"
 
-        assert _extract_scheme_id(FakeID()) == "FC"
+        assert extract_scheme_id(FakeID()) == "FC"
 
     def test_extract_scheme_id_no_scheme(self) -> None:
         """_extract_scheme_id returns empty for no scheme."""
-        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+        from einvoice_mcp.services.cii_extractors import extract_scheme_id
 
         class FakeID:
             def __str__(self) -> str:
                 return "plain text"
 
-        assert _extract_scheme_id(FakeID()) == ""
+        assert extract_scheme_id(FakeID()) == ""
 
     def test_extract_scheme_id_with_attr(self) -> None:
         """_extract_scheme_id uses _scheme_id attribute when available."""
-        from einvoice_mcp.services.xml_parser import _extract_scheme_id
+        from einvoice_mcp.services.cii_extractors import extract_scheme_id
 
         class FakeID:
             _scheme_id = "VA"
@@ -278,7 +280,7 @@ class TestXmlParserEdgeCases:
             def __str__(self) -> str:
                 return "DE123456789 (VA)"
 
-        assert _extract_scheme_id(FakeID()) == "VA"
+        assert extract_scheme_id(FakeID()) == "VA"
 
 
 # ============================================================================
@@ -1205,11 +1207,11 @@ class TestBT32Steuernummer:
 
     def test_preserves_unicode_parens(self) -> None:
         """Unicode in parenthetical text must NOT be stripped (e.g. Ü)."""
-        assert _str_element("Artikel (3Ü)") == "Artikel (3Ü)"
+        assert str_element("Artikel (3Ü)") == "Artikel (3Ü)"
 
     def test_preserves_lowercase_parens(self) -> None:
         """Lowercase text in parentheses must be preserved."""
-        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+        assert str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
 
 
 # ============================================================================
@@ -1946,7 +1948,7 @@ class TestParseToolXmlErrorPath:
 class TestParserExceptionHandlers:
     def test_party_extraction_error_returns_none(self) -> None:
         """If _extract_party fails internally, returns None (not crash)."""
-        from einvoice_mcp.services.xml_parser import _extract_party
+        from einvoice_mcp.services.cii_extractors import extract_party
 
         class BrokenParty:
             name = "Valid Name"
@@ -1955,12 +1957,12 @@ class TestParserExceptionHandlers:
             def address(self) -> None:
                 raise RuntimeError("address boom")
 
-        result = _extract_party(BrokenParty())
+        result = extract_party(BrokenParty())
         assert result is None
 
     def test_empty_tax_registration_value_skipped(self) -> None:
         """Tax registration with valid schemeID but empty value is skipped."""
-        from einvoice_mcp.services.xml_parser import _extract_party
+        from einvoice_mcp.services.cii_extractors import extract_party
 
         class FakeIDEmpty:
             _scheme_id = "VA"
@@ -1986,7 +1988,7 @@ class TestParserExceptionHandlers:
             tax_registrations = FakeRegs()
             electronic_address = None
 
-        result = _extract_party(FakePartyObj())
+        result = extract_party(FakePartyObj())
         assert result is not None
         assert result.name == "TestName"
         assert result.tax_id is None  # empty value skipped
@@ -2265,6 +2267,37 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.preceding_invoice_number == "RE-2025-099"
         assert parsed.type_code == "381"
 
+    def test_preceding_invoice_date_bt26(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-26: preceding invoice date roundtrips for credit note."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "type_code": "381",
+                "preceding_invoice_number": "RE-2025-099",
+                "preceding_invoice_date": "2025-06-15",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.preceding_invoice_number == "RE-2025-099"
+        assert parsed.preceding_invoice_date == "2025-06-15"
+
+    def test_preceding_invoice_number_without_date(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-25 without BT-26: date stays empty."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "type_code": "381",
+                "preceding_invoice_number": "RE-2025-099",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.preceding_invoice_number == "RE-2025-099"
+        assert parsed.preceding_invoice_date == ""
+
     def test_no_references_parse_empty(
         self, sample_invoice_data: InvoiceData
     ) -> None:
@@ -2275,6 +2308,7 @@ class TestReferenceFieldsRoundtrip:
         assert parsed.contract_reference == ""
         assert parsed.project_reference == ""
         assert parsed.preceding_invoice_number == ""
+        assert parsed.preceding_invoice_date == ""
 
     def test_all_references_together(
         self, sample_invoice_data: InvoiceData
@@ -3298,6 +3332,199 @@ class TestLineAllowancesChargesRoundtrip:
         xml_bytes = build_xml(sample_invoice_data)
         parsed = parse_xml(xml_bytes)
         assert parsed.items[0].allowances_charges == []
+
+
+class TestLineAllowanceChargeAffectsTotals:
+    """Verify line-level A/C affects total_net() and XML monetary summation."""
+
+    def test_line_allowance_reduces_total_net(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line-level allowance (discount) reduces total_net() per EN 16931."""
+        item = sample_invoice_data.items[0]
+        item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=False,
+                        amount=Decimal("10.00"),
+                        reason="Rabatt",
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        assert data.total_net() == item_base - Decimal("10.00")
+
+    def test_line_charge_increases_total_net(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line-level charge (surcharge) increases total_net()."""
+        item = sample_invoice_data.items[0]
+        item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=True,
+                        amount=Decimal("7.50"),
+                        reason="Zuschlag",
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        assert data.total_net() == item_base + Decimal("7.50")
+
+    def test_mixed_line_allowance_charge(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Both allowance and charge on same line partially offset."""
+        item = sample_invoice_data.items[0]
+        item_base = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=False, amount=Decimal("20.00"), reason="Rabatt"
+                    ),
+                    LineAllowanceCharge(
+                        charge=True, amount=Decimal("5.00"), reason="Zuschlag"
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        assert data.total_net() == item_base - Decimal("15.00")
+
+    def test_line_allowance_in_xml_monetary_summation(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """XML line total reflects line-level allowance."""
+        item = sample_invoice_data.items[0]
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=False,
+                        amount=Decimal("5.00"),
+                        reason="Rabatt",
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        expected = (item.quantity * item.unit_price).quantize(
+            Decimal("0.01")
+        ) - Decimal("5.00")
+        assert parsed.totals.net_total == expected
+
+
+class TestLineAllowanceChargeAffectsTaxGroups:
+    """Verify line-level A/C affects total_tax() and XML ApplicableTradeTax basis."""
+
+    def test_total_tax_includes_line_allowance(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """total_tax() must use _line_net_amount (incl. line A/C) as tax basis."""
+        item = sample_invoice_data.items[0]
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=False,
+                        amount=Decimal("10.00"),
+                        reason="Rabatt",
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        line_net = InvoiceData._line_net_amount(new_item)
+        expected_tax = (line_net * new_item.tax_rate / Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+        assert data.total_tax() == expected_tax
+
+    def test_xml_tax_group_basis_includes_line_allowance(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """XML ApplicableTradeTax.BasisAmount must reflect line-level allowances."""
+        item = sample_invoice_data.items[0]
+        new_item = item.model_copy(
+            update={
+                "allowances_charges": [
+                    LineAllowanceCharge(
+                        charge=False,
+                        amount=Decimal("15.00"),
+                        reason="Rabatt",
+                    ),
+                ],
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"items": [new_item]})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        expected_net = InvoiceData._line_net_amount(new_item)
+        assert parsed.totals.net_total == expected_net
+        expected_tax = (expected_net * new_item.tax_rate / Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+        assert parsed.totals.tax_total == expected_tax
+
+
+class TestPrepaidAmountRoundtrip:
+    """Verify BT-113 prepaid amount and BT-115 due payable roundtrip."""
+
+    def test_prepaid_amount_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Prepaid amount generates correct XML and parses back."""
+        data = sample_invoice_data.model_copy(
+            update={"prepaid_amount": Decimal("500.00")}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals.prepaid_amount == Decimal("500.00")
+        expected_due = parsed.totals.gross_total - Decimal("500.00")
+        assert parsed.totals.due_payable == expected_due
+
+    def test_no_prepaid_amount(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Without prepaid, due_payable equals gross_total."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals.prepaid_amount == Decimal("0")
+        assert parsed.totals.due_payable == parsed.totals.gross_total
+
+    def test_prepaid_amount_zero(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Explicit zero prepaid behaves same as None."""
+        data = sample_invoice_data.model_copy(
+            update={"prepaid_amount": Decimal("0")}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals.prepaid_amount == Decimal("0")
+        assert parsed.totals.due_payable == parsed.totals.gross_total
+
+    def test_prepaid_partial_payment(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Schlussrechnung with partial prepayment calculates due correctly."""
+        data = sample_invoice_data.model_copy(
+            update={"prepaid_amount": Decimal("100.00")}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals.prepaid_amount == Decimal("100.00")
+        expected_due = parsed.totals.gross_total - Decimal("100.00")
+        assert parsed.totals.due_payable == expected_due
 
 
 class TestDeliveryLocationRoundtrip:
@@ -5684,6 +5911,404 @@ class TestAdditionalComplianceChecks:
 
 
 # ============================================================================
+# BR-DE-18/19/16/22 Compliance Checks
+# ============================================================================
+
+
+class TestBRDE18PaymentMeansPresence:
+    """BR-DE-18: At least one payment means must be present."""
+
+    def _base_data(self, **overrides: object) -> InvoiceData:
+        defaults: dict[str, object] = {
+            "invoice_id": "BRDE18-001",
+            "issue_date": "2026-01-01",
+            "seller": Party(
+                name="Seller GmbH",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            "buyer": Party(
+                name="Buyer AG",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            "items": [
+                LineItem(description="Item", quantity="1", unit_price="100"),
+            ],
+        }
+        defaults.update(overrides)
+        return InvoiceData(**defaults)
+
+    @respx.mock
+    async def test_payment_means_present(self) -> None:
+        """Payment means present → BR-DE-18 not flagged."""
+        data = self._base_data(payment_means_type_code="58")
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-18" not in fields
+        await client.close()
+
+
+class TestBRDE19PaymentMeansCode:
+    """BR-DE-19: Payment means code must be from UNTDID 4461 subset."""
+
+    @respx.mock
+    async def test_invalid_payment_code_in_xml(self) -> None:
+        """Invalid payment code in raw XML triggers BR-DE-19."""
+        # Build valid XML first, then inject invalid payment code
+        data = InvoiceData(
+            invoice_id="BRDE19-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            payment_means_type_code="58",
+        )
+        xml = build_xml(data).decode("utf-8")
+        # Replace valid code 58 with invalid code 99
+        xml = xml.replace("<ram:TypeCode>58</ram:TypeCode>", "<ram:TypeCode>99</ram:TypeCode>")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-19" in fields
+        assert fields["BR-DE-19"]["value"] == "99"
+        await client.close()
+
+
+class TestBRDE16SellerEASCode:
+    """BR-DE-16/21: Seller electronic address schemeID must be valid EAS."""
+
+    @respx.mock
+    async def test_invalid_seller_eas_code(self) -> None:
+        """Invalid EAS scheme ID on seller triggers BR-DE-16."""
+        data = InvoiceData(
+            invoice_id="BRDE16-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+                electronic_address="seller@test.de",
+                electronic_address_scheme="EM",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@t.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        # Replace valid EM with invalid INVALID
+        xml = xml.replace('schemeID="EM"', 'schemeID="INVALID"', 1)
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-16" in fields
+        assert fields["BR-DE-16"]["value"] == "INVALID"
+        await client.close()
+
+    @respx.mock
+    async def test_valid_seller_eas_code(self) -> None:
+        """Valid EAS scheme ID EM → BR-DE-16 not flagged."""
+        data = InvoiceData(
+            invoice_id="BRDE16-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+                electronic_address="seller@test.de",
+                electronic_address_scheme="EM",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@t.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-16" not in fields
+        await client.close()
+
+
+class TestBRDE22BuyerEASCode:
+    """BR-DE-22: Buyer electronic address schemeID must be valid EAS."""
+
+    @respx.mock
+    async def test_invalid_buyer_eas_code(self) -> None:
+        """Invalid EAS scheme ID on buyer triggers BR-DE-22."""
+        data = InvoiceData(
+            invoice_id="BRDE22-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+                electronic_address="seller@test.de",
+                electronic_address_scheme="EM",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+                electronic_address_scheme="EM",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@t.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        # Replace second EM (buyer) with BADCODE
+        # Find the buyer's schemeID — it's the second occurrence
+        first_idx = xml.index('schemeID="EM"')
+        second_idx = xml.index('schemeID="EM"', first_idx + 1)
+        xml = xml[:second_idx] + 'schemeID="BADCODE"' + xml[second_idx + len('schemeID="EM"'):]
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-22" in fields
+        assert fields["BR-DE-22"]["value"] == "BADCODE"
+        await client.close()
+
+
+class TestEASCodeExpansion:
+    """Verify expanded EAS code list accepts EU trading partner schemes."""
+
+    @respx.mock
+    async def test_french_siret_accepted(self) -> None:
+        """French SIRET (0009) must be accepted, not flagged as BR-DE-16."""
+        data = InvoiceData(
+            invoice_id="EAS-FR-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+                electronic_address="12345678901234",
+                electronic_address_scheme="0009",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@t.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-16" not in fields
+        await client.close()
+
+    @respx.mock
+    async def test_dutch_kvk_accepted(self) -> None:
+        """Dutch KvK (0106) must be accepted for buyer EAS."""
+        data = InvoiceData(
+            invoice_id="EAS-NL-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Dutch Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="12345678",
+                electronic_address_scheme="0106",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@t.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BR-DE-22" not in fields
+        await client.close()
+
+
+# ============================================================================
+# BR-DE-3: Non-DE seller requires tax representative
+# ============================================================================
+
+
+class TestBRDE3NonDESellerTaxRep:
+    """BR-DE-3: Seller outside DE must provide a tax representative (BG-11)."""
+
+    def test_non_de_seller_without_rep_flagged(self) -> None:
+        """Austrian seller without tax rep → BR-DE-3 flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        data = InvoiceData(
+            invoice_id="BRDE3-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Wiener GmbH",
+                address=Address(
+                    street="Ringstr. 1", city="Wien",
+                    postal_code="1010", country_code="AT",
+                ),
+                tax_id="ATU12345678",
+                electronic_address="seller@wien.at",
+            ),
+            buyer=Party(
+                name="Käufer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+43",
+            seller_contact_email="k@wien.at",
+        )
+        xml = build_xml(data).decode("utf-8")
+        checks = check_fields(xml, xrechnung=True)
+        fields = {c.field: c for c in checks}
+        assert "BR-DE-3" in fields
+        assert not fields["BR-DE-3"].present
+        assert fields["BR-DE-3"].value == "AT"
+
+    def test_de_seller_no_rep_not_flagged(self) -> None:
+        """German seller without tax rep → BR-DE-3 NOT flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        data = InvoiceData(
+            invoice_id="BRDE3-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Berliner GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE123456789",
+                electronic_address="seller@berlin.de",
+            ),
+            buyer=Party(
+                name="Käufer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+49",
+            seller_contact_email="k@berlin.de",
+        )
+        xml = build_xml(data).decode("utf-8")
+        checks = check_fields(xml, xrechnung=True)
+        fields = {c.field: c for c in checks}
+        assert "BR-DE-3" not in fields
+
+    def test_non_de_seller_with_rep_not_flagged(self) -> None:
+        """Austrian seller WITH tax rep → BR-DE-3 NOT flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        data = InvoiceData(
+            invoice_id="BRDE3-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Wiener GmbH",
+                address=Address(
+                    street="Ringstr. 1", city="Wien",
+                    postal_code="1010", country_code="AT",
+                ),
+                tax_id="ATU12345678",
+                electronic_address="seller@wien.at",
+            ),
+            buyer=Party(
+                name="Käufer",
+                address=Address(street="B", city="C", postal_code="00000"),
+                electronic_address="buyer@test.de",
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+            buyer_reference="LW-001-001-01",
+            seller_contact_name="K",
+            seller_contact_phone="+43",
+            seller_contact_email="k@wien.at",
+            seller_tax_representative=Party(
+                name="Steuervertreter DE",
+                address=Address(
+                    street="V-Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE987654321",
+            ),
+        )
+        xml = build_xml(data).decode("utf-8")
+        checks = check_fields(xml, xrechnung=True)
+        fields = {c.field: c for c in checks}
+        assert "BR-DE-3" not in fields
+
+    def test_zugferd_does_not_check_br_de_3(self) -> None:
+        """ZUGFeRD mode should NOT check BR-DE-3 (XRechnung-only rule)."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        data = InvoiceData(
+            invoice_id="BRDE3-004",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Wiener GmbH",
+                address=Address(
+                    street="Ringstr. 1", city="Wien",
+                    postal_code="1010", country_code="AT",
+                ),
+                tax_id="ATU12345678",
+            ),
+            buyer=Party(
+                name="Käufer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Item", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        checks = check_fields(xml, xrechnung=False)
+        fields = {c.field: c for c in checks}
+        assert "BR-DE-3" not in fields
+
+
+# ============================================================================
 # BT-159 Item Country of Origin
 # ============================================================================
 
@@ -6230,9 +6855,9 @@ class TestCorrectiveInvoiceCompliance:
     def test_384_with_preceding_reference_passes(self) -> None:
         data = self._make_invoice(preceding_invoice_number="RE-2026-001")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         bt25_check = next(
             (c for c in checks if c.field == "384-BT-25"), None
         )
@@ -6243,9 +6868,9 @@ class TestCorrectiveInvoiceCompliance:
     def test_384_without_preceding_reference_fails(self) -> None:
         data = self._make_invoice(preceding_invoice_number=None)
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         bt25_check = next(
             (c for c in checks if c.field == "384-BT-25"), None
         )
@@ -6262,9 +6887,9 @@ class TestCorrectiveInvoiceCompliance:
     def test_381_still_uses_bt25_key(self) -> None:
         data = self._make_invoice(type_code="381")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         bt25_check = next(
             (c for c in checks if c.field == "BT-25"), None
         )
@@ -6275,9 +6900,9 @@ class TestCorrectiveInvoiceCompliance:
         """Standard invoices (380) should not have BT-25/384-BT-25 checks."""
         data = self._make_invoice(type_code="380")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         bt25_fields = [c for c in checks if "BT-25" in c.field]
         assert len(bt25_fields) == 0
 
@@ -6335,9 +6960,9 @@ class TestReverseChargeCountryValidation:
     def test_ae_different_countries_no_warning(self) -> None:
         data = self._make_ae_invoice(seller_country="DE", buyer_country="AT")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         rc_country = next(
             (c for c in checks if c.field == "RC-COUNTRY"), None
         )
@@ -6346,9 +6971,9 @@ class TestReverseChargeCountryValidation:
     def test_ae_same_country_advisory_warning(self) -> None:
         data = self._make_ae_invoice(seller_country="DE", buyer_country="DE")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         rc_country = next(
             (c for c in checks if c.field == "RC-COUNTRY"), None
         )
@@ -6415,9 +7040,9 @@ class TestIntraCommunityCountryValidation:
     def test_k_different_countries_no_error(self) -> None:
         data = self._make_k_invoice(seller_country="DE", buyer_country="FR")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         ic_country = next(
             (c for c in checks if c.field == "IC-COUNTRY"), None
         )
@@ -6426,9 +7051,9 @@ class TestIntraCommunityCountryValidation:
     def test_k_same_country_hard_error(self) -> None:
         data = self._make_k_invoice(seller_country="DE", buyer_country="DE")
         xml = build_xml(data).decode("utf-8")
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
-        checks = _check_fields(xml)
+        checks = check_fields(xml)
         ic_country = next(
             (c for c in checks if c.field == "IC-COUNTRY"), None
         )
@@ -6901,7 +7526,7 @@ class TestSmallAmountInvoice:
     """Test Kleinbetragsrechnung (<=250 EUR) compliance advisory."""
 
     def test_small_invoice_triggers_advisory(self) -> None:
-        from einvoice_mcp.tools.compliance import _check_fields
+        from einvoice_mcp.tools.compliance_checks import check_fields
 
         data = InvoiceData(
             invoice_id="KB-2026-001",
@@ -6938,7 +7563,7 @@ class TestSmallAmountInvoice:
         )
         xml_bytes = build_xml(data)
         xml_str = xml_bytes.decode("utf-8")
-        checks = _check_fields(xml_str)
+        checks = check_fields(xml_str)
         kb = next((c for c in checks if c.field == "KB-INFO"), None)
         assert kb is not None
         assert kb.required is False
@@ -7691,7 +8316,7 @@ class TestDefensiveExceptionHandlers:
 
         def sabotage(doc: object) -> None:
             # Inject an object whose __str__ raises into the agreement's
-            # buyer_reference slot, making _str_element() fail
+            # buyer_reference slot, making str_element() fail
             object.__setattr__(doc.trade.agreement, "buyer_reference", _Boom())  # type: ignore[union-attr]
 
         parsed = self._parsed_with_sabotage(monkeypatch, sabotage)

@@ -4,10 +4,10 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from einvoice_mcp.models import Address, InvoiceData, LineItem, Party, TaxCategory
+from einvoice_mcp.services.cii_extractors import str_element
 from einvoice_mcp.services.invoice_builder import build_xml
 from einvoice_mcp.services.xml_parser import (
     _extract_tax_total_fallback,
-    _str_element,
     parse_xml,
 )
 
@@ -78,38 +78,38 @@ class TestParseXml:
 class TestStrElement:
     def test_strips_scheme_suffix(self) -> None:
         """IDElement.__str__ returns 'value (schemeID)' — _str_element must strip it."""
-        assert _str_element("DE123456789 (VA)") == "DE123456789"
+        assert str_element("DE123456789 (VA)") == "DE123456789"
 
     def test_strips_email_scheme_suffix(self) -> None:
-        assert _str_element("email@example.de (EM)") == "email@example.de"
+        assert str_element("email@example.de (EM)") == "email@example.de"
 
     def test_strips_numeric_scheme(self) -> None:
         """EAS numeric schemeIDs like 9930 must be stripped."""
-        assert _str_element("4000000000098 (9930)") == "4000000000098"
+        assert str_element("4000000000098 (9930)") == "4000000000098"
 
     def test_strips_empty_parens(self) -> None:
         """Empty parens from drafthorse IDElements are stripped."""
-        assert _str_element("plain ()") == "plain"
-        assert _str_element("()") == ""
+        assert str_element("plain ()") == "plain"
+        assert str_element("()") == ""
 
     def test_preserves_plain_string(self) -> None:
-        assert _str_element("hello world") == "hello world"
+        assert str_element("hello world") == "hello world"
 
     def test_preserves_parentheses_in_middle(self) -> None:
         """Parentheses in the middle should not be stripped."""
-        assert _str_element("Company (GmbH) Name") == "Company (GmbH) Name"
+        assert str_element("Company (GmbH) Name") == "Company (GmbH) Name"
 
     def test_preserves_lowercase_parens(self) -> None:
         """Lowercase parenthetical text (descriptions) must NOT be stripped."""
-        assert _str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
-        assert _str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
+        assert str_element("Reisekosten (pauschal)") == "Reisekosten (pauschal)"
+        assert str_element("Software-Lizenz (jährlich)") == "Software-Lizenz (jährlich)"
 
     def test_preserves_unicode_parens(self) -> None:
         """German umlauts in parens must NOT be stripped (not ASCII schemeIDs)."""
-        assert _str_element("Artikel (3Ü)") == "Artikel (3Ü)"
+        assert str_element("Artikel (3Ü)") == "Artikel (3Ü)"
 
     def test_none_returns_empty(self) -> None:
-        assert _str_element(None) == ""
+        assert str_element(None) == ""
 
 
 class TestTaxTotalFallback:
@@ -201,12 +201,12 @@ class TestParserEdgeCases:
 
     def test_empty_party_name_returns_none(self) -> None:
         """A party with empty name returns None via _extract_party."""
-        from einvoice_mcp.services.xml_parser import _extract_party
+        from einvoice_mcp.services.cii_extractors import extract_party
 
         class FakeParty:
             name = ""
 
-        result = _extract_party(FakeParty())
+        result = extract_party(FakeParty())
         assert result is None
 
     def test_type_code_parsed(self) -> None:
@@ -233,7 +233,7 @@ class TestParserEdgeCases:
         )
         xml_bytes = build_xml(data)
         with patch(
-            "einvoice_mcp.services.xml_parser._safe_decimal",
+            "einvoice_mcp.services.xml_parser.safe_decimal",
             side_effect=RuntimeError("boom"),
         ):
             # The outer try/except in _extract_totals should catch this
