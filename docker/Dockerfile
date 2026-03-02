@@ -1,9 +1,11 @@
-# Pin to specific Debian release for reproducibility; update regularly.
-# To pin to a SHA-256 digest, run:
+# Pin to specific Python version for reproducibility.
+# To pin to a SHA-256 digest for maximum supply-chain security:
 #   docker pull python:3.11-slim-bookworm
 #   docker inspect --format='{{index .RepoDigests 0}}' python:3.11-slim-bookworm
-# Then replace with: FROM python:3.11-slim-bookworm@sha256:<digest>
-FROM python:3.11-slim-bookworm AS builder
+# Then replace ARG value with: python@sha256:<digest>
+ARG PYTHON_IMAGE=python:3.11-slim-bookworm
+
+FROM ${PYTHON_IMAGE} AS builder
 
 WORKDIR /app
 COPY pyproject.toml .
@@ -11,8 +13,7 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir .
 
-# Same pinned image for runtime.
-FROM python:3.11-slim-bookworm
+FROM ${PYTHON_IMAGE}
 
 RUN groupadd -r mcp && useradd -r -g mcp mcp
 WORKDIR /app

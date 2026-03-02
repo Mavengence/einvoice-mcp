@@ -1,4 +1,4 @@
-.PHONY: dev docker-up docker-down test lint fmt install build clean type-check
+.PHONY: dev docker-up docker-down docker-push test lint fmt install build clean type-check
 
 install:
 	pip install -e ".[dev]"
@@ -11,6 +11,11 @@ docker-up:
 
 docker-down:
 	docker compose -f docker/docker-compose.yml down
+
+docker-push:
+	docker compose -f docker/docker-compose.yml build
+	docker tag einvoice-mcp:latest $(REGISTRY)/einvoice-mcp:$(VERSION)
+	docker push $(REGISTRY)/einvoice-mcp:$(VERSION)
 
 test:
 	pytest --cov=einvoice_mcp --cov-report=term-missing -x -q

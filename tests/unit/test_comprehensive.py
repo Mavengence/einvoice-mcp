@@ -7013,3 +7013,301 @@ class TestExpandedSuggestions:
         assert "BIC" in SUGGESTIONS_MAP["BT-86"]
 
 
+# ---------------------------------------------------------------------------
+# Full-cycle integration roundtrip (generate → parse → verify all fields)
+# ---------------------------------------------------------------------------
+
+
+class TestFullCycleRoundtrip:
+    """Generate invoices with various German-specific features, parse back,
+    and verify all fields survive the cycle."""
+
+    def test_reverse_charge_roundtrip(self) -> None:
+        """Generate reverse-charge invoice → parse → verify AE fields."""
+        data = InvoiceData(
+            invoice_id="RC-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="DE Firma GmbH",
+                address=Address(
+                    street="Berliner Str. 1",
+                    city="Berlin",
+                    postal_code="10115",
+                    country_code="DE",
+                ),
+                tax_id="DE123456789",
+                electronic_address="info@defirma.de",
+                contact_name="Max Müller",
+                contact_phone="+49 30 12345",
+                contact_email="max@defirma.de",
+            ),
+            buyer=Party(
+                name="AT Firma GmbH",
+                address=Address(
+                    street="Wiener Str. 1",
+                    city="Wien",
+                    postal_code="1010",
+                    country_code="AT",
+                ),
+                tax_id="ATU12345678",
+                electronic_address="einkauf@atfirma.at",
+            ),
+            items=[
+                LineItem(
+                    description="IT-Beratung",
+                    quantity=Decimal("10"),
+                    unit_code="HUR",
+                    unit_price=Decimal("150.00"),
+                    tax_rate=Decimal("0.00"),
+                    tax_category="AE",
+                ),
+            ],
+            buyer_reference="BUYER-REF-001",
+            delivery_date="2026-02-28",
+            payment_terms_text="30 Tage netto",
+            tax_exemption_reason="Reverse Charge §13b UStG",
+            tax_exemption_reason_code="vatex-eu-ae",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "RC-2026-001"
+        assert parsed.seller.tax_id == "DE123456789"
+        assert parsed.buyer.tax_id == "ATU12345678"
+        assert len(parsed.items) == 1
+        assert parsed.items[0].tax_category == "AE"
+        assert parsed.items[0].tax_rate == Decimal("0.00")
+        assert parsed.currency == "EUR"
+
+    def test_credit_note_roundtrip(self) -> None:
+        """Generate credit note (381) → parse → verify BT-25."""
+        data = InvoiceData(
+            invoice_id="GS-2026-001",
+            issue_date="2026-03-01",
+            type_code="381",
+            preceding_invoice_number="RE-2026-050",
+            seller=Party(
+                name="Verkäufer GmbH",
+                address=Address(
+                    street="Hauptstr. 1",
+                    city="Hamburg",
+                    postal_code="20095",
+                    country_code="DE",
+                ),
+                tax_id="DE987654321",
+                electronic_address="rechnung@verkaufer.de",
+                contact_name="Anna Schmidt",
+                contact_phone="+49 40 98765",
+                contact_email="anna@verkaufer.de",
+            ),
+            buyer=Party(
+                name="Käufer GmbH",
+                address=Address(
+                    street="Nebenstr. 2",
+                    city="Frankfurt",
+                    postal_code="60311",
+                    country_code="DE",
+                ),
+                electronic_address="einkauf@kaufer.de",
+            ),
+            items=[
+                LineItem(
+                    description="Retoure: Defektes Produkt",
+                    quantity=Decimal("1"),
+                    unit_code="C62",
+                    unit_price=Decimal("500.00"),
+                    tax_rate=Decimal("19.00"),
+                ),
+            ],
+            buyer_reference="BUYER-REF-002",
+            delivery_date="2026-02-15",
+            invoice_note="Gutschrift zu Rechnung RE-2026-050 wegen Retoure",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "GS-2026-001"
+        assert parsed.type_code == "381"
+        assert parsed.preceding_invoice_number == "RE-2026-050"
+        assert parsed.invoice_note is not None
+        assert "Gutschrift" in parsed.invoice_note
+
+    def test_mixed_rates_with_skonto_roundtrip(self) -> None:
+        """Generate invoice with 19% + 7% items and Skonto → parse → verify."""
+        data = InvoiceData(
+            invoice_id="MIX-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Bäckerei Müller",
+                address=Address(
+                    street="Backstubenweg 3",
+                    city="München",
+                    postal_code="80331",
+                    country_code="DE",
+                ),
+                tax_id="DE111222333",
+                electronic_address="info@baeckerei-mueller.de",
+                contact_name="Hans Müller",
+                contact_phone="+49 89 11111",
+                contact_email="hans@baeckerei-mueller.de",
+            ),
+            buyer=Party(
+                name="Hotel Sonne",
+                address=Address(
+                    street="Sonnenallee 10",
+                    city="München",
+                    postal_code="80333",
+                    country_code="DE",
+                ),
+                electronic_address="einkauf@hotel-sonne.de",
+            ),
+            items=[
+                LineItem(
+                    description="Brötchen",
+                    quantity=Decimal("100"),
+                    unit_code="C62",
+                    unit_price=Decimal("0.35"),
+                    tax_rate=Decimal("7.00"),
+                ),
+                LineItem(
+                    description="Kaffee (Getränk)",
+                    quantity=Decimal("50"),
+                    unit_code="C62",
+                    unit_price=Decimal("2.00"),
+                    tax_rate=Decimal("19.00"),
+                ),
+            ],
+            buyer_reference="HOTEL-001",
+            delivery_date="2026-02-28",
+            skonto_percent=Decimal("2.0"),
+            skonto_days=10,
+            payment_means_type_code="58",
+            seller_iban="DE89370400440532013000",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "MIX-2026-001"
+        assert len(parsed.items) == 2
+
+        # Verify both tax rates parsed correctly
+        rates = {item.tax_rate for item in parsed.items}
+        assert Decimal("7.00") in rates
+        assert Decimal("19.00") in rates
+
+        # Verify totals
+        expected_net = Decimal("100") * Decimal("0.35") + Decimal("50") * Decimal("2.00")
+        assert parsed.totals.net_total == expected_net
+
+        # Tax breakdown should have 2 groups
+        assert len(parsed.tax_breakdown) == 2
+
+    def test_delivery_location_full_roundtrip(self) -> None:
+        """Generate invoice with full delivery location → parse → verify."""
+        data = InvoiceData(
+            invoice_id="DL-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Lieferant GmbH",
+                address=Address(
+                    street="Lieferweg 1",
+                    city="Köln",
+                    postal_code="50667",
+                    country_code="DE",
+                ),
+                tax_id="DE444555666",
+                electronic_address="info@lieferant.de",
+                contact_name="Klaus Weber",
+                contact_phone="+49 221 44455",
+                contact_email="klaus@lieferant.de",
+            ),
+            buyer=Party(
+                name="Empfänger GmbH",
+                address=Address(
+                    street="Empfangsstr. 2",
+                    city="Düsseldorf",
+                    postal_code="40213",
+                    country_code="DE",
+                ),
+                electronic_address="einkauf@empfaenger.de",
+            ),
+            items=[
+                LineItem(
+                    description="Büromaterial",
+                    quantity=Decimal("1"),
+                    unit_code="C62",
+                    unit_price=Decimal("250.00"),
+                    tax_rate=Decimal("19.00"),
+                ),
+            ],
+            buyer_reference="EMP-001",
+            delivery_date="2026-03-01",
+            delivery_party_name="Lager Hamburg",
+            delivery_street="Hafenstraße 42",
+            delivery_city="Hamburg",
+            delivery_postal_code="20457",
+            delivery_country_code="DE",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "DL-2026-001"
+        assert parsed.delivery_party_name == "Lager Hamburg"
+        assert parsed.delivery_city == "Hamburg"
+        assert parsed.delivery_postal_code == "20457"
+        assert parsed.delivery_country_code == "DE"
+
+    def test_sepa_direct_debit_full_roundtrip(self) -> None:
+        """Generate SEPA DD invoice → parse → verify BG-19 fields."""
+        data = InvoiceData(
+            invoice_id="DD-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Versorger AG",
+                address=Address(
+                    street="Versorgungsstr. 1",
+                    city="Stuttgart",
+                    postal_code="70173",
+                    country_code="DE",
+                ),
+                tax_id="DE777888999",
+                electronic_address="rechnung@versorger.de",
+                contact_name="Lisa Braun",
+                contact_phone="+49 711 77788",
+                contact_email="lisa@versorger.de",
+            ),
+            buyer=Party(
+                name="Kunde GmbH",
+                address=Address(
+                    street="Kundenweg 5",
+                    city="Stuttgart",
+                    postal_code="70174",
+                    country_code="DE",
+                ),
+                electronic_address="einkauf@kunde.de",
+            ),
+            items=[
+                LineItem(
+                    description="Monatsabrechnung Strom",
+                    quantity=Decimal("1"),
+                    unit_code="C62",
+                    unit_price=Decimal("89.50"),
+                    tax_rate=Decimal("19.00"),
+                ),
+            ],
+            buyer_reference="STROM-2026",
+            delivery_date="2026-02-28",
+            payment_means_type_code="59",
+            seller_iban="DE89370400440532013000",
+            mandate_reference_id="MREF-2026-001",
+            buyer_iban="DE02120300000000202051",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "DD-2026-001"
+        assert parsed.mandate_reference_id == "MREF-2026-001"
+        assert parsed.buyer_iban == "DE02120300000000202051"
+        assert parsed.seller_iban == "DE89370400440532013000"
+
+

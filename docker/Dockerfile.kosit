@@ -1,4 +1,10 @@
-FROM eclipse-temurin:17-jre-jammy
+# Pin to specific Temurin version for reproducibility.
+# To pin to a SHA-256 digest for maximum supply-chain security:
+#   docker pull eclipse-temurin:17-jre-jammy
+#   docker inspect --format='{{index .RepoDigests 0}}' eclipse-temurin:17-jre-jammy
+# Then replace ARG value with: eclipse-temurin@sha256:<digest>
+ARG JRE_IMAGE=eclipse-temurin:17-jre-jammy
+FROM ${JRE_IMAGE}
 
 ARG VALIDATOR_VERSION=1.6.2
 ARG XRECHNUNG_VERSION=2026-01-31
