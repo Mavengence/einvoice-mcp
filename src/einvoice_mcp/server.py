@@ -766,9 +766,40 @@ async def einvoice_check_compliance(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
+def _server_card() -> dict[str, Any]:
+    """Build the MCP server card for Smithery discovery."""
+    return {
+        "serverInfo": {"name": "einvoice-mcp", "version": "0.1.0"},
+        "authentication": {"required": False},
+        "tools": [
+            {
+                "name": name,
+                "description": (tool.description or "")[:200],
+            }
+            for name, tool in mcp._tool_manager._tools.items()
+        ],
+        "resources": [{"name": uri} for uri in mcp._resource_manager._resources],
+        "prompts": [{"name": name} for name in mcp._prompt_manager._prompts],
+    }
+
+
 def main() -> None:
     """Run the MCP server."""
-    mcp.run(transport=settings.mcp_transport)
+    if settings.mcp_transport == "streamable-http":
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
+
+        async def well_known(_request: Request) -> JSONResponse:
+            return JSONResponse(_server_card())
+
+        app = mcp.streamable_http_app()
+        app.routes.insert(0, Route("/.well-known/mcp/server-card.json", well_known))
+        import uvicorn
+
+        uvicorn.run(app, host=settings.mcp_host, port=settings.mcp_port)
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
