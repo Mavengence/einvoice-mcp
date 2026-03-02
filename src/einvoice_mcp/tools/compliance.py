@@ -240,6 +240,16 @@ SUGGESTIONS_MAP = {
         "bei Korrekturrechnungen (TypeCode 384) muss die zu korrigierende "
         "Originalrechnung gemäß §14 Abs. 4 UStG referenziert werden."
     ),
+    "BT-48": (
+        "BT-48 (USt-IdNr. des Käufers) — "
+        "erforderlich bei innergemeinschaftlichen Lieferungen (K), "
+        "Reverse Charge (AE) und anderen EU-grenzüberschreitenden Transaktionen."
+    ),
+    "BT-86": (
+        "BT-86 (BIC der Bank des Verkäufers) — "
+        "optional, aber empfohlen für SEPA-Überweisungen zur Fehlerreduzierung. "
+        "Für DE-IBANs wird der BIC automatisch ermittelt, bei EU-IBANs empfohlen."
+    ),
 }
 
 

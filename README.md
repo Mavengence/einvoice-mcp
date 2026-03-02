@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**475 tests | 99% coverage (1968 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
+**509 tests | 99% coverage (1994 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -33,13 +33,17 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-31 | Seller VAT ID (schemeID=VA) | `test_tax_registration_scheme_id_correct` | PASS |
 | BT-32 | Seller tax number (schemeID=FC) | `test_steuernummer_bt32_scheme_fc` | PASS |
 | BT-34 | Seller electronic address (schemeID=EM) | `test_seller_electronic_address_bt34` | PASS |
-| BT-35..40 | Seller address | `test_contains_seller` | PASS |
+| BT-35..38 | Seller address | `test_contains_seller` | PASS |
+| BT-39 | Seller country subdivision | `test_country_subdivision_seller_buyer` | PASS |
+| BT-40 | Seller country code | `test_contains_seller` | PASS |
 | BT-41 | Seller contact name (BR-DE-5) | `test_seller_contact_br_de_5` | PASS |
 | BT-42 | Seller contact phone | `test_seller_contact_phone` | PASS |
 | BT-43 | Seller contact email (BR-DE-7) | `test_seller_contact_email_br_de_7` | PASS |
 | BT-44 | Buyer name | `test_contains_buyer` | PASS |
 | BT-49 | Buyer electronic address (schemeID=EM) | `test_buyer_electronic_address_bt49` | PASS |
-| BT-50..55 | Buyer address | `test_contains_buyer` | PASS |
+| BT-50..53 | Buyer address | `test_contains_buyer` | PASS |
+| BT-54 | Buyer country subdivision | `test_country_subdivision_seller_buyer` | PASS |
+| BT-55 | Buyer country code | `test_contains_buyer` | PASS |
 | BT-71 | Delivery date (§14 Abs. 4 Nr. 6 UStG) | `test_delivery_date_bt71` | PASS |
 | BT-20 | Payment terms text | `test_payment_terms_text_roundtrip` | PASS |
 | BT-22 | Invoice note | `test_invoice_note_roundtrip` | PASS |
@@ -103,6 +107,9 @@ Every mandatory Business Term is tested in generated XML output:
 | §14/4/6 | BT-71 or BT-73/74 must be present | `test_no_delivery_date_or_period_flags_missing` | PASS |
 | BT-3 | TypeCode validated against EN 16931 codes | `test_invalid_type_code_rejected` | PASS |
 | BT-25 | Credit note (381) must reference preceding invoice | `test_credit_note_without_bt25_flags_missing` | PASS |
+| 384-BT-25 | Corrective invoice (384) must reference preceding invoice | `test_384_with_preceding_ref` | PASS |
+| RC-COUNTRY | Reverse charge: seller ≠ buyer country advisory | `test_ae_same_country_advisory` | PASS |
+| IC-COUNTRY | Intra-community: seller ≠ buyer country required | `test_k_same_country_error` | PASS |
 | §13b UStG | Reverse charge: seller+buyer VAT IDs, 0% rate | `test_reverse_charge_*` | PASS |
 | §4/1b UStG | Intra-community (K): buyer VAT ID, 0% rate | `test_k_*` | PASS |
 | §19 UStG | Kleinunternehmer: exemption note advisory | `test_exempt_without_note_suggests_ku` | PASS |
@@ -174,12 +181,18 @@ Every mandatory Business Term is tested in generated XML output:
 | Payment means text roundtrip | BT-82 generate → parse | `test_payment_means_text_roundtrip` | PASS |
 | Supporting docs roundtrip | BG-24 generate → parse | `test_supporting_doc_with_uri` | PASS |
 | Supporting docs + tender ref | BG-24 + BT-17 coexistence | `test_supporting_docs_coexist_with_tender_ref` | PASS |
+| Country subdivision roundtrip | BT-39/BT-54 generate → parse | `test_country_subdivision_seller_buyer` | PASS |
+| Tax rep subdivision roundtrip | BG-11 BT-39 generate → parse | `test_tax_rep_subdivision_roundtrip` | PASS |
 | Combined item features | BT-159 + BG-30 + BT-148 together | `test_all_item_features_together` | PASS |
 | Multi-reference coexistence | BT-17 + BT-18 in same invoice | `test_tender_and_invoiced_object_coexist` | PASS |
 | Non-ASCII party names | Cyrillic/Chinese names | `test_non_ascii_party_names` | PASS |
 | All type codes | 380, 381, 384, 389, 875, 876, 877 | `test_all_type_codes` | PASS |
 | All tax categories | S, Z, E, AE, K, G, O, L, M | `test_all_tax_categories` | PASS |
 | 50 line items | Large invoice build + parse | `test_many_line_items` | PASS |
+| Mixed tax categories | S + G items in same invoice | `test_mixed_tax_category_invoice` | PASS |
+| Unicode safety (umlauts) | ÄÖÜäöüß in all text fields | `test_unicode_invoice` | PASS |
+| High-value invoice | 50 line items with high amounts | `test_high_value_invoice` | PASS |
+| Mixed tax rates | 7% + 19% with exact rounding | `test_reduced_tax_rate` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -233,16 +246,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 311 | 0 | **100%** |
-| `services/invoice_builder.py` | 329 | 0 | **100%** |
+| `models.py` | 312 | 0 | **100%** |
+| `services/invoice_builder.py` | 335 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
-| `services/xml_parser.py` | 689 | 7 | **99%** |
-| `tools/compliance.py` | 203 | 0 | **100%** |
+| `services/xml_parser.py` | 694 | 7 | **99%** |
+| `tools/compliance.py` | 217 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1968** | **7** | **99%** |
+| **TOTAL** | **1994** | **7** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -263,9 +276,30 @@ Every mandatory Business Term is tested in generated XML output:
 
 | Resource URI | Description |
 |-------------|-------------|
-| `einvoice://schemas/line-item` | JSON schema for line item objects (items array) |
-| `einvoice://schemas/allowance-charge` | JSON schema for allowance/charge objects |
-| `einvoice://schemas/invoice-data` | Full JSON schema for InvoiceData with all fields |
+| `einvoice://schemas/line-item` | JSON-Schema für Rechnungspositionen (items-Array) |
+| `einvoice://schemas/allowance-charge` | JSON-Schema für Zu-/Abschläge |
+| `einvoice://schemas/item-attribute` | JSON-Schema für Artikelmerkmale (BG-30) |
+| `einvoice://schemas/supporting-document` | JSON-Schema für Belegdokumente (BG-24) |
+| `einvoice://schemas/invoice-data` | Vollständiges JSON-Schema für InvoiceData |
+| `einvoice://reference/type-codes` | Rechnungstyp-Codes (380, 381, 384, 389, 875, 876, 877) |
+| `einvoice://reference/payment-means-codes` | Zahlungsart-Codes (58=SEPA, 59=Lastschrift, 48=Kreditkarte, …) |
+| `einvoice://reference/tax-categories` | EU-USt-Kategorien (S, Z, E, AE, K, G, O, L, M) mit Erklärungen |
+| `einvoice://reference/unit-codes` | Mengeneinheiten-Codes (H87=Stück, HUR=Stunde, KGM=kg, …) |
+| `einvoice://reference/eas-codes` | Elektronische Adress-Schemata (EM=E-Mail, 9930=USt-IdNr., …) |
+| `einvoice://system/kosit-status` | On-demand KoSIT-Validator Statusabfrage |
+
+### MCP Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `gutschrift_erstellen` | Schritt-für-Schritt: Gutschrift (381) erstellen |
+| `reverse_charge_checkliste` | Checkliste: Reverse Charge (§13b UStG, Kategorie AE) |
+| `xrechnung_schnellstart` | Schnellstart: XRechnung für öffentliche Auftraggeber |
+| `korrekturrechnung_erstellen` | Anleitung: Korrekturrechnung (384) erstellen |
+| `abschlagsrechnung_guide` | Abschlagsrechnung / Teilrechnung (TypeCode 875/876/877) |
+| `ratenzahlung_rechnung` | Rechnung mit Ratenzahlung erstellen |
+| `handwerkerrechnung_35a` | Handwerkerrechnung nach §35a EStG |
+| `typecode_entscheidungshilfe` | Entscheidungshilfe: Welcher TypeCode für welchen Anlass? |
 
 ---
 
@@ -391,6 +425,9 @@ mit Befreiungsgrund und Code vatex-eu-132.
 
 Erstelle eine Rechnung für ein Vergabeverfahren mit Losnummer VERGABE-2026-42
 und Kontierungsreferenz KST-4711 pro Position.
+
+Erstelle eine Korrekturrechnung (TypeCode 384) für die fehlerhafte Rechnung
+RE-2026-001 mit korrigiertem Steuersatz.
 ```
 
 ---
@@ -449,7 +486,7 @@ make docker-up  # Start Docker stack
 | BT-22 | Invoice note | Yes | Yes | — |
 | BT-23 | Business process type | Yes | Yes | — |
 | BT-25 | Preceding invoice (credit notes) | Yes | Yes | Yes |
-| BT-27..40 | Seller party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-27..40 | Seller party + address (incl. lines 2/3, subdivision) | Yes | Yes | Yes |
 | BT-28 | Seller trading name | Yes | Yes | — |
 | BT-29 | Seller registration ID (GLN) | Yes | Yes | — |
 | BT-31 | Seller VAT ID (schemeID=VA) | Yes | Yes | Yes |
@@ -458,7 +495,7 @@ make docker-up  # Start Docker stack
 | BT-41 | Seller contact name | Yes | Yes | Yes |
 | BT-42 | Seller contact phone | Yes | Yes | Yes |
 | BT-43 | Seller contact email | Yes | Yes | Yes |
-| BT-44..55 | Buyer party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-44..55 | Buyer party + address (incl. lines 2/3, subdivision) | Yes | Yes | Yes |
 | BT-45 | Buyer trading name | Yes | Yes | — |
 | BT-46 | Buyer registration ID (GLN) | Yes | Yes | — |
 | BT-49 | Buyer electronic address | Yes | Yes | Yes |
@@ -542,6 +579,12 @@ Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
 - **§4 Nr. 1a UStG** — Export outside EU (TaxCategory G): 0% tax rate required
 - **§33 UStDV** — Kleinbetragsrechnung advisory (invoices ≤250€ gross)
 - **Skonto** — Early payment discount terms (PaymentDiscountTerms in CII)
+- **384 Korrekturrechnung** — Corrective invoice must reference preceding invoice (BT-25)
+- **RC-COUNTRY** — Reverse charge: seller/buyer country advisory (§13b allows domestic)
+- **IC-COUNTRY** — Intra-community: seller ≠ buyer country required
+- **§632a BGB** — Abschlagsrechnung for construction/service contracts
+- **§35a Abs. 3 EStG** — Handwerkerleistungen tax deduction (20% of labor, max 1.200€/year)
+- **§271 BGB** — Payment due date per agreement (Ratenzahlung)
 - **ISO 13616** — IBAN format validation (seller + buyer)
 - **ISO 9362** — BIC/SWIFT format validation
 

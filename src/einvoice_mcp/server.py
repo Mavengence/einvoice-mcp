@@ -296,6 +296,31 @@ def reference_eas_codes() -> str:
     )
 
 
+@mcp.resource("einvoice://system/kosit-status")
+async def kosit_status(ctx: Context) -> str:
+    """Aktueller Status des KoSIT-Validators.
+
+    Prüft on-demand, ob der KoSIT-Validator erreichbar ist.
+    Gibt JSON mit 'healthy', 'url' und 'message' zurück.
+    """
+    kosit: KoSITClient = ctx.request_context.lifespan_context["kosit"]
+    healthy = await kosit.health_check()
+    return json.dumps(
+        {
+            "healthy": healthy,
+            "url": settings.kosit_url,
+            "message": (
+                "KoSIT-Validator ist erreichbar und bereit."
+                if healthy
+                else "KoSIT-Validator ist NICHT erreichbar. "
+                "Bitte prüfen Sie ob der Docker-Container läuft."
+            ),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 @mcp.prompt()
 def gutschrift_erstellen() -> str:
     """Anleitung: Gutschrift / Credit Note (TypeCode 381) erstellen.
@@ -423,6 +448,167 @@ def korrekturrechnung_erstellen() -> str:
         "- Der Käufer muss den Vorsteuerabzug der Originalrechnung korrigieren\n"
         "- Zeitpunkt: Die Korrektur wirkt für den Besteuerungszeitraum "
         "der Originalrechnung"
+    )
+
+
+@mcp.prompt()
+def abschlagsrechnung_guide() -> str:
+    """Anleitung: Abschlagsrechnung / Teilrechnung (TypeCode 875/876/877).
+
+    Erklärung der Rechnungstypen für Teilleistungen und Schlussrechnungen
+    nach §632a BGB und §14 Abs. 1 UStG.
+    """
+    return (
+        "# Abschlagsrechnung & Teilrechnung — TypeCode 875/876/877\n\n"
+        "## TypeCode-Auswahl:\n"
+        "- **875 — Teilrechnung (Partial Invoice)**: Rechnung über eine "
+        "Teilleistung innerhalb eines Gesamtauftrags\n"
+        "- **876 — Vorauszahlungsrechnung (Prepayment Invoice)**: "
+        "Abschlagsrechnung VOR Leistungserbringung\n"
+        "- **877 — Schlussrechnung (Final Invoice)**: Abschluss nach "
+        "vorherigen Teil-/Vorauszahlungen\n\n"
+        "## Pflichtangaben:\n"
+        "- `type_code`: **875**, **876** oder **877**\n"
+        "- `contract_reference`: Vertragsnummer / Auftragsnummer (BT-12)\n"
+        "- `invoice_note`: Bezug auf Gesamtauftrag und bisherige Zahlungen\n"
+        "- `project_reference`: Projektnummer, falls vorhanden (BT-11)\n\n"
+        "## Beispiel Abschlagsrechnung:\n"
+        "```\n"
+        "type_code: '876'\n"
+        "contract_reference: 'V-2026-100'\n"
+        "invoice_note: '2. Abschlag für Auftrag V-2026-100 "
+        "(Gesamtauftrag: 50.000€, bisherige Abschläge: 15.000€)'\n"
+        "```\n\n"
+        "## Schlussrechnung:\n"
+        "```\n"
+        "type_code: '877'\n"
+        "contract_reference: 'V-2026-100'\n"
+        "invoice_note: 'Schlussrechnung V-2026-100. "
+        "Gesamtleistung: 50.000€, abzgl. Abschläge: 30.000€'\n"
+        "```\n\n"
+        "## Steuerrecht:\n"
+        "- Abschläge sind umsatzsteuerpflichtig bei Vereinnahmung "
+        "(§13 Abs. 1 Nr. 1a Satz 4 UStG)\n"
+        "- Schlussrechnung korrigiert Vorsteuerabzug der Abschläge"
+    )
+
+
+@mcp.prompt()
+def ratenzahlung_rechnung() -> str:
+    """Anleitung: Rechnung mit Ratenzahlung erstellen.
+
+    Korrekte Darstellung von Ratenzahlungsvereinbarungen
+    in XRechnung/ZUGFeRD.
+    """
+    return (
+        "# Rechnung mit Ratenzahlung\n\n"
+        "## Darstellung in XRechnung:\n"
+        "Ratenzahlung wird über `payment_terms_text` (BT-20) abgebildet.\n\n"
+        "## Beispiel:\n"
+        "```\n"
+        "payment_terms_text: '3 Raten: "
+        "1. Rate 1.000€ fällig 01.04.2026, "
+        "2. Rate 1.000€ fällig 01.05.2026, "
+        "3. Rate 1.000€ fällig 01.06.2026'\n"
+        "due_date: '2026-04-01'  # Erste Fälligkeit\n"
+        "```\n\n"
+        "## Hinweise:\n"
+        "- `due_date` (BT-9): Datum der **ersten** Rate\n"
+        "- `payment_terms_text` (BT-20): Gesamten Ratenplan textlich beschreiben\n"
+        "- Optional: Skonto-Bedingungen pro Rate möglich\n\n"
+        "## Mit Skonto:\n"
+        "```\n"
+        "payment_terms_text: '3 Raten à 1.000€, "
+        "2% Skonto bei Zahlung innerhalb von 10 Tagen'\n"
+        "skonto_percent: 2.0\n"
+        "skonto_days: 10\n"
+        "```\n\n"
+        "## Rechtlicher Hintergrund:\n"
+        "- §271 BGB: Fälligkeit nach Vereinbarung\n"
+        "- Ratenvereinbarungen sollten schriftlich fixiert sein"
+    )
+
+
+@mcp.prompt()
+def handwerkerrechnung_35a() -> str:
+    """Anleitung: Handwerkerrechnung nach §35a EStG.
+
+    Rechnungsstellung für haushaltsnahe Handwerkerleistungen mit
+    Ausweisung der Arbeitskosten für den Steuerabzug des Kunden.
+    """
+    return (
+        "# Handwerkerrechnung für §35a EStG\n\n"
+        "## Hintergrund:\n"
+        "Kunden können 20% der Arbeitskosten (max. 1.200€/Jahr) als "
+        "Steuerermäßigung geltend machen (§35a Abs. 3 EStG).\n\n"
+        "## Pflicht auf der Rechnung:\n"
+        "1. **Getrennte Ausweisung** von Arbeitskosten und Materialkosten\n"
+        "2. **Adresse der Leistungserbringung** (Haushalt des Kunden)\n"
+        "3. **Banküberweisung** als Zahlungsart (§35a Abs. 5 Satz 3: "
+        "keine Barzahlung!)\n\n"
+        "## Umsetzung in XRechnung:\n"
+        "```\n"
+        "items:\n"
+        "  - description: 'Arbeitsleistung: Bad sanieren (30 Std)'\n"
+        "    quantity: 30\n"
+        "    unit_code: 'HUR'\n"
+        "    unit_price: 55.00\n"
+        "    tax_rate: 19.00\n"
+        "  - description: 'Material: Fliesen, Kleber, Silikon'\n"
+        "    quantity: 1\n"
+        "    unit_code: 'C62'\n"
+        "    unit_price: 800.00\n"
+        "    tax_rate: 19.00\n"
+        "delivery_location_name: 'Privathaushalt Meier'\n"
+        "delivery_street: 'Musterstraße 42'\n"
+        "delivery_city: 'München'\n"
+        "delivery_postal_code: '80331'\n"
+        "delivery_country_code: 'DE'\n"
+        "payment_means_type_code: '58'  # SEPA-Überweisung — PFLICHT!\n"
+        "invoice_note: 'Arbeitskosten: 1.650€ netto "
+        "(§35a EStG steuerlich absetzbar)'\n"
+        "```\n\n"
+        "## Häufige Fehler:\n"
+        "- Keine Trennung von Material/Arbeit → Finanzamt lehnt ab\n"
+        "- Barzahlung → §35a nicht anwendbar\n"
+        "- Lieferort fehlt → Nachweis des Haushalts nicht erbracht"
+    )
+
+
+@mcp.prompt()
+def typecode_entscheidungshilfe() -> str:
+    """Entscheidungshilfe: Welcher TypeCode für welchen Anlass?
+
+    Übersicht aller unterstützten Rechnungstypen nach EN 16931
+    mit deutschen Erklärungen und Anwendungsfällen.
+    """
+    return (
+        "# TypeCode — Welcher Rechnungstyp?\n\n"
+        "| Code | Typ | Wann verwenden? |\n"
+        "|------|-----|------------------|\n"
+        "| **380** | Handelsrechnung | Standardrechnung für Lieferungen/Leistungen |\n"
+        "| **381** | Gutschrift | Korrektur zugunsten des Käufers "
+        "(Retoure, Rabatt) |\n"
+        "| **384** | Korrekturrechnung | Fehlerhafte Rechnung ersetzen |\n"
+        "| **389** | Selbstfakturierte Rechnung | Käufer stellt Rechnung "
+        "im Namen des Verkäufers |\n"
+        "| **875** | Teilrechnung | Rechnung über Teilleistung |\n"
+        "| **876** | Vorauszahlungsrechnung | Abschlag vor Leistung |\n"
+        "| **877** | Schlussrechnung | Endabrechnung nach Abschlägen |\n\n"
+        "## Entscheidungsbaum:\n\n"
+        "1. **Neue Lieferung/Leistung?** → **380**\n"
+        "2. **Korrektur einer Rechnung?**\n"
+        "   - Zugunsten des Käufers → **381** (Gutschrift)\n"
+        "   - Fehlerhafte Daten korrigieren → **384** (Korrekturrechnung)\n"
+        "3. **Teilweise Leistungserbringung?**\n"
+        "   - Abschlag vorab → **876**\n"
+        "   - Teilleistung erbracht → **875**\n"
+        "   - Letzte Rechnung nach Abschlägen → **877**\n"
+        "4. **Käufer stellt Rechnung?** → **389** (Gutschriftverfahren)\n\n"
+        "## Pflichtfelder je nach TypeCode:\n"
+        "- **381/384**: `preceding_invoice_number` (BT-25) PFLICHT\n"
+        "- **875/876/877**: `contract_reference` (BT-12) empfohlen\n"
+        "- **389**: Vereinbarung zwischen den Parteien erforderlich"
     )
 
 

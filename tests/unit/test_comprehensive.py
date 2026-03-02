@@ -6943,3 +6943,73 @@ class TestSmallAmountInvoice:
         assert kb.present is True  # it's informational
 
 
+# ---------------------------------------------------------------------------
+# New MCP Prompts (Abschlagsrechnung, Ratenzahlung, §35a, TypeCode guide)
+# ---------------------------------------------------------------------------
+
+
+class TestNewMCPPrompts:
+    """Test the 4 new German business scenario prompts."""
+
+    def test_abschlagsrechnung_prompt(self) -> None:
+        from einvoice_mcp.server import abschlagsrechnung_guide
+
+        text = abschlagsrechnung_guide()
+        assert "875" in text
+        assert "876" in text
+        assert "877" in text
+        assert "Schlussrechnung" in text
+        assert "§632a" in text or "§13" in text
+
+    def test_ratenzahlung_prompt(self) -> None:
+        from einvoice_mcp.server import ratenzahlung_rechnung
+
+        text = ratenzahlung_rechnung()
+        assert "Ratenzahlung" in text or "Raten" in text
+        assert "BT-20" in text
+        assert "§271" in text or "Fälligkeit" in text
+
+    def test_handwerkerrechnung_prompt(self) -> None:
+        from einvoice_mcp.server import handwerkerrechnung_35a
+
+        text = handwerkerrechnung_35a()
+        assert "§35a" in text
+        assert "Arbeitskosten" in text
+        assert "Barzahlung" in text or "Banküberweisung" in text
+        assert "Haushalt" in text
+
+    def test_typecode_entscheidungshilfe_prompt(self) -> None:
+        from einvoice_mcp.server import typecode_entscheidungshilfe
+
+        text = typecode_entscheidungshilfe()
+        assert "380" in text
+        assert "381" in text
+        assert "384" in text
+        assert "875" in text
+        assert "876" in text
+        assert "877" in text
+        assert "389" in text
+        assert "Entscheidungsbaum" in text or "Entscheidungshilfe" in text
+
+
+# ---------------------------------------------------------------------------
+# Expanded SUGGESTIONS_MAP entries
+# ---------------------------------------------------------------------------
+
+
+class TestExpandedSuggestions:
+    """Test new SUGGESTIONS_MAP entries."""
+
+    def test_bt48_standalone_suggestion_exists(self) -> None:
+        from einvoice_mcp.tools.compliance import SUGGESTIONS_MAP
+
+        assert "BT-48" in SUGGESTIONS_MAP
+        assert "USt-IdNr" in SUGGESTIONS_MAP["BT-48"]
+
+    def test_bt86_bic_suggestion_exists(self) -> None:
+        from einvoice_mcp.tools.compliance import SUGGESTIONS_MAP
+
+        assert "BT-86" in SUGGESTIONS_MAP
+        assert "BIC" in SUGGESTIONS_MAP["BT-86"]
+
+
