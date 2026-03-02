@@ -6,7 +6,7 @@ roundtrips, and boundary conditions identified in coverage analysis.
 
 import base64
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -30,12 +30,13 @@ from einvoice_mcp.models import (
     Totals,
 )
 from einvoice_mcp.services.invoice_builder import build_xml
-from einvoice_mcp.services.kosit import KoSITClient
+from einvoice_mcp.services.kosit import MAX_RESPONSE_SIZE, KoSITClient
 from einvoice_mcp.services.pdf_generator import (
     embed_xml_in_pdf,
     generate_invoice_pdf,
 )
 from einvoice_mcp.services.xml_parser import (
+    _extract_invoice,
     _safe_decimal,
     _str_element,
     extract_xml_from_pdf,
@@ -2303,18 +2304,249 @@ class TestPdfOutputEnhancements:
 
     def test_embed_xml_facturx_import_error(self) -> None:
         """embed_xml_in_pdf raises InvoiceGenerationError on ImportError."""
-        with patch(
-            "einvoice_mcp.services.pdf_generator.generate_from_binary",
-            side_effect=ImportError("not installed"),
-            create=True,
+        with (
+            patch(
+                "einvoice_mcp.services.pdf_generator.generate_from_binary",
+                side_effect=ImportError("not installed"),
+                create=True,
+            ),
+            patch.dict("sys.modules", {"facturx": None}),
+            pytest.raises(InvoiceGenerationError, match="factur-x"),
         ):
-            # Trigger the actual import error path by hiding facturx
-            with patch.dict("sys.modules", {"facturx": None}):
-                with pytest.raises(InvoiceGenerationError, match="factur-x"):
-                    embed_xml_in_pdf(b"pdf", b"xml")
+            embed_xml_in_pdf(b"pdf", b"xml")
 
     def test_extract_xml_from_pdf_import_error(self) -> None:
         """extract_xml_from_pdf raises InvoiceParsingError on ImportError."""
-        with patch.dict("sys.modules", {"facturx": None}):
-            with pytest.raises(InvoiceParsingError, match="factur-x"):
-                extract_xml_from_pdf(b"fake-pdf")
+        with (
+            patch.dict("sys.modules", {"facturx": None}),
+            pytest.raises(InvoiceParsingError, match="factur-x"),
+        ):
+            extract_xml_from_pdf(b"fake-pdf")
+
+
+# ============================================================================
+# 32. KoSIT oversized response body (kosit.py line 83)
+# ============================================================================
+
+
+class TestKoSITOversizedBody:
+    @respx.mock
+    async def test_response_body_exceeds_limit(self) -> None:
+        """Response body > MAX_RESPONSE_SIZE raises KoSITValidationError.
+
+        Content-Length header is set to a small value to bypass the header
+        check (line 74) and reach the actual body size check (line 82).
+        """
+        huge_body = "x" * (MAX_RESPONSE_SIZE + 1)
+        respx.post(f"{KOSIT_URL}/").respond(
+            200, text=huge_body, headers={"Content-Length": "100"}
+        )
+        client = KoSITClient(base_url=KOSIT_URL)
+        with pytest.raises(KoSITValidationError, match="Größenlimit"):
+            await client.validate(b"<test/>")
+        await client.close()
+
+    @respx.mock
+    async def test_content_length_header_exceeds_limit(self) -> None:
+        """Content-Length header > MAX_RESPONSE_SIZE triggers early reject."""
+        respx.post(f"{KOSIT_URL}/").respond(
+            200,
+            text="<ok/>",
+            headers={"Content-Length": str(MAX_RESPONSE_SIZE + 1)},
+        )
+        client = KoSITClient(base_url=KOSIT_URL)
+        with pytest.raises(KoSITValidationError, match="Größenlimit"):
+            await client.validate(b"<test/>")
+        await client.close()
+
+
+# ============================================================================
+# 33. Compliance — KoSIT returns errors in report (compliance.py lines 195-196)
+# ============================================================================
+
+MOCK_REPORT_WITH_ERRORS = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<rep:report xmlns:rep="http://www.xoev.de/de/validator/varl/1"
+            xmlns:svrl="http://purl.oclc.org/dml/schematron/output/">
+  <svrl:schematron-output>
+    <svrl:failed-assert id="BR-01" location="/Invoice" flag="error">
+      <svrl:text>An Invoice shall have a Specification identifier.</svrl:text>
+    </svrl:failed-assert>
+  </svrl:schematron-output>
+</rep:report>
+"""
+
+
+class TestComplianceKoSITErrors:
+    @respx.mock
+    async def test_kosit_errors_appended_to_suggestions(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """KoSIT validation errors are included in compliance suggestions."""
+        xml_content = build_xml(sample_invoice_data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(
+            406, text=MOCK_REPORT_WITH_ERRORS
+        )
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml_content, client)
+        await client.close()
+
+        # KoSIT said invalid → kosit_valid should be False
+        assert result["kosit_valid"] is False
+        # The SVRL error message should be in suggestions
+        assert any(
+            "Specification identifier" in s for s in result["suggestions"]
+        )
+
+
+# ============================================================================
+# 34. Validate ZUGFeRD success path (validate.py lines 72-73)
+# ============================================================================
+
+
+class TestValidateZugferdSuccessPath:
+    @respx.mock
+    async def test_zugferd_valid_pdf_extraction_and_validation(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """ZUGFeRD validate success: extract XML from PDF, then validate."""
+        xml_bytes = build_xml(sample_invoice_data)
+        valid_b64 = base64.b64encode(b"fake-pdf").decode("ascii")
+
+        # Mock extract_xml_from_pdf to return real XML
+        with patch(
+            "einvoice_mcp.tools.validate.extract_xml_from_pdf",
+            return_value=xml_bytes,
+        ):
+            respx.post(f"{KOSIT_URL}/").respond(
+                200, text=MOCK_VALID_REPORT
+            )
+            client = KoSITClient(base_url=KOSIT_URL)
+            result = await validate_zugferd(valid_b64, client)
+            await client.close()
+
+        assert result["valid"] is True
+
+
+# ============================================================================
+# 35. Parse PDF success path (parse.py line 78)
+# ============================================================================
+
+
+class TestParsePdfSuccessPath:
+    async def test_parse_pdf_extraction_and_parse_success(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Parse PDF success: extract XML from PDF, then parse."""
+        xml_bytes = build_xml(sample_invoice_data)
+        valid_b64 = base64.b64encode(b"fake-pdf").decode("ascii")
+
+        with patch(
+            "einvoice_mcp.tools.parse.extract_xml_from_pdf",
+            return_value=xml_bytes,
+        ):
+            result = await parse_einvoice(valid_b64, "pdf")
+
+        assert result["success"] is True
+        assert result["invoice"]["invoice_id"] == "RE-2026-001"
+
+
+# ============================================================================
+# 36. extract_xml_from_pdf success path (xml_parser.py line 54)
+# ============================================================================
+
+
+class TestExtractXmlFromPdfSuccess:
+    def test_extract_xml_success_via_mock(self) -> None:
+        """extract_xml_from_pdf success path: get_xml_from_pdf returns data."""
+        with patch(
+            "einvoice_mcp.services.xml_parser.get_xml_from_pdf",
+            side_effect=ImportError("force import path"),
+            create=True,
+        ):
+            pass  # We need to call it via actual import
+
+        # Use the real import path: mock inside the function's local import
+        fake_xml = b"<Invoice>test</Invoice>"
+        mock_facturx = MagicMock()
+        mock_facturx.get_xml_from_pdf.return_value = ("factur-x.xml", fake_xml)
+
+        with patch.dict("sys.modules", {"facturx": mock_facturx}):
+            result = extract_xml_from_pdf(b"fake-pdf-bytes")
+
+        assert result == fake_xml
+        mock_facturx.get_xml_from_pdf.assert_called_once_with(
+            b"fake-pdf-bytes", check_xsd=False
+        )
+
+
+# ============================================================================
+# 37. xml_parser _extract_invoice exception handlers (lines 84-182)
+# ============================================================================
+
+
+_EXCEPTION_HANDLER_PARAMS = (
+    ("trade", "delivery", "delivery_date"),
+    ("trade.settlement", "period", "service_period_start"),
+    ("header", "notes", "invoice_note"),
+    ("trade.settlement", "terms", "payment_terms"),
+    ("trade.agreement", "buyer_order", "purchase_order_reference"),
+    ("trade.agreement", "contract", "contract_reference"),
+    ("trade.agreement", "procuring_project_type", "project_reference"),
+    ("trade.settlement", "invoice_referenced_document", "preceding_invoice_number"),
+    ("trade.settlement", "payment_reference", "remittance_information"),
+)
+
+
+class TestExtractInvoiceExceptionHandlers:
+    """Cover the 9 except Exception: pass blocks in _extract_invoice.
+
+    Each test patches a drafthorse class-level descriptor to raise,
+    verifying that _extract_invoice gracefully falls back to defaults.
+    Uses PropertyMock on the class to bypass read-only descriptors.
+    """
+
+    @staticmethod
+    def _parse_doc(data: InvoiceData):
+        from drafthorse.models.document import Document
+
+        return Document.parse(build_xml(data))
+
+    @staticmethod
+    def _resolve(doc, path: str):
+        """Resolve dotted path like 'trade.settlement' on a Document."""
+        obj = doc
+        for part in path.split("."):
+            obj = getattr(obj, part)
+        return obj
+
+    @pytest.mark.parametrize(
+        "path,attr,field",
+        _EXCEPTION_HANDLER_PARAMS,
+        ids=[p[2] for p in _EXCEPTION_HANDLER_PARAMS],
+    )
+    def test_exception_handler_graceful_fallback(
+        self,
+        sample_invoice_data: InvoiceData,
+        path: str,
+        attr: str,
+        field: str,
+    ) -> None:
+        """Patching '{attr}' on '{path}' to raise → '{field}' falls back to empty."""
+        from unittest.mock import PropertyMock
+
+        doc = self._parse_doc(sample_invoice_data)
+        target = self._resolve(doc, path)
+        target_cls = type(target)
+
+        with patch.object(
+            target_cls,
+            attr,
+            new_callable=PropertyMock,
+            side_effect=RuntimeError(f"{attr} boom"),
+        ):
+            result = _extract_invoice(doc)
+
+        assert getattr(result, field) == ""
+        # Other fields should still be populated
+        assert result.invoice_id is not None
