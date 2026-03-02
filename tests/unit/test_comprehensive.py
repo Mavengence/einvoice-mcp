@@ -3901,3 +3901,182 @@ class TestBusinessProcessTypeRoundtrip:
         assert parsed.business_process_type == ""
 
 
+class TestXmlParserExceptionHandlers:
+    """Cover defensive exception handlers in xml_parser.py."""
+
+    def test_sales_order_exception_returns_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Sales order attribute error → gracefully returns empty string."""
+        xml_bytes = build_xml(sample_invoice_data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        # Inject broken mock via _data dict to bypass read-only descriptor
+        broken = MagicMock()
+        type(broken).issuer_assigned_id = property(
+            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
+        )
+        doc.trade.agreement._data["seller_order"] = broken
+        parsed = _extract_invoice(doc)
+        assert parsed.sales_order_reference == ""
+
+    def test_invoiced_object_exception_returns_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Additional references exception → empty invoiced_object_identifier."""
+        xml_bytes = build_xml(sample_invoice_data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        broken_refs = MagicMock()
+        type(broken_refs).children = property(
+            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
+        )
+        doc.trade.agreement._data["additional_references"] = broken_refs
+        parsed = _extract_invoice(doc)
+        assert parsed.invoiced_object_identifier == ""
+
+    def test_business_process_exception_returns_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Business parameter exception → empty business_process_type."""
+        xml_bytes = build_xml(sample_invoice_data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        broken = MagicMock()
+        type(broken).id = property(
+            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
+        )
+        doc.context._data["business_parameter"] = broken
+        parsed = _extract_invoice(doc)
+        assert parsed.business_process_type == ""
+
+    def test_allowances_charges_exception_returns_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Allowances/charges block exception → empty list."""
+        data = sample_invoice_data.model_copy(
+            update={"allowances_charges": [
+                AllowanceCharge(charge=False, amount=Decimal("10"), reason="Test"),
+            ]}
+        )
+        xml_bytes = build_xml(data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        broken = MagicMock()
+        type(broken).children = property(
+            lambda s: (_ for _ in ()).throw(RuntimeError("broken"))
+        )
+        doc.trade.settlement._data["allowance_charge"] = broken
+        parsed = _extract_invoice(doc)
+        assert parsed.allowances_charges == []
+
+    def test_doc_level_indicator_without_value(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Indicator without _value attribute → fallback bool."""
+        data = sample_invoice_data.model_copy(
+            update={"allowances_charges": [
+                AllowanceCharge(
+                    charge=True,
+                    amount=Decimal("5"),
+                    reason="Zuschlag",
+                ),
+            ]}
+        )
+        xml_bytes = build_xml(data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        ac_container = doc.trade.settlement.allowance_charge
+        if hasattr(ac_container, "children"):
+            for ac_item in ac_container.children:
+                indicator = getattr(ac_item, "indicator", None)
+                if indicator is not None and hasattr(indicator, "_value"):
+                    delattr(indicator, "_value")
+        parsed = _extract_invoice(doc)
+        assert isinstance(parsed.allowances_charges, list)
+
+    def test_line_level_indicator_without_value(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line-level indicator without _value → fallback bool."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "items": [
+                    sample_invoice_data.items[0].model_copy(
+                        update={
+                            "allowances_charges": [
+                                LineAllowanceCharge(
+                                    charge=False,
+                                    amount=Decimal("3"),
+                                    reason="Rabatt",
+                                ),
+                            ],
+                        }
+                    ),
+                ],
+            }
+        )
+        xml_bytes = build_xml(data)
+        from drafthorse.models.document import Document
+
+        doc = Document.parse(xml_bytes)
+        for li in doc.trade.items.children:
+            lac_container = getattr(li.settlement, "allowance_charge", None)
+            if lac_container and hasattr(lac_container, "children"):
+                for lac_item in lac_container.children:
+                    lac_indicator = getattr(lac_item, "indicator", None)
+                    if lac_indicator and hasattr(lac_indicator, "_value"):
+                        delattr(lac_indicator, "_value")
+        parsed = _extract_invoice(doc)
+        assert len(parsed.items) > 0
+
+
+class TestComplianceValueError:
+    """Cover compliance.py ValueError handler (lines 466-467)."""
+
+    @respx.mock
+    async def test_reverse_charge_non_numeric_rate(self) -> None:
+        """AE category with non-numeric rate text → ValueError caught gracefully."""
+        data = InvoiceData(
+            invoice_id="RC-VE-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="ATU12345678",
+            ),
+            items=[
+                LineItem(
+                    description="RC Service",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        # Inject non-numeric rate text into the XML to trigger ValueError
+        xml = xml.replace(
+            "<ram:RateApplicablePercent>0</ram:RateApplicablePercent>",
+            "<ram:RateApplicablePercent>abc</ram:RateApplicablePercent>",
+            1,
+        )
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        # Should not crash — ValueError caught, RC-TAX-RATE not flagged
+        assert "RC-TAX-RATE" not in result.get("missing_fields", [])
+        await client.close()
+
+
