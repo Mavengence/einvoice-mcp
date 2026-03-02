@@ -3026,6 +3026,29 @@ class TestRegistrationIdRoundtrip:
         assert parsed.buyer.registration_id == "9876543210123"
 
 
+class TestSalesOrderReferenceRoundtrip:
+    """Roundtrip tests for seller order reference (BT-14)."""
+
+    def test_sales_order_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Sales order reference roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={"sales_order_reference": "SO-2026-001"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.sales_order_reference == "SO-2026-001"
+
+    def test_no_sales_order_reference(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No sales order reference → empty string parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.sales_order_reference == ""
+
+
 class TestAllowancesChargesRoundtrip:
     """Roundtrip tests for document-level allowances/charges (BG-20/BG-21)."""
 

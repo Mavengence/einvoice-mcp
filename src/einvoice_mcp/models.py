@@ -279,6 +279,11 @@ class InvoiceData(BaseModel):
         max_length=100,
         description="Bestellnummer des Käufers (BT-13)",
     )
+    sales_order_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Auftragsbestätigung des Verkäufers (BT-14)",
+    )
     contract_reference: str | None = Field(
         default=None,
         max_length=100,
@@ -434,6 +439,9 @@ class ParsedInvoice(BaseModel):
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
     purchase_order_reference: str = Field(
         default="", description="Bestellnummer (BT-13)"
+    )
+    sales_order_reference: str = Field(
+        default="", description="Auftragsbestätigung (BT-14)"
     )
     contract_reference: str = Field(
         default="", description="Vertragsnummer (BT-12)"

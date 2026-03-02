@@ -103,6 +103,7 @@ def _build_invoice_data(
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
+    sales_order_reference: str = "",
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
@@ -189,6 +190,7 @@ def _build_invoice_data(
                 "invoice_note": invoice_note or None,
                 "payment_terms_text": payment_terms_text or None,
                 "purchase_order_reference": purchase_order_reference or None,
+                "sales_order_reference": sales_order_reference or None,
                 "contract_reference": contract_reference or None,
                 "project_reference": project_reference or None,
                 "preceding_invoice_number": preceding_invoice_number or None,
@@ -306,6 +308,7 @@ async def einvoice_generate_xrechnung(
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
+    sales_order_reference: str = "",
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
@@ -364,6 +367,7 @@ async def einvoice_generate_xrechnung(
         invoice_note: Freitext-Bemerkung (BT-22).
         payment_terms_text: Zahlungsbedingungen (BT-20).
         purchase_order_reference: Bestellnummer (BT-13).
+        sales_order_reference: Auftragsbestätigung (BT-14).
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
@@ -418,6 +422,7 @@ async def einvoice_generate_xrechnung(
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
         purchase_order_reference=purchase_order_reference,
+        sales_order_reference=sales_order_reference,
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
@@ -493,6 +498,7 @@ async def einvoice_generate_zugferd(
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
+    sales_order_reference: str = "",
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
@@ -549,6 +555,7 @@ async def einvoice_generate_zugferd(
         invoice_note: Freitext-Bemerkung (BT-22).
         payment_terms_text: Zahlungsbedingungen (BT-20).
         purchase_order_reference: Bestellnummer (BT-13).
+        sales_order_reference: Auftragsbestätigung (BT-14).
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
@@ -603,6 +610,7 @@ async def einvoice_generate_zugferd(
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
         purchase_order_reference=purchase_order_reference,
+        sales_order_reference=sales_order_reference,
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,

@@ -147,6 +147,16 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Sales order reference (BT-14)
+    sales_order_reference = ""
+    try:
+        so_id = doc.trade.agreement.seller_order.issuer_assigned_id
+        val = _str_element(so_id)
+        if val:
+            sales_order_reference = val
+    except Exception:
+        pass
+
     # Contract reference (BT-12)
     contract_reference = ""
     try:
@@ -274,6 +284,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         invoice_note=invoice_note,
         payment_terms=payment_terms,
         purchase_order_reference=purchase_order_reference,
+        sales_order_reference=sales_order_reference,
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,

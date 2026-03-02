@@ -156,6 +156,12 @@ def _build_document(data: InvoiceData) -> bytes:
             data.purchase_order_reference
         )
 
+    # Sales order reference (BT-14)
+    if data.sales_order_reference:
+        doc.trade.agreement.seller_order.issuer_assigned_id = (
+            data.sales_order_reference
+        )
+
     # Contract reference (BT-12)
     if data.contract_reference:
         doc.trade.agreement.contract.issuer_assigned_id = (
