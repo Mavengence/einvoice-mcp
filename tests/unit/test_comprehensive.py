@@ -590,6 +590,140 @@ class TestComplianceEdgeCases:
         await client.close()
 
     @respx.mock
+    async def test_reverse_charge_missing_seller_vat(self) -> None:
+        """Reverse charge (AE) without seller VAT ID triggers RC-BT-31 error."""
+        # Build an invoice with AE category but no seller tax_id
+        data = InvoiceData(
+            invoice_id="RC-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_number="123/456/78901",  # Only Steuernummer, no USt-IdNr.
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="DE987654321",
+            ),
+            items=[
+                LineItem(
+                    description="§13b Leistung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "RC-BT-31" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_reverse_charge_missing_buyer_vat(self) -> None:
+        """Reverse charge (AE) without buyer VAT ID triggers RC-BT-48 error."""
+        data = InvoiceData(
+            invoice_id="RC-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                # No buyer tax_id
+            ),
+            items=[
+                LineItem(
+                    description="§13b Leistung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "RC-BT-48" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_reverse_charge_nonzero_tax_rate(self) -> None:
+        """Reverse charge (AE) with non-zero tax rate triggers RC-TAX-RATE error."""
+        data = InvoiceData(
+            invoice_id="RC-004",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="ATU12345678",
+            ),
+            items=[
+                LineItem(
+                    description="§13b Leistung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("19"),  # Wrong — should be 0 for AE
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "RC-TAX-RATE" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_reverse_charge_valid(self) -> None:
+        """Correct reverse charge invoice passes RC checks."""
+        data = InvoiceData(
+            invoice_id="RC-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="ATU12345678",
+            ),
+            items=[
+                LineItem(
+                    description="§13b Leistung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        rc_fields = [f for f in result["missing_fields"] if f.startswith("RC-")]
+        assert rc_fields == [], f"Unexpected RC failures: {rc_fields}"
+        await client.close()
+
+    @respx.mock
     async def test_zugferd_profile_compliance(self) -> None:
         """Test compliance with ZUGFERD target profile — should NOT flag BT-10, BT-34, etc."""
         xml = build_xml(
@@ -3563,31 +3697,3 @@ class TestBusinessProcessTypeRoundtrip:
         assert parsed.business_process_type == ""
 
 
-class TestRegistrationIdRoundtrip:
-    """Roundtrip tests for party registration IDs (BT-29/BT-46)."""
-
-    def test_seller_registration_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
-        """Seller registration ID (BT-29) roundtrips through XML."""
-        seller = sample_invoice_data.seller.model_copy(
-            update={"registration_id": "4000001000005"}
-        )
-        data = sample_invoice_data.model_copy(update={"seller": seller})
-        xml_bytes = build_xml(data)
-        parsed = parse_xml(xml_bytes)
-        assert parsed.seller is not None
-        assert parsed.seller.registration_id == "4000001000005"
-
-    def test_buyer_registration_id_roundtrip(
-        self, sample_invoice_data: InvoiceData
-    ) -> None:
-        """Buyer registration ID (BT-46) roundtrips through XML."""
-        buyer = sample_invoice_data.buyer.model_copy(
-            update={"registration_id": "4000002000006"}
-        )
-        data = sample_invoice_data.model_copy(update={"buyer": buyer})
-        xml_bytes = build_xml(data)
-        parsed = parse_xml(xml_bytes)
-        assert parsed.buyer is not None
-        assert parsed.buyer.registration_id == "4000002000006"

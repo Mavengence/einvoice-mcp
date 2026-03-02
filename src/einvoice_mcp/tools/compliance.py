@@ -155,6 +155,18 @@ SUGGESTIONS_MAP = {
         "bei Gutschriften (TypeCode 381) muss die Originalrechnung "
         "referenziert werden."
     ),
+    "RC-BT-31": (
+        "Bei Steuerkategorie AE (Reverse Charge / §13b UStG) "
+        "muss die USt-IdNr. des Verkäufers (BT-31) angegeben sein."
+    ),
+    "RC-BT-48": (
+        "Bei Steuerkategorie AE (Reverse Charge / §13b UStG) "
+        "muss die USt-IdNr. des Käufers (BT-48) angegeben sein."
+    ),
+    "RC-TAX-RATE": (
+        "Bei Reverse Charge (§13b UStG / Kategorie AE) "
+        "muss der Steuersatz 0% betragen."
+    ),
 }
 
 
@@ -372,5 +384,72 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 required=True,
             )
         )
+
+    # Reverse charge (§13b UStG) checks:
+    # When TaxCategory AE is used, seller VAT ID (BT-31) and buyer VAT ID (BT-48)
+    # must be present, and the tax rate must be 0%.
+    tax_cats = root.findall(
+        ".//ram:ApplicableTradeTax/ram:CategoryCode", CII_NS
+    )
+    has_ae = any(
+        el.text and el.text.strip() == "AE" for el in tax_cats
+    )
+    if has_ae:
+        # BT-31: Seller VAT ID required for RC
+        if not has_va:
+            checks.append(
+                FieldCheck(
+                    field="RC-BT-31",
+                    name="USt-IdNr. des Verkäufers (Reverse Charge)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+        # BT-48: Buyer VAT ID required for RC
+        buyer_tax_regs = root.findall(
+            ".//ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
+            CII_NS,
+        )
+        buyer_has_va = any(
+            el.get("schemeID") == "VA" and el.text for el in buyer_tax_regs
+        )
+        if not buyer_has_va:
+            checks.append(
+                FieldCheck(
+                    field="RC-BT-48",
+                    name="USt-IdNr. des Käufers (Reverse Charge)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+        # Tax rate must be 0% for AE category
+        for tax_el in root.findall(".//ram:ApplicableTradeTax", CII_NS):
+            cat_el = tax_el.find("ram:CategoryCode", CII_NS)
+            rate_el = tax_el.find("ram:RateApplicablePercent", CII_NS)
+            if (
+                cat_el is not None
+                and cat_el.text
+                and cat_el.text.strip() == "AE"
+                and rate_el is not None
+                and rate_el.text
+            ):
+                try:
+                    rate_val = float(rate_el.text.strip())
+                    if rate_val != 0.0:
+                        checks.append(
+                            FieldCheck(
+                                field="RC-TAX-RATE",
+                                name="Steuersatz bei Reverse Charge",
+                                present=False,
+                                value=rate_el.text.strip(),
+                                required=True,
+                            )
+                        )
+                except ValueError:
+                    pass
 
     return checks
