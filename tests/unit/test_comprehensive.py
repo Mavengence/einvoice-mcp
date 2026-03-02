@@ -21,6 +21,7 @@ from einvoice_mcp.errors import (
 )
 from einvoice_mcp.models import (
     Address,
+    AllowanceCharge,
     InvoiceData,
     InvoiceProfile,
     LineItem,
@@ -3023,3 +3024,185 @@ class TestRegistrationIdRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.buyer is not None
         assert parsed.buyer.registration_id == "9876543210123"
+
+
+class TestAllowancesChargesRoundtrip:
+    """Roundtrip tests for document-level allowances/charges (BG-20/BG-21)."""
+
+    def test_allowance_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Allowance (discount) roundtrips through XML generation and parsing."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=False,
+                        amount=Decimal("50.00"),
+                        reason="Treuerabatt",
+                        tax_rate=Decimal("19.00"),
+                        tax_category=TaxCategory.S,
+                    ),
+                ],
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.allowances_charges) == 1
+        ac = parsed.allowances_charges[0]
+        assert ac.charge is False
+        assert ac.amount == Decimal("50.00")
+        assert ac.reason == "Treuerabatt"
+        assert ac.tax_rate == Decimal("19.00")
+        assert ac.tax_category == "S"
+
+    def test_charge_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Charge (surcharge) roundtrips through XML generation and parsing."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=True,
+                        amount=Decimal("25.00"),
+                        reason="Expressversand",
+                        tax_rate=Decimal("19.00"),
+                        tax_category=TaxCategory.S,
+                    ),
+                ],
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.allowances_charges) == 1
+        ac = parsed.allowances_charges[0]
+        assert ac.charge is True
+        assert ac.amount == Decimal("25.00")
+        assert ac.reason == "Expressversand"
+
+    def test_mixed_allowances_charges(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Multiple allowances and charges roundtrip correctly."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=False,
+                        amount=Decimal("30.00"),
+                        reason="Mengenrabatt",
+                        tax_rate=Decimal("19.00"),
+                    ),
+                    AllowanceCharge(
+                        charge=True,
+                        amount=Decimal("15.00"),
+                        reason="Verpackung",
+                        tax_rate=Decimal("19.00"),
+                    ),
+                ],
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.allowances_charges) == 2
+        allowance = next(ac for ac in parsed.allowances_charges if not ac.charge)
+        charge = next(ac for ac in parsed.allowances_charges if ac.charge)
+        assert allowance.amount == Decimal("30.00")
+        assert allowance.reason == "Mengenrabatt"
+        assert charge.amount == Decimal("15.00")
+        assert charge.reason == "Verpackung"
+
+    def test_no_allowances_charges(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No allowances/charges → empty list parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.allowances_charges == []
+
+    def test_allowance_affects_totals(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Allowance reduces tax basis and grand total correctly."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=False,
+                        amount=Decimal("100.00"),
+                        reason="Sonderrabatt",
+                        tax_rate=Decimal("19.00"),
+                    ),
+                ],
+            }
+        )
+        # Verify model calculations
+        net = data.total_net()
+        assert data.total_allowances() == Decimal("100.00")
+        assert data.total_charges() == Decimal("0")
+        tax_basis = data.tax_basis()
+        assert tax_basis == (net - Decimal("100.00")).quantize(Decimal("0.01"))
+
+        # Verify XML roundtrip totals
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.totals is not None
+        # Parsed net_total is tax_basis (BT-109), not line total
+        assert parsed.totals.net_total == tax_basis
+
+    def test_charge_with_percentage_and_base_amount(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Charge with reason_code, base_amount, percentage covers builder branches."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=True,
+                        amount=Decimal("20.00"),
+                        reason="Bearbeitungsgebühr",
+                        reason_code="ZZZ",
+                        tax_rate=Decimal("19.00"),
+                        tax_category=TaxCategory.S,
+                        base_amount=Decimal("200.00"),
+                        percentage=Decimal("10.00"),
+                    ),
+                ],
+            }
+        )
+        # This exercises total_tax() charge branch (models.py:360)
+        assert data.total_charges() == Decimal("20.00")
+        expected_basis = data.total_net() + Decimal("20.00")
+        assert data.tax_basis() == expected_basis.quantize(Decimal("0.01"))
+        # Total tax should include the charge in its group
+        assert data.total_tax() > Decimal("0")
+
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.allowances_charges) == 1
+        ac = parsed.allowances_charges[0]
+        assert ac.charge is True
+        assert ac.amount == Decimal("20.00")
+
+    def test_allowance_in_pdf(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """PDF generation succeeds with allowances/charges."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "allowances_charges": [
+                    AllowanceCharge(
+                        charge=False,
+                        amount=Decimal("50.00"),
+                        reason="Rabatt",
+                        tax_rate=Decimal("19.00"),
+                    ),
+                ],
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
+        # PDF with allowances should differ from without
+        pdf_no_ac = generate_invoice_pdf(sample_invoice_data)
+        assert len(pdf_bytes) != len(pdf_no_ac)

@@ -108,6 +108,7 @@ def _build_invoice_data(
     preceding_invoice_number: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
+    allowances_charges_json: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -117,6 +118,13 @@ def _build_invoice_data(
         items_list = json.loads(items_json)
     except json.JSONDecodeError:
         return "Fehler: 'items' muss ein gültiges JSON-Array sein."
+
+    ac_list: list[dict[str, object]] = []
+    if allowances_charges_json:
+        try:
+            ac_list = json.loads(allowances_charges_json)
+        except json.JSONDecodeError:
+            return "Fehler: 'allowances_charges' muss ein gültiges JSON-Array sein."
 
     try:
         invoice_profile = InvoiceProfile(profile)
@@ -159,6 +167,7 @@ def _build_invoice_data(
                     "electronic_address_scheme": buyer_electronic_address_scheme,
                 },
                 "items": items_list,
+                "allowances_charges": ac_list,
                 "currency": currency,
                 "payment_terms_days": payment_terms_days,
                 "leitweg_id": leitweg_id or None,
@@ -302,6 +311,7 @@ async def einvoice_generate_xrechnung(
     preceding_invoice_number: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
+    allowances_charges: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -359,6 +369,7 @@ async def einvoice_generate_xrechnung(
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
+        allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -412,6 +423,7 @@ async def einvoice_generate_xrechnung(
         preceding_invoice_number=preceding_invoice_number,
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
+        allowances_charges_json=allowances_charges,
     )
 
     if isinstance(data, str):
@@ -486,6 +498,7 @@ async def einvoice_generate_zugferd(
     preceding_invoice_number: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
+    allowances_charges: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -541,6 +554,7 @@ async def einvoice_generate_zugferd(
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
+        allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -594,6 +608,7 @@ async def einvoice_generate_zugferd(
         preceding_invoice_number=preceding_invoice_number,
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
+        allowances_charges_json=allowances_charges,
     )
 
     if isinstance(data, str):

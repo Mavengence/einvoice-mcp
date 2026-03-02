@@ -97,6 +97,40 @@ class LineItem(BaseModel):
     tax_category: TaxCategory = Field(default=TaxCategory.S, description="Steuerkategorie")
 
 
+class AllowanceCharge(BaseModel):
+    """Document-level allowance or charge (BG-20/BG-21).
+
+    charge=False → allowance/discount (BT-92..BT-99)
+    charge=True  → surcharge/charge (BT-99..BT-105)
+    """
+
+    charge: bool = Field(
+        default=False,
+        description="True=Zuschlag, False=Abzug/Rabatt",
+    )
+    amount: Decimal = Field(
+        ..., ge=0, description="Betrag (BT-92/BT-99)"
+    )
+    reason: str = Field(
+        default="", max_length=500, description="Grund (BT-97/BT-104)"
+    )
+    reason_code: str = Field(
+        default="", max_length=10, description="Grundcode (BT-98/BT-105)"
+    )
+    tax_rate: Decimal = Field(
+        default=Decimal("19.00"), ge=0, le=100, description="Steuersatz in %"
+    )
+    tax_category: TaxCategory = Field(
+        default=TaxCategory.S, description="Steuerkategorie"
+    )
+    base_amount: Decimal | None = Field(
+        default=None, ge=0, description="Basisbetrag für Prozentberechnung (BT-93/BT-100)"
+    )
+    percentage: Decimal | None = Field(
+        default=None, ge=0, le=100, description="Prozentsatz (BT-94/BT-101)"
+    )
+
+
 # Valid EN 16931 invoice type codes
 VALID_TYPE_CODES = frozenset({"380", "381", "384", "389", "875", "876", "877"})
 
@@ -147,6 +181,11 @@ class InvoiceData(BaseModel):
     buyer: Party = Field(..., description="Käufer / Rechnungsempfänger")
     items: list[LineItem] = Field(
         ..., min_length=1, max_length=1000, description="Rechnungspositionen"
+    )
+    allowances_charges: list[AllowanceCharge] = Field(
+        default_factory=list,
+        max_length=100,
+        description="Dokumentebene Zu-/Abschläge (BG-20/BG-21)",
     )
     currency: str = Field(
         default="EUR", min_length=3, max_length=3, description="ISO 4217 Währungscode"
@@ -277,23 +316,50 @@ class InvoiceData(BaseModel):
     )
 
     def total_net(self) -> Decimal:
+        """Sum of line item net amounts (BT-106)."""
         return sum(
             ((item.quantity * item.unit_price).quantize(Decimal("0.01")) for item in self.items),
             Decimal("0"),
         )
 
+    def total_allowances(self) -> Decimal:
+        """Sum of document-level allowances (BT-107)."""
+        return sum(
+            (ac.amount for ac in self.allowances_charges if not ac.charge),
+            Decimal("0"),
+        )
+
+    def total_charges(self) -> Decimal:
+        """Sum of document-level charges (BT-108)."""
+        return sum(
+            (ac.amount for ac in self.allowances_charges if ac.charge),
+            Decimal("0"),
+        )
+
+    def tax_basis(self) -> Decimal:
+        """Tax basis = line total - allowances + charges (BT-109)."""
+        return (
+            self.total_net() - self.total_allowances() + self.total_charges()
+        ).quantize(Decimal("0.01"))
+
     def total_tax(self) -> Decimal:
         """Calculate tax total using per-group rounding (EN 16931 / BR-CO-14).
 
         Items are grouped by (tax_category, tax_rate), the net basis per group
-        is summed, then tax is calculated and rounded once per group.  This
-        matches the XML builder and satisfies BR-CO-14.
+        is summed, then tax is calculated and rounded once per group.
+        Document-level allowances/charges are included in the tax groups.
         """
         tax_groups: dict[tuple[str, Decimal], Decimal] = {}
         for item in self.items:
             key = (item.tax_category.value, item.tax_rate)
             net = item.quantity * item.unit_price
             tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
+        for ac in self.allowances_charges:
+            key = (ac.tax_category.value, ac.tax_rate)
+            if ac.charge:
+                tax_groups[key] = tax_groups.get(key, Decimal("0")) + ac.amount
+            else:
+                tax_groups[key] = tax_groups.get(key, Decimal("0")) - ac.amount
         return sum(
             (
                 (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
@@ -303,7 +369,8 @@ class InvoiceData(BaseModel):
         )
 
     def total_gross(self) -> Decimal:
-        return (self.total_net() + self.total_tax()).quantize(Decimal("0.01"))
+        """Grand total = tax basis + tax total (BT-112)."""
+        return (self.tax_basis() + self.total_tax()).quantize(Decimal("0.01"))
 
 
 class ValidationError(BaseModel):
@@ -335,6 +402,14 @@ class Totals(BaseModel):
     due_payable: Decimal
 
 
+class ParsedAllowanceCharge(BaseModel):
+    charge: bool = Field(default=False, description="True=Zuschlag, False=Rabatt")
+    amount: Decimal = Field(default=Decimal("0"), description="Betrag")
+    reason: str = Field(default="", description="Grund")
+    tax_rate: Decimal = Field(default=Decimal("0"), description="Steuersatz")
+    tax_category: str = Field(default="S", description="Steuerkategorie")
+
+
 class ParsedInvoice(BaseModel):
     invoice_id: str = Field(default="", description="Rechnungsnummer")
     type_code: str = Field(default="380", description="Rechnungsartcode (BT-3)")
@@ -342,6 +417,9 @@ class ParsedInvoice(BaseModel):
     seller: Party | None = Field(default=None, description="Verkäufer")
     buyer: Party | None = Field(default=None, description="Käufer")
     items: list[LineItem] = Field(default_factory=list, description="Positionen")
+    allowances_charges: list[ParsedAllowanceCharge] = Field(
+        default_factory=list, description="Zu-/Abschläge (BG-20/BG-21)"
+    )
     totals: Totals | None = Field(default=None, description="Summen")
     tax_breakdown: list[TaxBreakdown] = Field(
         default_factory=list, description="Steueraufschlüsselung"

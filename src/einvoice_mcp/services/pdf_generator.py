@@ -184,24 +184,53 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elements.append(items_table)
     elements.append(Spacer(1, 8 * mm))
 
+    # Document-level allowances/charges
+    if data.allowances_charges:
+        ac_header = ["", "Zu-/Abschläge", ""]
+        ac_data = [ac_header]
+        for ac in data.allowances_charges:
+            label = ac.reason or ("Zuschlag" if ac.charge else "Rabatt")
+            sign = "+" if ac.charge else "-"
+            ac_data.append(["", label, f"{sign}{ac.amount:.2f} {data.currency}"])
+        ac_table = Table(ac_data, colWidths=[100 * mm, 35 * mm, 35 * mm])
+        ac_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (1, 0), (1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                ]
+            )
+        )
+        elements.append(ac_table)
+        elements.append(Spacer(1, 4 * mm))
+
     # Totals
     net_total = data.total_net().quantize(Decimal("0.01"))
+    tax_basis = data.tax_basis().quantize(Decimal("0.01"))
     tax_total = data.total_tax().quantize(Decimal("0.01"))
     gross_total = data.total_gross().quantize(Decimal("0.01"))
 
-    totals_data = [
-        ["", "Nettobetrag:", f"{net_total:.2f} {data.currency}"],
+    totals_data: list[list[str]] = [
+        ["", "Zwischensumme Positionen:", f"{net_total:.2f} {data.currency}"],
+    ]
+    if data.allowances_charges:
+        totals_data.append(
+            ["", "Steuerbemessungsgrundlage:", f"{tax_basis:.2f} {data.currency}"]
+        )
+    totals_data.extend([
         ["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"],
         ["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"],
-    ]
+    ])
+    last_row = len(totals_data) - 1
     totals_table = Table(totals_data, colWidths=[100 * mm, 35 * mm, 35 * mm])
     totals_table.setStyle(
         TableStyle(
             [
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                ("FONTNAME", (1, 2), (-1, 2), "Helvetica-Bold"),
-                ("LINEABOVE", (1, 2), (-1, 2), 1, colors.black),
+                ("FONTNAME", (1, last_row), (-1, last_row), "Helvetica-Bold"),
+                ("LINEABOVE", (1, last_row), (-1, last_row), 1, colors.black),
             ]
         )
     )

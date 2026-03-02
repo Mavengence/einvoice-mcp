@@ -3,7 +3,11 @@
 import logging
 from decimal import Decimal
 
-from drafthorse.models.accounting import ApplicableTradeTax
+from drafthorse.models.accounting import (
+    ApplicableTradeTax,
+    CategoryTradeTax,
+    TradeAllowanceCharge,
+)
 from drafthorse.models.document import Document
 from drafthorse.models.note import IncludedNote
 from drafthorse.models.party import TaxRegistration
@@ -221,12 +225,40 @@ def _build_document(data: InvoiceData) -> bytes:
             data.remittance_information
         )
 
-    # Trade tax summary
+    # Document-level allowances/charges (BG-20/BG-21)
+    for ac in data.allowances_charges:
+        tac = TradeAllowanceCharge()
+        tac.indicator = ac.charge
+        tac.actual_amount = ac.amount
+        if ac.reason:
+            tac.reason = ac.reason
+        if ac.reason_code:
+            tac.reason_code = ac.reason_code
+        if ac.base_amount is not None:
+            tac.basis_amount = ac.base_amount
+        if ac.percentage is not None:
+            tac.calculation_percent = ac.percentage
+
+        cat_tax = CategoryTradeTax()
+        cat_tax.type_code = "VAT"
+        cat_tax.category_code = ac.tax_category.value
+        cat_tax.rate_applicable_percent = ac.tax_rate
+        tac.trade_tax.add(cat_tax)
+
+        doc.trade.settlement.allowance_charge.add(tac)
+
+    # Trade tax summary (line items + document-level allowances/charges)
     tax_groups: dict[tuple[str, Decimal], Decimal] = {}
     for item in data.items:
         key = (item.tax_category.value, item.tax_rate)
         net = item.quantity * item.unit_price
         tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
+    for ac in data.allowances_charges:
+        key = (ac.tax_category.value, ac.tax_rate)
+        if ac.charge:
+            tax_groups[key] = tax_groups.get(key, Decimal("0")) + ac.amount
+        else:
+            tax_groups[key] = tax_groups.get(key, Decimal("0")) - ac.amount
 
     for (cat, rate), basis in tax_groups.items():
         trade_tax = ApplicableTradeTax()
@@ -239,21 +271,22 @@ def _build_document(data: InvoiceData) -> bytes:
 
     # Monetary summation
     # BR-CO-14: TaxTotalAmount MUST equal sum of ApplicableTradeTax.CalculatedAmount.
-    # Derive tax_total from per-group calculated amounts (same rounding as above)
-    # to avoid per-item vs per-group rounding divergence.
     net_total = data.total_net()
+    allowance_total = data.total_allowances()
+    charge_total = data.total_charges()
+    tax_basis = data.tax_basis()
     tax_total = sum(
         (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
         for (_, rate), basis in tax_groups.items()
     )
-    gross_total = (net_total + tax_total).quantize(Decimal("0.01"))
+    gross_total = (tax_basis + tax_total).quantize(Decimal("0.01"))
 
     ms = doc.trade.settlement.monetary_summation
     ms.line_total = net_total
-    ms.charge_total = Decimal("0.00")
-    ms.allowance_total = Decimal("0.00")
+    ms.charge_total = charge_total
+    ms.allowance_total = allowance_total
     # CurrencyField values require (amount, currencyID) tuple for CII conformance
-    ms.tax_basis_total = (net_total, data.currency)
+    ms.tax_basis_total = (tax_basis, data.currency)
     ms.tax_total = (tax_total, data.currency)
     ms.grand_total = (gross_total, data.currency)
     ms.due_amount = gross_total

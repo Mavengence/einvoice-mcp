@@ -11,6 +11,7 @@ from einvoice_mcp.errors import InvoiceParsingError
 from einvoice_mcp.models import (
     Address,
     LineItem,
+    ParsedAllowanceCharge,
     ParsedInvoice,
     Party,
     TaxBreakdown,
@@ -188,6 +189,47 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Document-level allowances/charges (BG-20/BG-21)
+    allowances_charges: list[ParsedAllowanceCharge] = []
+    try:
+        ac_container = doc.trade.settlement.allowance_charge
+        if hasattr(ac_container, "children"):
+            for ac_item in ac_container.children:
+                indicator = getattr(ac_item, "indicator", None)
+                # drafthorse IndicatorElement wraps the bool in ._value
+                indicator_value = getattr(indicator, "_value", None)
+                if indicator_value is not None:
+                    is_charge = bool(indicator_value)
+                else:
+                    is_charge = bool(indicator) if indicator is not None else False
+                amount = _safe_decimal(getattr(ac_item, "actual_amount", "0"))
+                reason = _str_element(getattr(ac_item, "reason", ""))
+                ac_tax_rate = Decimal("0")
+                ac_tax_cat = "S"
+                tax_container = getattr(ac_item, "trade_tax", None)
+                if tax_container and hasattr(tax_container, "children"):
+                    for tax_child in tax_container.children:
+                        rate_val = _safe_decimal(
+                            getattr(tax_child, "rate_applicable_percent", "0")
+                        )
+                        cat_val = _str_element(
+                            getattr(tax_child, "category_code", "S")
+                        ) or "S"
+                        ac_tax_rate = rate_val
+                        ac_tax_cat = cat_val
+                        break
+                allowances_charges.append(
+                    ParsedAllowanceCharge(
+                        charge=is_charge,
+                        amount=amount,
+                        reason=reason,
+                        tax_rate=ac_tax_rate,
+                        tax_category=ac_tax_cat,
+                    )
+                )
+    except Exception:
+        pass
+
     # IBAN / BIC / Bank name (BT-84, BT-86)
     seller_iban = ""
     seller_bic = ""
@@ -236,6 +278,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
         remittance_information=remittance_information,
+        allowances_charges=allowances_charges,
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
