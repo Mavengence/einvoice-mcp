@@ -4524,3 +4524,246 @@ class TestLeitwegIdFormatCompliance:
         await client.close()
 
 
+class TestBuyerAccountingReferenceRoundtrip:
+    """Test BT-133 buyer accounting reference roundtrip."""
+
+    def test_accounting_reference_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-133 generates and parses correctly."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "items": [
+                    sample_invoice_data.items[0].model_copy(
+                        update={
+                            "buyer_accounting_reference": "KST-4711",
+                        }
+                    ),
+                ],
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].buyer_accounting_reference == "KST-4711"
+
+    def test_no_accounting_reference(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No BT-133 → None in parsed output."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].buyer_accounting_reference is None
+
+
+class TestExportComplianceG:
+    """Test export outside EU (G) compliance checks."""
+
+    @respx.mock
+    async def test_g_zero_rate_valid(self) -> None:
+        """Export (G) with 0% rate → no error."""
+        data = InvoiceData(
+            invoice_id="EX-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Export goods",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.G,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "EX-TAX-RATE" not in result.get("missing_fields", [])
+        await client.close()
+
+    @respx.mock
+    async def test_g_nonzero_rate(self) -> None:
+        """Export (G) with non-zero rate → EX-TAX-RATE error."""
+        data = InvoiceData(
+            invoice_id="EX-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Export goods",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("19"),
+                    tax_category=TaxCategory.G,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "EX-TAX-RATE" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_g_non_numeric_rate(self) -> None:
+        """Export (G) with non-numeric rate → ValueError caught."""
+        data = InvoiceData(
+            invoice_id="EX-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Export goods",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.G,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        xml = xml.replace(
+            "<ram:RateApplicablePercent>0</ram:RateApplicablePercent>",
+            "<ram:RateApplicablePercent>nnn</ram:RateApplicablePercent>",
+            1,
+        )
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "EX-TAX-RATE" not in result.get("missing_fields", [])
+        await client.close()
+
+
+class TestKleinbetragsrechnungAdvisory:
+    """Test §33 UStDV Kleinbetragsrechnung advisory."""
+
+    @respx.mock
+    async def test_small_invoice_gets_kb_hint(self) -> None:
+        """Invoice ≤250€ gross → KB-INFO advisory shown."""
+        data = InvoiceData(
+            invoice_id="KB-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Kleinartikel",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        suggestions = result.get("suggestions", [])
+        has_kb = any("Kleinbetragsrechnung" in s for s in suggestions)
+        assert has_kb
+        await client.close()
+
+    @respx.mock
+    async def test_large_invoice_no_kb_hint(self) -> None:
+        """Invoice >250€ gross → no KB-INFO advisory."""
+        data = InvoiceData(
+            invoice_id="KB-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Großauftrag",
+                    quantity="10",
+                    unit_price="1000",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        suggestions = result.get("suggestions", [])
+        has_kb = any("Kleinbetragsrechnung" in s for s in suggestions)
+        assert not has_kb
+        await client.close()
+
+    @respx.mock
+    async def test_non_numeric_total_no_crash(self) -> None:
+        """Non-numeric grand total → ValueError caught, no crash."""
+        data = InvoiceData(
+            invoice_id="KB-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Test",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        xml = xml.replace(
+            'currencyID="EUR">119.00</ram:GrandTotalAmount>',
+            'currencyID="EUR">xxx</ram:GrandTotalAmount>',
+        )
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        suggestions = result.get("suggestions", [])
+        has_kb = any("Kleinbetragsrechnung" in s for s in suggestions)
+        assert not has_kb
+        await client.close()
+
+

@@ -593,6 +593,14 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     if gid_scheme:
                         standard_item_scheme = gid_scheme
 
+            # Buyer accounting reference (BT-133)
+            buyer_accounting_reference = None
+            acct_obj = getattr(li.settlement, "accounting_account", None)
+            if acct_obj:
+                acct_id = _str_element(getattr(acct_obj, "id", ""))
+                if acct_id:
+                    buyer_accounting_reference = acct_id
+
             # Preserve magnitude for negative quantities (credit notes, TypeCode 381);
             # only fall back to 0.01 when the parsed quantity is exactly zero.
             if quantity < 0:
@@ -619,6 +627,7 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     standard_item_scheme=standard_item_scheme,
                     item_note=item_note,
                     allowances_charges=line_allowances,
+                    buyer_accounting_reference=buyer_accounting_reference,
                 )
             )
         except Exception:

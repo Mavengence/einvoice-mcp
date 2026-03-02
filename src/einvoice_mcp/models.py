@@ -140,6 +140,11 @@ class LineItem(BaseModel):
         max_length=50,
         description="Positions-Zu-/Abschläge (BG-27/BG-28)",
     )
+    buyer_accounting_reference: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Kontierungsreferenz des Käufers (BT-133)",
+    )
 
 
 class AllowanceCharge(BaseModel):

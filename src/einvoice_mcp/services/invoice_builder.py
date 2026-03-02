@@ -257,6 +257,10 @@ def _build_document(data: InvoiceData) -> bytes:
                 line_ac.reason = lac.reason
             li.settlement.allowance_charge.add(line_ac)
 
+        # Buyer accounting reference (BT-133)
+        if item.buyer_accounting_reference:
+            li.settlement.accounting_account.id = item.buyer_accounting_reference
+
         li.settlement.trade_tax.type_code = "VAT"
         li.settlement.trade_tax.category_code = item.tax_category.value
         li.settlement.trade_tax.rate_applicable_percent = item.tax_rate

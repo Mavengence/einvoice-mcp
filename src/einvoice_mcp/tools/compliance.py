@@ -176,6 +176,10 @@ SUGGESTIONS_MAP = {
         "Die deutsche USt-IdNr. hat kein gültiges Format. "
         "Erwartet: DE + 9 Ziffern (z.B. DE123456789)."
     ),
+    "EX-TAX-RATE": (
+        "Bei Drittlandslieferung (Kategorie G) "
+        "muss der Steuersatz 0% betragen."
+    ),
     "IC-BT-48": (
         "Bei innergemeinschaftlicher Lieferung (Steuerkategorie K / §4 Nr. 1b UStG) "
         "muss die USt-IdNr. des Käufers (BT-48) angegeben sein."
@@ -183,6 +187,11 @@ SUGGESTIONS_MAP = {
     "IC-TAX-RATE": (
         "Bei innergemeinschaftlicher Lieferung (Kategorie K) "
         "muss der Steuersatz 0% betragen."
+    ),
+    "KB-INFO": (
+        "Der Rechnungsbetrag liegt unter 250€ — diese Rechnung könnte als "
+        "Kleinbetragsrechnung (§33 UStDV) gelten. Bestimmte Pflichtangaben "
+        "wie Käufername und -adresse können entfallen."
     ),
     "KU-NOTE": (
         "Steuerkategorie E (steuerbefreit) erkannt, aber kein Hinweis auf §19 UStG "
@@ -229,13 +238,20 @@ async def check_compliance(
     missing_fields = [fc.field for fc in field_checks if fc.required and not fc.present]
     suggestions = [SUGGESTIONS_MAP[f] for f in missing_fields if f in SUGGESTIONS_MAP]
 
-    # Add non-required but missing advisory checks (warnings, not errors)
+    # Add non-required advisory checks (warnings + informational notes)
     advisory_fields = [
         fc.field for fc in field_checks if not fc.required and not fc.present
     ]
     for af in advisory_fields:
         if af in SUGGESTIONS_MAP:
             suggestions.append(SUGGESTIONS_MAP[af])
+    # Informational advisories (present=True, required=False)
+    info_fields = [
+        fc.field for fc in field_checks if not fc.required and fc.present
+    ]
+    for inf in info_fields:
+        if inf in SUGGESTIONS_MAP:
+            suggestions.append(SUGGESTIONS_MAP[inf])
 
     # KoSIT validation
     kosit_valid = None
@@ -535,6 +551,37 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 except ValueError:
                     pass
 
+    # Export outside EU (TaxCategory G) checks:
+    # Tax rate must be 0% for exports.
+    has_g = any(
+        el.text and el.text.strip() == "G" for el in tax_cats
+    )
+    if has_g:
+        for tax_el in root.findall(".//ram:ApplicableTradeTax", CII_NS):
+            cat_el = tax_el.find("ram:CategoryCode", CII_NS)
+            rate_el = tax_el.find("ram:RateApplicablePercent", CII_NS)
+            if (
+                cat_el is not None
+                and cat_el.text
+                and cat_el.text.strip() == "G"
+                and rate_el is not None
+                and rate_el.text
+            ):
+                try:
+                    rate_val = float(rate_el.text.strip())
+                    if rate_val != 0.0:
+                        checks.append(
+                            FieldCheck(
+                                field="EX-TAX-RATE",
+                                name="Steuersatz bei Drittlandslieferung",
+                                present=False,
+                                value=rate_el.text.strip(),
+                                required=True,
+                            )
+                        )
+                except ValueError:
+                    pass
+
     # §19 UStG (Kleinunternehmerregelung) hint:
     # When TaxCategory E (Exempt) is used with 0% rate AND no note references
     # a VAT exemption reason (§19, §4, Art. 132/135 MwStSystRL, etc.),
@@ -603,5 +650,29 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                     )
                 )
                 break
+
+    # §33 UStDV Kleinbetragsrechnung advisory:
+    # Invoices with a gross total ≤250€ have reduced mandatory fields.
+    # This is informational only — we note it as a positive hint.
+    grand_total_el = root.find(
+        ".//ram:SpecifiedTradeSettlementHeaderMonetarySummation"
+        "/ram:GrandTotalAmount",
+        CII_NS,
+    )
+    if grand_total_el is not None and grand_total_el.text:
+        try:
+            grand_total = float(grand_total_el.text.strip())
+            if 0 < grand_total <= 250.0:
+                checks.append(
+                    FieldCheck(
+                        field="KB-INFO",
+                        name="Kleinbetragsrechnung (§33 UStDV)",
+                        present=True,
+                        value=f"{grand_total:.2f}",
+                        required=False,
+                    )
+                )
+        except ValueError:
+            pass
 
     return checks
