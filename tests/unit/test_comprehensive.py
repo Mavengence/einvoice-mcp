@@ -5,6 +5,7 @@ roundtrips, and boundary conditions identified in coverage analysis.
 """
 
 import base64
+import json
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -6947,6 +6948,56 @@ class TestSmallAmountInvoice:
 # ---------------------------------------------------------------------------
 # New MCP Prompts (Abschlagsrechnung, Ratenzahlung, §35a, TypeCode guide)
 # ---------------------------------------------------------------------------
+
+
+class TestNewMCPResources:
+    """Test the new reference resources added to the server."""
+
+    def test_e_rechnung_pflichten_resource(self) -> None:
+        from einvoice_mcp.server import e_rechnung_pflichten
+
+        text = e_rechnung_pflichten()
+        data = json.loads(text)
+        assert "timeline" in data
+        assert len(data["timeline"]) >= 4
+        assert any("2025" in t["date"] for t in data["timeline"])
+        assert any("2027" in t["date"] for t in data["timeline"])
+        assert any("2028" in t["date"] for t in data["timeline"])
+        assert "notes" in data
+        assert len(data["notes"]) >= 3
+
+    def test_br_de_rules_resource(self) -> None:
+        from einvoice_mcp.server import br_de_rules
+
+        text = br_de_rules()
+        data = json.loads(text)
+        assert isinstance(data, list)
+        assert len(data) >= 9
+        codes = {r["code"] for r in data}
+        assert "BR-DE-1" in codes
+        assert "BR-DE-5" in codes
+        assert "BR-DE-15" in codes
+        assert "BR-DE-23" in codes
+        for rule in data:
+            assert "code" in rule
+            assert "description" in rule
+            assert "field" in rule
+            assert "fix" in rule
+
+
+class TestB2BPflichtPrompt:
+    """Test the B2B mandate prompt."""
+
+    def test_b2b_pflicht_2027_prompt(self) -> None:
+        from einvoice_mcp.server import b2b_pflicht_2027
+
+        text = b2b_pflicht_2027()
+        assert "2025" in text
+        assert "2027" in text
+        assert "2028" in text
+        assert "EN 16931" in text
+        assert "Wachstumschancengesetz" in text
+        assert "Checkliste" in text
 
 
 class TestNewMCPPrompts:

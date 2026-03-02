@@ -14,7 +14,7 @@ All notable changes to the einvoice-mcp project.
 - `einvoice_parse` — Parse XML/PDF into structured data
 - `einvoice_check_compliance` — Mandatory field checks with German suggestions
 
-#### MCP Resources (11)
+#### MCP Resources (13)
 - `einvoice://schemas/line-item` — JSON schema for line items
 - `einvoice://schemas/allowance-charge` — JSON schema for allowances/charges
 - `einvoice://schemas/item-attribute` — JSON schema for item attributes (BG-30)
@@ -26,8 +26,10 @@ All notable changes to the einvoice-mcp project.
 - `einvoice://reference/unit-codes` — UN/ECE unit codes (H87, HUR, KGM, DAY, …)
 - `einvoice://reference/eas-codes` — Electronic Address Scheme codes (EM, 9930, 0204, …)
 - `einvoice://system/kosit-status` — On-demand KoSIT validator health check
+- `einvoice://reference/e-rechnung-pflichten` — E-Rechnungspflichten Zeitplan 2020–2028
+- `einvoice://reference/br-de-rules` — Deutsche Geschäftsregeln (BR-DE) Referenz
 
-#### MCP Prompts (8)
+#### MCP Prompts (9)
 - `gutschrift_erstellen` — Credit note (381) creation guide
 - `reverse_charge_checkliste` — Reverse charge (§13b UStG) checklist
 - `xrechnung_schnellstart` — XRechnung quick start for public procurement
@@ -36,6 +38,7 @@ All notable changes to the einvoice-mcp project.
 - `ratenzahlung_rechnung` — Installment payment invoice guide
 - `handwerkerrechnung_35a` — Craftsman invoice for §35a EStG tax deduction
 - `typecode_entscheidungshilfe` — TypeCode decision tree (which code for which scenario)
+- `b2b_pflicht_2027` — B2B e-invoice mandate preparation checklist
 
 #### EN 16931 Business Terms
 - BT-1..5 — Invoice number, date, type code, currency
@@ -115,4 +118,4 @@ All notable changes to the einvoice-mcp project.
 - Deployment guide (docs/DEPLOYMENT.md)
 - UBL format detection (rejects UBL with clear German error)
 - Pydantic validation errors with BT number references
-- 531 tests, 100% coverage (2011 stmts), ruff + mypy strict clean
+- 534 tests, 100% coverage (2011 stmts), ruff + mypy strict clean

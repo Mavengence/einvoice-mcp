@@ -321,6 +321,167 @@ async def kosit_status(ctx: Context) -> str:
     )
 
 
+@mcp.resource("einvoice://reference/e-rechnung-pflichten")
+def e_rechnung_pflichten() -> str:
+    """Zeitplan der E-Rechnungspflichten in Deutschland.
+
+    Enthält alle relevanten Stichtage von 2020 bis 2028 mit
+    Rechtsgrundlagen und betroffenen Unternehmen.
+    """
+    return json.dumps(
+        {
+            "title": "E-Rechnungspflichten — Zeitplan Deutschland",
+            "timeline": [
+                {
+                    "date": "2020-11-27",
+                    "obligation": "E-Rechnung an Bundesbehörden (Pflicht)",
+                    "basis": "E-Rechnungsverordnung (ERechV)",
+                    "affected": "Alle Lieferanten der Bundesverwaltung",
+                },
+                {
+                    "date": "2025-01-01",
+                    "obligation": "E-Rechnung empfangen (alle B2B)",
+                    "basis": "Wachstumschancengesetz / BMF 2024-11-15",
+                    "affected": "Alle inländischen Unternehmen",
+                },
+                {
+                    "date": "2027-01-01",
+                    "obligation": "E-Rechnung senden (Umsatz > 800.000€)",
+                    "basis": "Wachstumschancengesetz §14 UStG",
+                    "affected": "Unternehmen mit Vorjahresumsatz > 800.000€",
+                },
+                {
+                    "date": "2028-01-01",
+                    "obligation": "E-Rechnung senden (alle Unternehmen)",
+                    "basis": "Wachstumschancengesetz §14 UStG",
+                    "affected": "Alle inländischen Unternehmen (B2B)",
+                },
+            ],
+            "notes": [
+                "E-Rechnungen müssen der EN 16931 entsprechen (XRechnung oder ZUGFeRD)",
+                "Papierrechnungen und einfache PDF gelten ab 2025 nicht mehr als E-Rechnung",
+                "B2C-Rechnungen sind von der Pflicht ausgenommen",
+                "Kleinbetragsrechnungen (≤250€) sind ebenfalls ausgenommen",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/br-de-rules")
+def br_de_rules() -> str:
+    """Deutsche Geschäftsregeln (BR-DE) für XRechnung 3.0.
+
+    Referenz aller BR-DE-Regeln mit Beschreibung und Lösungshinweisen.
+    """
+    return json.dumps(
+        [
+            {
+                "code": "BR-DE-1",
+                "description": "Leitweg-ID (BT-10) muss vorhanden sein",
+                "field": "leitweg_id / buyer_reference",
+                "fix": "leitweg_id oder buyer_reference setzen",
+            },
+            {
+                "code": "BR-DE-2",
+                "description": "Käufer-Referenz (BT-10) Pflichtfeld",
+                "field": "buyer_reference",
+                "fix": "buyer_reference setzen",
+            },
+            {
+                "code": "BR-DE-5",
+                "description": "Ansprechpartner des Verkäufers Pflicht",
+                "field": "seller_contact_name",
+                "fix": "seller_contact_name setzen (BT-41)",
+            },
+            {
+                "code": "BR-DE-6",
+                "description": "Telefonnummer des Verkäufers Pflicht",
+                "field": "seller_contact_phone",
+                "fix": "seller_contact_phone setzen (BT-42)",
+            },
+            {
+                "code": "BR-DE-7",
+                "description": "E-Mail des Verkäufers Pflicht",
+                "field": "seller_contact_email",
+                "fix": "seller_contact_email setzen (BT-43)",
+            },
+            {
+                "code": "BR-DE-15",
+                "description": "Zahlungsbedingungen Pflicht",
+                "field": "payment_terms_text",
+                "fix": "payment_terms_text setzen (BT-20)",
+            },
+            {
+                "code": "BR-DE-17",
+                "description": "Lieferdatum oder Leistungszeitraum Pflicht",
+                "field": "delivery_date / service_period_start+end",
+                "fix": "delivery_date ODER service_period_start/end setzen",
+            },
+            {
+                "code": "BR-DE-23",
+                "description": "IBAN Pflicht bei SEPA-Überweisung (Code 58)",
+                "field": "seller_iban",
+                "fix": "seller_iban setzen (BT-84)",
+            },
+            {
+                "code": "BR-DE-24",
+                "description": "Mandatsreferenz + Käufer-IBAN bei SEPA-Lastschrift (Code 59)",
+                "field": "mandate_reference_id + buyer_iban",
+                "fix": "mandate_reference_id (BT-89) und buyer_iban (BT-91) setzen",
+            },
+        ],
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.prompt()
+def b2b_pflicht_2027() -> str:
+    """Checkliste: B2B E-Rechnungspflicht ab 2027 vorbereiten.
+
+    Schritt-für-Schritt-Anleitung für die Umstellung auf E-Rechnung.
+    """
+    return (
+        "# B2B E-Rechnungspflicht — Checkliste zur Vorbereitung\n\n"
+        "## Zeitplan:\n"
+        "- **01.01.2025**: Alle Unternehmen müssen E-Rechnungen **empfangen** können\n"
+        "- **01.01.2027**: Unternehmen mit Umsatz > 800.000€ müssen E-Rechnungen **senden**\n"
+        "- **01.01.2028**: **Alle** Unternehmen müssen E-Rechnungen senden\n\n"
+        "## Was ist eine E-Rechnung?\n"
+        "- Maschinenlesbares XML nach **EN 16931** (nicht PDF!)\n"
+        "- Erlaubte Formate: **XRechnung** (CII-XML) oder **ZUGFeRD** (PDF/A-3 + XML)\n"
+        "- Papierrechnungen und einfache PDF gelten NICHT als E-Rechnung\n\n"
+        "## Checkliste:\n"
+        "1. [ ] **Empfang sicherstellen** — E-Mail-Postfach für E-Rechnungen einrichten\n"
+        "2. [ ] **Format wählen** — XRechnung (B2G) oder ZUGFeRD (B2B empfohlen)\n"
+        "3. [ ] **Software testen** — Mit diesem MCP-Server Testrechnungen erstellen\n"
+        "4. [ ] **Stammdaten pflegen** — USt-IdNr., IBAN, Kontaktdaten aktuell halten\n"
+        "5. [ ] **Mitarbeiter schulen** — Rechnungswesen auf neue Formate vorbereiten\n"
+        "6. [ ] **Archivierung** — GoBD-konforme Archivierung sicherstellen (10 Jahre)\n"
+        "7. [ ] **Testlauf** — Echte Rechnung erstellen und mit KoSIT validieren\n\n"
+        "## Beispiel-Prompt:\n"
+        "```\n"
+        "Erstelle eine ZUGFeRD-Rechnung:\n"
+        "- Rechnungsnr.: RE-2026-001\n"
+        "- Verkäufer: [Ihre Firma], [Adresse], USt-IdNr. DE...\n"
+        "- Käufer: [Kunde], [Adresse]\n"
+        "- Position: [Beschreibung], [Menge], [Preis], 19% USt\n"
+        "- SEPA-Überweisung, IBAN: DE...\n"
+        "- Zahlungsziel: 30 Tage netto\n"
+        "```\n\n"
+        "## Ausnahmen:\n"
+        "- B2C-Rechnungen (an Privatpersonen) → keine Pflicht\n"
+        "- Kleinbetragsrechnungen ≤ 250€ → keine Pflicht\n"
+        "- Fahrausweise → keine Pflicht\n\n"
+        "## Rechtsgrundlage:\n"
+        "- Wachstumschancengesetz (BGBl. 2024 I Nr. 108)\n"
+        "- §14 UStG (neue Fassung ab 2025)\n"
+        "- BMF-Schreiben vom 15.11.2024"
+    )
+
+
 @mcp.prompt()
 def gutschrift_erstellen() -> str:
     """Anleitung: Gutschrift / Credit Note (TypeCode 381) erstellen.

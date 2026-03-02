@@ -3,7 +3,7 @@
 [![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-531%20passed-brightgreen.svg)](#compliance-proof)
+[![Tests](https://img.shields.io/badge/tests-534%20passed-brightgreen.svg)](#compliance-proof)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#module-coverage)
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
@@ -20,7 +20,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**531 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
+**534 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -299,6 +299,8 @@ Every mandatory Business Term is tested in generated XML output:
 | `einvoice://reference/unit-codes` | Mengeneinheiten-Codes (H87=Stück, HUR=Stunde, KGM=kg, …) |
 | `einvoice://reference/eas-codes` | Elektronische Adress-Schemata (EM=E-Mail, 9930=USt-IdNr., …) |
 | `einvoice://system/kosit-status` | On-demand KoSIT-Validator Statusabfrage |
+| `einvoice://reference/e-rechnung-pflichten` | Zeitplan E-Rechnungspflichten 2020–2028 mit Rechtsgrundlagen |
+| `einvoice://reference/br-de-rules` | Deutsche Geschäftsregeln (BR-DE-1..24) mit Lösungshinweisen |
 
 ### MCP Prompts
 
@@ -312,6 +314,7 @@ Every mandatory Business Term is tested in generated XML output:
 | `ratenzahlung_rechnung` | Rechnung mit Ratenzahlung erstellen |
 | `handwerkerrechnung_35a` | Handwerkerrechnung nach §35a EStG |
 | `typecode_entscheidungshilfe` | Entscheidungshilfe: Welcher TypeCode für welchen Anlass? |
+| `b2b_pflicht_2027` | Checkliste: B2B E-Rechnungspflicht ab 2027 vorbereiten |
 
 ---
 
