@@ -3026,6 +3026,51 @@ class TestRegistrationIdRoundtrip:
         assert parsed.buyer.registration_id == "9876543210123"
 
 
+class TestDeliveryLocationRoundtrip:
+    """Roundtrip tests for delivery location (BT-70..BT-80)."""
+
+    def test_delivery_location_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Full delivery location roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "delivery_party_name": "Lager Hamburg",
+                "delivery_street": "Hafenstraße 12",
+                "delivery_city": "Hamburg",
+                "delivery_postal_code": "20457",
+                "delivery_country_code": "DE",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_party_name == "Lager Hamburg"
+        assert parsed.delivery_street == "Hafenstraße 12"
+        assert parsed.delivery_city == "Hamburg"
+        assert parsed.delivery_postal_code == "20457"
+        assert parsed.delivery_country_code == "DE"
+
+    def test_no_delivery_location(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No delivery location → empty strings parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_party_name == ""
+        assert parsed.delivery_street == ""
+
+    def test_delivery_name_only(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Only delivery party name (no address)."""
+        data = sample_invoice_data.model_copy(
+            update={"delivery_party_name": "Zentrale"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_party_name == "Zentrale"
+
+
 class TestLineItemNoteRoundtrip:
     """Roundtrip tests for line-item note (BT-127)."""
 

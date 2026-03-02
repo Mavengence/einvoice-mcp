@@ -181,6 +181,19 @@ def _build_document(data: InvoiceData) -> bytes:
             data.preceding_invoice_number
         )
 
+    # Delivery location (BT-70..BT-80) — ShipToTradeParty
+    if data.delivery_party_name or data.delivery_street:
+        if data.delivery_party_name:
+            doc.trade.delivery.ship_to.name = data.delivery_party_name
+        if data.delivery_street:
+            doc.trade.delivery.ship_to.address.line_one = data.delivery_street
+        if data.delivery_city:
+            doc.trade.delivery.ship_to.address.city_name = data.delivery_city
+        if data.delivery_postal_code:
+            doc.trade.delivery.ship_to.address.postcode = data.delivery_postal_code
+        if data.delivery_country_code:
+            doc.trade.delivery.ship_to.address.country_id = data.delivery_country_code
+
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     if data.delivery_date:
         doc.trade.delivery.event.occurrence = data.delivery_date

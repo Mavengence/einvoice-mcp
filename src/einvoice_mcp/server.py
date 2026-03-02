@@ -126,6 +126,11 @@ def _build_invoice_data(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    delivery_party_name: str = "",
+    delivery_street: str = "",
+    delivery_city: str = "",
+    delivery_postal_code: str = "",
+    delivery_country_code: str = "",
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
@@ -213,6 +218,11 @@ def _build_invoice_data(
                 "seller_iban": seller_iban or None,
                 "seller_bic": seller_bic or None,
                 "seller_bank_name": seller_bank_name or None,
+                "delivery_party_name": delivery_party_name or None,
+                "delivery_street": delivery_street or None,
+                "delivery_city": delivery_city or None,
+                "delivery_postal_code": delivery_postal_code or None,
+                "delivery_country_code": delivery_country_code or None,
                 "delivery_date": delivery_date or None,
                 "service_period_start": service_period_start or None,
                 "service_period_end": service_period_end or None,
@@ -331,6 +341,11 @@ async def einvoice_generate_xrechnung(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    delivery_party_name: str = "",
+    delivery_street: str = "",
+    delivery_city: str = "",
+    delivery_postal_code: str = "",
+    delivery_country_code: str = "",
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
@@ -390,6 +405,11 @@ async def einvoice_generate_xrechnung(
         seller_bank_name: Bankname.
         type_code: Rechnungsart (BT-3): 380/381/384.
         seller_tax_number: Steuernummer (BT-32).
+        delivery_party_name: Lieferort Name (BT-70).
+        delivery_street: Lieferort Straße (BT-75).
+        delivery_city: Lieferort Stadt (BT-77).
+        delivery_postal_code: Lieferort PLZ (BT-78).
+        delivery_country_code: Lieferort Land (BT-80).
         delivery_date: Lieferdatum (BT-71, YYYY-MM-DD).
         service_period_start: Leistungszeitraum Beginn (BT-73).
         service_period_end: Leistungszeitraum Ende (BT-74).
@@ -445,6 +465,11 @@ async def einvoice_generate_xrechnung(
         seller_bank_name=seller_bank_name,
         type_code=type_code,
         seller_tax_number=seller_tax_number,
+        delivery_party_name=delivery_party_name,
+        delivery_street=delivery_street,
+        delivery_city=delivery_city,
+        delivery_postal_code=delivery_postal_code,
+        delivery_country_code=delivery_country_code,
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
@@ -521,6 +546,11 @@ async def einvoice_generate_zugferd(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    delivery_party_name: str = "",
+    delivery_street: str = "",
+    delivery_city: str = "",
+    delivery_postal_code: str = "",
+    delivery_country_code: str = "",
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
@@ -578,6 +608,11 @@ async def einvoice_generate_zugferd(
         seller_bank_name: Bankname.
         type_code: Rechnungsart (BT-3): 380/381/384.
         seller_tax_number: Steuernummer (BT-32).
+        delivery_party_name: Lieferort Name (BT-70).
+        delivery_street: Lieferort Straße (BT-75).
+        delivery_city: Lieferort Stadt (BT-77).
+        delivery_postal_code: Lieferort PLZ (BT-78).
+        delivery_country_code: Lieferort Land (BT-80).
         delivery_date: Lieferdatum (BT-71).
         service_period_start: Leistungszeitraum Beginn (BT-73).
         service_period_end: Leistungszeitraum Ende (BT-74).
@@ -633,6 +668,11 @@ async def einvoice_generate_zugferd(
         seller_bank_name=seller_bank_name,
         type_code=type_code,
         seller_tax_number=seller_tax_number,
+        delivery_party_name=delivery_party_name,
+        delivery_street=delivery_street,
+        delivery_city=delivery_city,
+        delivery_postal_code=delivery_postal_code,
+        delivery_country_code=delivery_country_code,
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,

@@ -73,6 +73,34 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
 
     profile = _str_element(doc.context.guideline_parameter.id)
 
+    # Delivery location (BT-70..BT-80)
+    delivery_party_name = ""
+    delivery_street = ""
+    delivery_city = ""
+    delivery_postal_code = ""
+    delivery_country_code = ""
+    try:
+        ship_to = doc.trade.delivery.ship_to
+        dn = _str_element(getattr(ship_to, "name", ""))
+        if dn:
+            delivery_party_name = dn
+        addr = getattr(ship_to, "address", None)
+        if addr:
+            ds = _str_element(getattr(addr, "line_one", ""))
+            if ds:
+                delivery_street = ds
+            dc = _str_element(getattr(addr, "city_name", ""))
+            if dc:
+                delivery_city = dc
+            dp = _str_element(getattr(addr, "postcode", ""))
+            if dp:
+                delivery_postal_code = dp
+            dcc = _str_element(getattr(addr, "country_id", ""))
+            if dcc:
+                delivery_country_code = dcc
+    except Exception:
+        pass
+
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     delivery_date = ""
     try:
@@ -277,6 +305,11 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         tax_breakdown=tax_breakdown,
         currency=_str_element(doc.trade.settlement.currency_code) or "EUR",
         profile=profile,
+        delivery_party_name=delivery_party_name,
+        delivery_street=delivery_street,
+        delivery_city=delivery_city,
+        delivery_postal_code=delivery_postal_code,
+        delivery_country_code=delivery_country_code,
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,

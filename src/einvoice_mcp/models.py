@@ -260,6 +260,31 @@ class InvoiceData(BaseModel):
         max_length=200,
         description="Name der Bank des Verkäufers (optional)",
     )
+    delivery_party_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Name des Lieferorts (BT-70, z.B. 'Lager Hamburg')",
+    )
+    delivery_street: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Straße des Lieferorts (BT-75)",
+    )
+    delivery_city: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Stadt des Lieferorts (BT-77)",
+    )
+    delivery_postal_code: str | None = Field(
+        default=None,
+        max_length=20,
+        description="PLZ des Lieferorts (BT-78)",
+    )
+    delivery_country_code: str | None = Field(
+        default=None,
+        max_length=2,
+        description="Land des Lieferorts (BT-80)",
+    )
     delivery_date: date | None = Field(
         default=None,
         description="Lieferdatum / Leistungsdatum (BT-71, §14 Abs. 4 Nr. 6 UStG)",
@@ -446,6 +471,11 @@ class ParsedInvoice(BaseModel):
     )
     currency: str = Field(default="EUR", description="Währung")
     profile: str = Field(default="", description="Erkanntes Profil")
+    delivery_party_name: str = Field(default="", description="Lieferort Name (BT-70)")
+    delivery_street: str = Field(default="", description="Lieferort Straße (BT-75)")
+    delivery_city: str = Field(default="", description="Lieferort Stadt (BT-77)")
+    delivery_postal_code: str = Field(default="", description="Lieferort PLZ (BT-78)")
+    delivery_country_code: str = Field(default="", description="Lieferort Land (BT-80)")
     delivery_date: str = Field(default="", description="Lieferdatum (BT-71)")
     service_period_start: str = Field(default="", description="Leistungszeitraum Beginn (BT-73)")
     service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
