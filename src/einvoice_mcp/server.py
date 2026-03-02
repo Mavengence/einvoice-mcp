@@ -18,7 +18,11 @@ from einvoice_mcp.tools.generate import generate_xrechnung, generate_zugferd
 from einvoice_mcp.tools.parse import parse_einvoice
 from einvoice_mcp.tools.validate import validate_xrechnung, validate_zugferd
 
-logging.basicConfig(level=settings.log_level)
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 # Valid profile values for user-facing error messages
@@ -155,6 +159,22 @@ def _build_invoice_data(
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges_json: str = "",
+    tax_exemption_reason: str = "",
+    tax_exemption_reason_code: str = "",
+    tender_or_lot_reference: str = "",
+    seller_trading_name: str = "",
+    buyer_trading_name: str = "",
+    payee_name: str = "",
+    payee_id: str = "",
+    payee_legal_registration_id: str = "",
+    payment_card_pan: str = "",
+    payment_card_holder: str = "",
+    seller_tax_rep_name: str = "",
+    seller_tax_rep_street: str = "",
+    seller_tax_rep_city: str = "",
+    seller_tax_rep_postal_code: str = "",
+    seller_tax_rep_country_code: str = "",
+    seller_tax_rep_tax_id: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -198,6 +218,7 @@ def _build_invoice_data(
                     "registration_id": seller_registration_id or None,
                     "electronic_address": seller_electronic_address or None,
                     "electronic_address_scheme": seller_electronic_address_scheme,
+                    "trading_name": seller_trading_name or None,
                 },
                 "buyer": {
                     "name": buyer_name,
@@ -213,6 +234,7 @@ def _build_invoice_data(
                     "registration_id": buyer_registration_id or None,
                     "electronic_address": buyer_electronic_address or None,
                     "electronic_address_scheme": buyer_electronic_address_scheme,
+                    "trading_name": buyer_trading_name or None,
                 },
                 "items": items_list,
                 "allowances_charges": ac_list,
@@ -256,6 +278,30 @@ def _build_invoice_data(
                 "skonto_base_amount": skonto_base_amount or None,
                 "payment_means_type_code": payment_means_type_code,
                 "remittance_information": remittance_information or None,
+                "tax_exemption_reason": tax_exemption_reason or None,
+                "tax_exemption_reason_code": tax_exemption_reason_code or None,
+                "tender_or_lot_reference": tender_or_lot_reference or None,
+                "payee_name": payee_name or None,
+                "payee_id": payee_id or None,
+                "payee_legal_registration_id": payee_legal_registration_id or None,
+                "payment_card_pan": payment_card_pan or None,
+                "payment_card_holder": payment_card_holder or None,
+                **(
+                    {
+                        "seller_tax_representative": {
+                            "name": seller_tax_rep_name,
+                            "address": {
+                                "street": seller_tax_rep_street,
+                                "city": seller_tax_rep_city,
+                                "postal_code": seller_tax_rep_postal_code,
+                                "country_code": seller_tax_rep_country_code or "DE",
+                            },
+                            "tax_id": seller_tax_rep_tax_id or None,
+                        }
+                    }
+                    if seller_tax_rep_name
+                    else {}
+                ),
             }
         )
     except PydanticValidationError as exc:
@@ -390,6 +436,22 @@ async def einvoice_generate_xrechnung(
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges: str = "",
+    tax_exemption_reason: str = "",
+    tax_exemption_reason_code: str = "",
+    tender_or_lot_reference: str = "",
+    seller_trading_name: str = "",
+    buyer_trading_name: str = "",
+    payee_name: str = "",
+    payee_id: str = "",
+    payee_legal_registration_id: str = "",
+    payment_card_pan: str = "",
+    payment_card_holder: str = "",
+    seller_tax_rep_name: str = "",
+    seller_tax_rep_street: str = "",
+    seller_tax_rep_city: str = "",
+    seller_tax_rep_postal_code: str = "",
+    seller_tax_rep_country_code: str = "",
+    seller_tax_rep_tax_id: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -454,7 +516,6 @@ async def einvoice_generate_xrechnung(
         despatch_advice_reference: Lieferscheinnummer (BT-16).
         invoiced_object_identifier: Abrechnungsobjekt (BT-18).
         business_process_type: Geschäftsprozesstyp (BT-23).
-        seller_tax_number: Steuernummer (BT-32).
         seller_registration_id: Handelsregister/GLN (BT-29).
         buyer_registration_id: GLN des Käufers (BT-46).
         buyer_iban: IBAN des Käufers (BT-91, SEPA-Lastschrift).
@@ -465,6 +526,22 @@ async def einvoice_generate_xrechnung(
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
         allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
+        tax_exemption_reason: Befreiungsgrund Text (BT-120).
+        tax_exemption_reason_code: Befreiungsgrund Code (BT-121).
+        tender_or_lot_reference: Vergabe-/Losnummer (BT-17).
+        seller_trading_name: Handelsname Verkäufer (BT-28).
+        buyer_trading_name: Handelsname Käufer (BT-45).
+        payee_name: Zahlungsempfänger Name (BT-59).
+        payee_id: Kennung des Zahlungsempfängers (BT-60).
+        payee_legal_registration_id: Handelsregister Zahlungsempfänger (BT-61).
+        payment_card_pan: Kartennummer letzte Stellen (BT-87).
+        payment_card_holder: Karteninhaber (BT-88).
+        seller_tax_rep_name: Steuervertreter Name (BT-62).
+        seller_tax_rep_street: Steuervertreter Straße (BT-64).
+        seller_tax_rep_city: Steuervertreter Stadt.
+        seller_tax_rep_postal_code: Steuervertreter PLZ.
+        seller_tax_rep_country_code: Steuervertreter Land.
+        seller_tax_rep_tax_id: Steuervertreter USt-IdNr. (BT-63).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -535,6 +612,22 @@ async def einvoice_generate_xrechnung(
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
         allowances_charges_json=allowances_charges,
+        tax_exemption_reason=tax_exemption_reason,
+        tax_exemption_reason_code=tax_exemption_reason_code,
+        tender_or_lot_reference=tender_or_lot_reference,
+        seller_trading_name=seller_trading_name,
+        buyer_trading_name=buyer_trading_name,
+        payee_name=payee_name,
+        payee_id=payee_id,
+        payee_legal_registration_id=payee_legal_registration_id,
+        payment_card_pan=payment_card_pan,
+        payment_card_holder=payment_card_holder,
+        seller_tax_rep_name=seller_tax_rep_name,
+        seller_tax_rep_street=seller_tax_rep_street,
+        seller_tax_rep_city=seller_tax_rep_city,
+        seller_tax_rep_postal_code=seller_tax_rep_postal_code,
+        seller_tax_rep_country_code=seller_tax_rep_country_code,
+        seller_tax_rep_tax_id=seller_tax_rep_tax_id,
     )
 
     if isinstance(data, str):
@@ -626,6 +719,22 @@ async def einvoice_generate_zugferd(
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges: str = "",
+    tax_exemption_reason: str = "",
+    tax_exemption_reason_code: str = "",
+    tender_or_lot_reference: str = "",
+    seller_trading_name: str = "",
+    buyer_trading_name: str = "",
+    payee_name: str = "",
+    payee_id: str = "",
+    payee_legal_registration_id: str = "",
+    payment_card_pan: str = "",
+    payment_card_holder: str = "",
+    seller_tax_rep_name: str = "",
+    seller_tax_rep_street: str = "",
+    seller_tax_rep_city: str = "",
+    seller_tax_rep_postal_code: str = "",
+    seller_tax_rep_country_code: str = "",
+    seller_tax_rep_tax_id: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -699,6 +808,22 @@ async def einvoice_generate_zugferd(
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
         allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
+        tax_exemption_reason: Befreiungsgrund Text (BT-120).
+        tax_exemption_reason_code: Befreiungsgrund Code (BT-121).
+        tender_or_lot_reference: Vergabe-/Losnummer (BT-17).
+        seller_trading_name: Handelsname Verkäufer (BT-28).
+        buyer_trading_name: Handelsname Käufer (BT-45).
+        payee_name: Zahlungsempfänger Name (BT-59).
+        payee_id: Kennung des Zahlungsempfängers (BT-60).
+        payee_legal_registration_id: Handelsregister Zahlungsempfänger (BT-61).
+        payment_card_pan: Kartennummer letzte Stellen (BT-87).
+        payment_card_holder: Karteninhaber (BT-88).
+        seller_tax_rep_name: Steuervertreter Name (BT-62).
+        seller_tax_rep_street: Steuervertreter Straße (BT-64).
+        seller_tax_rep_city: Steuervertreter Stadt.
+        seller_tax_rep_postal_code: Steuervertreter PLZ.
+        seller_tax_rep_country_code: Steuervertreter Land.
+        seller_tax_rep_tax_id: Steuervertreter USt-IdNr. (BT-63).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -769,6 +894,22 @@ async def einvoice_generate_zugferd(
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
         allowances_charges_json=allowances_charges,
+        tax_exemption_reason=tax_exemption_reason,
+        tax_exemption_reason_code=tax_exemption_reason_code,
+        tender_or_lot_reference=tender_or_lot_reference,
+        seller_trading_name=seller_trading_name,
+        buyer_trading_name=buyer_trading_name,
+        payee_name=payee_name,
+        payee_id=payee_id,
+        payee_legal_registration_id=payee_legal_registration_id,
+        payment_card_pan=payment_card_pan,
+        payment_card_holder=payment_card_holder,
+        seller_tax_rep_name=seller_tax_rep_name,
+        seller_tax_rep_street=seller_tax_rep_street,
+        seller_tax_rep_city=seller_tax_rep_city,
+        seller_tax_rep_postal_code=seller_tax_rep_postal_code,
+        seller_tax_rep_country_code=seller_tax_rep_country_code,
+        seller_tax_rep_tax_id=seller_tax_rep_tax_id,
     )
 
     if isinstance(data, str):

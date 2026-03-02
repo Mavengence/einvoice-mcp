@@ -5263,3 +5263,419 @@ class TestEdgeCases:
             )
 
 
+# ---------------------------------------------------------------------------
+# Line-level invoicing period (BT-134/BT-135) roundtrip
+# ---------------------------------------------------------------------------
+class TestLinePeriodRoundtrip:
+    """BT-134/BT-135 line-level billing period roundtrip."""
+
+    def test_line_period_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="LP-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Monthly subscription",
+                    quantity="1",
+                    unit_price="99.99",
+                    line_period_start="2026-01-01",
+                    line_period_end="2026-01-31",
+                ),
+                LineItem(
+                    description="One-time setup",
+                    quantity="1",
+                    unit_price="50",
+                ),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        # First item has period
+        assert str(parsed.items[0].line_period_start) == "2026-01-01"
+        assert str(parsed.items[0].line_period_end) == "2026-01-31"
+        # Second item has no period
+        assert parsed.items[1].line_period_start is None
+        assert parsed.items[1].line_period_end is None
+
+
+class TestSellerTaxRepresentativeRoundtrip:
+    """BG-11 seller tax representative party roundtrip."""
+
+    def test_seller_tax_rep_roundtrip(self) -> None:
+        rep = Party(
+            name="Steuerberater Schmidt GmbH",
+            address=Address(
+                street="Steuerstraße 1",
+                city="München",
+                postal_code="80331",
+                country_code="DE",
+            ),
+            tax_id="DE999888777",
+        )
+        data = InvoiceData(
+            invoice_id="REP-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Foreign Seller Ltd",
+                address=Address(street="123 High St", city="London", postal_code="EC1A"),
+                tax_id="GB123456789",
+            ),
+            buyer=Party(
+                name="Käufer GmbH",
+                address=Address(street="Berliner Str. 1", city="Berlin", postal_code="10115"),
+            ),
+            seller_tax_representative=rep,
+            items=[
+                LineItem(description="Beratung", quantity="1", unit_price="1000"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller_tax_representative is not None
+        assert parsed.seller_tax_representative.name == "Steuerberater Schmidt GmbH"
+        assert parsed.seller_tax_representative.address.city == "München"
+        assert parsed.seller_tax_representative.tax_id == "DE999888777"
+
+    def test_seller_tax_rep_full_address(self) -> None:
+        """Tax rep with street_2 and street_3 — covers builder lines 171/173."""
+        rep = Party(
+            name="Rep GmbH",
+            address=Address(
+                street="Hauptstraße 10",
+                street_2="Gebäude C",
+                street_3="3. OG",
+                city="Frankfurt",
+                postal_code="60311",
+                country_code="DE",
+            ),
+            tax_id="DE111222333",
+        )
+        data = InvoiceData(
+            invoice_id="REP-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Foreign Co",
+                address=Address(
+                    street="1 Rue A", city="Paris",
+                    postal_code="75001", country_code="FR",
+                ),
+                tax_id="FR12345678901",
+            ),
+            buyer=Party(
+                name="Käufer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            seller_tax_representative=rep,
+            items=[
+                LineItem(description="Item", quantity="1", unit_price="500"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller_tax_representative is not None
+        assert parsed.seller_tax_representative.address.street_2 == "Gebäude C"
+        assert parsed.seller_tax_representative.address.street_3 == "3. OG"
+
+    def test_no_seller_tax_rep(self) -> None:
+        data = InvoiceData(
+            invoice_id="NOREP-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="Item", quantity="1", unit_price="100"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller_tax_representative is None
+
+
+class TestPayeeAndPaymentCardRoundtrip:
+    """BG-10 payee party + BG-18 payment card roundtrip."""
+
+    def test_payee_party_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="PAYEE-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer AG",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            payee_name="Factoring GmbH",
+            payee_id="FACT-123",
+            payee_legal_registration_id="HRB 98765",
+            items=[
+                LineItem(description="Item", quantity="1", unit_price="200"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.payee_name == "Factoring GmbH"
+        assert parsed.payee_id == "FACT-123"
+        assert parsed.payee_legal_registration_id == "HRB 98765"
+
+    def test_payment_card_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="CARD-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            payment_means_type_code="48",
+            payment_card_pan="1234",
+            payment_card_holder="Max Mustermann",
+            items=[
+                LineItem(description="Item", quantity="1", unit_price="100"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.payment_card_pan == "1234"
+        assert parsed.payment_card_holder == "Max Mustermann"
+
+    def test_no_payee_no_card(self) -> None:
+        data = InvoiceData(
+            invoice_id="PLAIN-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="Item", quantity="1", unit_price="100"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.payee_name == ""
+        assert parsed.payment_card_pan == ""
+
+
+class TestItemPriceAndClassification:
+    """BT-147/BT-148 gross price + BT-158 classification roundtrip."""
+
+    def test_gross_price_and_discount_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="GP-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Product with discount",
+                    quantity="2",
+                    unit_price="80",
+                    item_gross_price=Decimal("100"),
+                    item_price_discount=Decimal("20"),
+                ),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.items[0].item_gross_price == Decimal("100")
+        assert parsed.items[0].item_price_discount == Decimal("20")
+        assert parsed.items[0].unit_price == Decimal("80")
+
+    def test_item_classification_roundtrip(self) -> None:
+        data = InvoiceData(
+            invoice_id="CLS-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="IT Consulting",
+                    quantity="10",
+                    unit_code="HUR",
+                    unit_price="150",
+                    item_classification_id="72000000",
+                    item_classification_scheme="CPV",
+                ),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.items[0].item_classification_id == "72000000"
+        assert parsed.items[0].item_classification_scheme == "CPV"
+
+    def test_no_gross_no_classification(self) -> None:
+        data = InvoiceData(
+            invoice_id="PLAIN-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="Simple item", quantity="1", unit_price="50"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.items[0].item_gross_price is None
+        assert parsed.items[0].item_price_discount is None
+        assert parsed.items[0].item_classification_id is None
+
+
+class TestAdditionalComplianceChecks:
+    """BR-DE-15, CC-BT-87, REP-BT-63 compliance checks."""
+
+    def _base_data(self, **overrides: object) -> InvoiceData:
+        defaults: dict[str, object] = {
+            "invoice_id": "COMP-001",
+            "issue_date": "2026-01-01",
+            "seller": Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="S", city="C", postal_code="00000",
+                ),
+                tax_id="DE123456789",
+            ),
+            "buyer": Party(
+                name="Buyer AG",
+                address=Address(
+                    street="B", city="C", postal_code="00000",
+                ),
+            ),
+            "items": [
+                LineItem(
+                    description="Item", quantity="1", unit_price="100",
+                ),
+            ],
+        }
+        defaults.update(overrides)
+        return InvoiceData(**defaults)
+
+    @respx.mock
+    async def test_payment_terms_missing(self) -> None:
+        """BR-DE-15: XRechnung requires payment terms (BT-20)."""
+        data = self._base_data()
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BT-20" in fields
+        assert fields["BT-20"]["present"] is False
+        assert "BT-20" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_payment_terms_present(self) -> None:
+        data = self._base_data(
+            payment_terms_text="Zahlbar innerhalb 30 Tagen",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "BT-20" in fields
+        assert fields["BT-20"]["present"] is True
+        await client.close()
+
+    @respx.mock
+    async def test_credit_card_missing_pan(self) -> None:
+        """CC-BT-87: credit card payment requires PAN."""
+        data = self._base_data(payment_means_type_code="48")
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "CC-BT-87" in fields
+        assert fields["CC-BT-87"]["present"] is False
+        await client.close()
+
+    @respx.mock
+    async def test_tax_rep_without_tax_id(self) -> None:
+        """REP-BT-63: tax representative must have VAT ID."""
+        rep = Party(
+            name="Rep GmbH",
+            address=Address(
+                street="R", city="C", postal_code="00000",
+            ),
+            # No tax_id
+        )
+        data = self._base_data(seller_tax_representative=rep)
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "REP-BT-63" in fields
+        assert fields["REP-BT-63"]["present"] is False
+        await client.close()
+
+    @respx.mock
+    async def test_tax_rep_with_tax_id(self) -> None:
+        """REP-BT-63: tax rep with VAT ID should pass."""
+        rep = Party(
+            name="Rep GmbH",
+            address=Address(
+                street="R", city="C", postal_code="00000",
+            ),
+            tax_id="DE999888777",
+        )
+        data = self._base_data(seller_tax_representative=rep)
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        fields = {c["field"]: c for c in result["field_checks"]}
+        assert "REP-BT-63" not in fields
+        await client.close()
+
+

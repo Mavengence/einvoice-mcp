@@ -246,6 +246,16 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Seller tax representative (BG-11, BT-62..BT-65)
+    seller_tax_representative = None
+    try:
+        rep_party = doc.trade.agreement.seller_tax_representative_party
+        rep_name = _str_element(getattr(rep_party, "name", ""))
+        if rep_name:
+            seller_tax_representative = _extract_party(rep_party)
+    except Exception:
+        pass
+
     # Business process type (BT-23)
     business_process_type = ""
     try:
@@ -337,6 +347,51 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Payment card (BT-87/BT-88)
+    payment_card_pan = ""
+    payment_card_holder = ""
+    try:
+        pm_container = doc.trade.settlement.payment_means
+        if hasattr(pm_container, "children"):
+            for pm in pm_container.children:
+                fc = getattr(pm, "financial_card", None)
+                if fc:
+                    card_id = _str_element(getattr(fc, "id", ""))
+                    if card_id:
+                        payment_card_pan = card_id
+                    ch = _str_element(getattr(fc, "cardholder_name", ""))
+                    if ch:
+                        payment_card_holder = ch
+                if payment_card_pan:
+                    break
+    except Exception:
+        pass
+
+    # Payee party (BG-10, BT-59..BT-61)
+    payee_name = ""
+    payee_id = ""
+    payee_legal_registration_id = ""
+    try:
+        payee_obj = doc.trade.settlement.payee
+        pn = _str_element(getattr(payee_obj, "name", ""))
+        if pn:
+            payee_name = pn
+            # Global ID (BT-60)
+            gid_container = getattr(payee_obj, "global_id", None)
+            if gid_container and hasattr(gid_container, "children"):
+                for gid_entry in gid_container.children:
+                    if isinstance(gid_entry, tuple) and len(gid_entry) == 2:
+                        payee_id = str(gid_entry[1]).strip()
+                        break
+            # Legal organization ID (BT-61)
+            legal_org = getattr(payee_obj, "legal_organization", None)
+            if legal_org:
+                lo_id = _str_element(getattr(legal_org, "id", ""))
+                if lo_id:
+                    payee_legal_registration_id = lo_id
+    except Exception:
+        pass
+
     # IBAN / BIC / Bank name (BT-84, BT-86) and buyer IBAN (BT-91)
     seller_iban = ""
     seller_bic = ""
@@ -422,6 +477,12 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         allowances_charges=allowances_charges,
         buyer_iban=buyer_iban,
         mandate_reference_id=mandate_reference_id,
+        seller_tax_representative=seller_tax_representative,
+        payee_name=payee_name,
+        payee_id=payee_id,
+        payee_legal_registration_id=payee_legal_registration_id,
+        payment_card_pan=payment_card_pan,
+        payment_card_holder=payment_card_holder,
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
@@ -625,6 +686,59 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     if gid_scheme:
                         standard_item_scheme = gid_scheme
 
+            # Gross price (BT-148) and price discount (BT-147)
+            item_gross_price = None
+            item_price_discount = None
+            gross_obj = getattr(li.agreement, "gross", None)
+            if gross_obj:
+                gp = _safe_decimal(getattr(gross_obj, "amount", "0"))
+                if gp > 0:
+                    item_gross_price = gp
+                    charge_container = getattr(gross_obj, "charge", None)
+                    if charge_container and hasattr(charge_container, "children"):
+                        for ch in charge_container.children:
+                            disc = _safe_decimal(getattr(ch, "actual_amount", "0"))
+                            if disc > 0:
+                                item_price_discount = disc
+                                break
+
+            # Item classification (BT-158)
+            item_classification_id = None
+            item_classification_scheme = "STL"
+            item_classification_version = ""
+            cls_container = getattr(li.product, "classifications", None)
+            if cls_container and hasattr(cls_container, "children"):
+                for cls_item in cls_container.children:
+                    cc = getattr(cls_item, "class_code", None)
+                    if cc:
+                        # ClassificationElement has _text, _list_id, _list_version_id
+                        cc_text = getattr(cc, "_text", None)
+                        if cc_text:
+                            item_classification_id = str(cc_text).strip()
+                            cc_list_id = getattr(cc, "_list_id", "")
+                            if cc_list_id:
+                                item_classification_scheme = str(cc_list_id).strip()
+                            cc_version = getattr(cc, "_list_version_id", "")
+                            if cc_version:
+                                item_classification_version = str(cc_version).strip()
+                            break
+
+            # Line-level billing period (BT-134/BT-135)
+            line_period_start = None
+            line_period_end = None
+            line_period = getattr(li.settlement, "period", None)
+            if line_period:
+                lps = getattr(line_period, "start", None)
+                if lps:
+                    lps_val = str(lps).strip()
+                    if lps_val and lps_val != "None":
+                        line_period_start = lps_val
+                lpe = getattr(line_period, "end", None)
+                if lpe:
+                    lpe_val = str(lpe).strip()
+                    if lpe_val and lpe_val != "None":
+                        line_period_end = lpe_val
+
             # Buyer accounting reference (BT-133)
             buyer_accounting_reference = None
             acct_obj = getattr(li.settlement, "accounting_account", None)
@@ -658,8 +772,15 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     standard_item_id=standard_item_id,
                     standard_item_scheme=standard_item_scheme,
                     item_note=item_note,
+                    item_gross_price=item_gross_price,
+                    item_price_discount=item_price_discount,
+                    item_classification_id=item_classification_id,
+                    item_classification_scheme=item_classification_scheme,
+                    item_classification_version=item_classification_version,
                     allowances_charges=line_allowances,
                     buyer_accounting_reference=buyer_accounting_reference,
+                    line_period_start=line_period_start,
+                    line_period_end=line_period_end,
                 )
             )
         except Exception:

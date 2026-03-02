@@ -140,6 +140,34 @@ class LineItem(BaseModel):
     item_note: str | None = Field(
         default=None, max_length=1000, description="Positionshinweis (BT-127)"
     )
+    item_gross_price: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description="Brutto-Einzelpreis (BT-148) — vor Abzug von Rabatten",
+    )
+    item_price_discount: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description="Preisabschlag pro Einheit (BT-147) — Brutto-/Netto-Differenz",
+    )
+    item_classification_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Klassifizierungscode (BT-158) — "
+            "z.B. CPV-Code für öffentliche Vergabe"
+        ),
+    )
+    item_classification_scheme: str = Field(
+        default="STL",
+        max_length=20,
+        description="Schema der Klassifizierung (BT-158-1, z.B. STL, CPV)",
+    )
+    item_classification_version: str = Field(
+        default="",
+        max_length=50,
+        description="Version des Klassifizierungsschemas (BT-158-2, z.B. '2008')",
+    )
     allowances_charges: list["LineAllowanceCharge"] = Field(
         default_factory=list,
         max_length=50,
@@ -149,6 +177,14 @@ class LineItem(BaseModel):
         default=None,
         max_length=200,
         description="Kontierungsreferenz des Käufers (BT-133)",
+    )
+    line_period_start: date | None = Field(
+        default=None,
+        description="Abrechnungszeitraum Beginn (BT-134) — für wiederkehrende Leistungen",
+    )
+    line_period_end: date | None = Field(
+        default=None,
+        description="Abrechnungszeitraum Ende (BT-135) — für wiederkehrende Leistungen",
     )
 
 
@@ -282,6 +318,13 @@ class InvoiceData(BaseModel):
         default=None, max_length=100, description="Käuferreferenz / Bestellnummer (BT-10)"
     )
     profile: InvoiceProfile = Field(default=InvoiceProfile.XRECHNUNG, description="Rechnungsprofil")
+    seller_tax_representative: Party | None = Field(
+        default=None,
+        description=(
+            "Steuerlicher Vertreter des Verkäufers (BG-11, BT-62..BT-65) — "
+            "Pflicht wenn Verkäufer keinen Sitz im Steuerland hat"
+        ),
+    )
     seller_contact_name: str | None = Field(
         default=None,
         max_length=200,
@@ -490,6 +533,37 @@ class InvoiceData(BaseModel):
             "falls abweichend vom Rechnungsbetrag (BT-115)"
         ),
     )
+    payee_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Zahlungsempfänger Name (BT-59) — "
+            "falls abweichend vom Verkäufer (z.B. Factoring)"
+        ),
+    )
+    payee_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Kennung des Zahlungsempfängers (BT-60)",
+    )
+    payee_legal_registration_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Handelsregisternummer des Zahlungsempfängers (BT-61)",
+    )
+    payment_card_pan: str | None = Field(
+        default=None,
+        max_length=20,
+        description=(
+            "Zahlungskarten-PAN — letzte 4-6 Stellen (BT-87), "
+            "z.B. '1234' für Kreditkartenzahlung"
+        ),
+    )
+    payment_card_holder: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Name des Karteninhabers (BT-88)",
+    )
     payment_means_type_code: str = Field(
         default="58",
         max_length=3,
@@ -677,6 +751,20 @@ class ParsedInvoice(BaseModel):
     buyer_iban: str = Field(default="", description="IBAN des Käufers (BT-91)")
     mandate_reference_id: str = Field(
         default="", description="SEPA-Mandatsreferenz (BT-89)"
+    )
+    seller_tax_representative: "Party | None" = Field(
+        default=None, description="Steuerlicher Vertreter des Verkäufers (BG-11)"
+    )
+    payee_name: str = Field(default="", description="Zahlungsempfänger Name (BT-59)")
+    payee_id: str = Field(default="", description="Kennung des Zahlungsempfängers (BT-60)")
+    payee_legal_registration_id: str = Field(
+        default="", description="Handelsregisternummer des Zahlungsempfängers (BT-61)"
+    )
+    payment_card_pan: str = Field(
+        default="", description="Zahlungskarten-PAN (BT-87)"
+    )
+    payment_card_holder: str = Field(
+        default="", description="Name des Karteninhabers (BT-88)"
     )
     seller_iban: str = Field(default="", description="IBAN des Verkäufers (BT-84)")
     seller_bic: str = Field(default="", description="BIC des Verkäufers (BT-86)")

@@ -162,6 +162,23 @@ def _build_document(data: InvoiceData) -> bytes:
     if data.buyer_contact_phone:
         doc.trade.agreement.buyer.contact.telephone.number = data.buyer_contact_phone
 
+    # Seller tax representative (BG-11, BT-62..BT-65)
+    if data.seller_tax_representative:
+        rep = doc.trade.agreement.seller_tax_representative_party
+        rep.name = data.seller_tax_representative.name
+        rep.address.line_one = data.seller_tax_representative.address.street
+        if data.seller_tax_representative.address.street_2:
+            rep.address.line_two = data.seller_tax_representative.address.street_2
+        if data.seller_tax_representative.address.street_3:
+            rep.address.line_three = data.seller_tax_representative.address.street_3
+        rep.address.postcode = data.seller_tax_representative.address.postal_code
+        rep.address.city_name = data.seller_tax_representative.address.city
+        rep.address.country_id = data.seller_tax_representative.address.country_code
+        if data.seller_tax_representative.tax_id:
+            rep_tax = TaxRegistration()
+            rep_tax.id = ("VA", data.seller_tax_representative.tax_id)
+            rep.tax_registrations.add(rep_tax)
+
     # Buyer reference (BT-10) — required for XRechnung
     buyer_ref = data.buyer_reference or data.leitweg_id
     if buyer_ref:
@@ -261,6 +278,28 @@ def _build_document(data: InvoiceData) -> bytes:
         li.agreement.net.amount = item.unit_price
         li.agreement.net.basis_quantity._amount = str(Decimal("1"))
         li.agreement.net.basis_quantity._unit_code = item.unit_code
+
+        # Gross price (BT-148) and price discount (BT-147)
+        if item.item_gross_price is not None:
+            li.agreement.gross.amount = item.item_gross_price
+            li.agreement.gross.basis_quantity._amount = str(Decimal("1"))
+            li.agreement.gross.basis_quantity._unit_code = item.unit_code
+            if item.item_price_discount is not None:
+                from drafthorse.models.tradelines import AllowanceCharge as LineAC
+                price_ac = LineAC()
+                price_ac.actual_amount = item.item_price_discount
+                li.agreement.gross.charge.add(price_ac)
+
+        # Item classification (BT-158)
+        if item.item_classification_id:
+            from drafthorse.models.product import ProductClassification
+            cls = ProductClassification()
+            cls.class_code = (
+                item.item_classification_scheme,
+                item.item_classification_version,
+                item.item_classification_id,
+            )
+            li.product.classifications.add(cls)
         li.delivery.billed_quantity._amount = str(item.quantity)
         li.delivery.billed_quantity._unit_code = item.unit_code
 
@@ -275,6 +314,12 @@ def _build_document(data: InvoiceData) -> bytes:
             if lac.reason:
                 line_ac.reason = lac.reason
             li.settlement.allowance_charge.add(line_ac)
+
+        # Line-level billing period (BT-134/BT-135)
+        if item.line_period_start:
+            li.settlement.period.start = item.line_period_start
+        if item.line_period_end:
+            li.settlement.period.end = item.line_period_end
 
         # Buyer accounting reference (BT-133)
         if item.buyer_accounting_reference:
@@ -302,6 +347,22 @@ def _build_document(data: InvoiceData) -> bytes:
     if data.buyer_iban:
         pm.payer_account.iban = data.buyer_iban
     doc.trade.settlement.payment_means.add(pm)
+
+    # Payment card (BG-18, BT-87/BT-88)
+    if data.payment_card_pan:
+        pm.financial_card.id = data.payment_card_pan
+        if data.payment_card_holder:
+            pm.financial_card.cardholder_name = data.payment_card_holder
+
+    # Payee party (BG-10, BT-59..BT-61)
+    if data.payee_name:
+        doc.trade.settlement.payee.name = data.payee_name
+        if data.payee_id:
+            doc.trade.settlement.payee.global_id.add(("0088", data.payee_id))
+        if data.payee_legal_registration_id:
+            doc.trade.settlement.payee.legal_organization.id = (
+                data.payee_legal_registration_id
+            )
 
     # Remittance information (BT-83) / Verwendungszweck
     if data.remittance_information:

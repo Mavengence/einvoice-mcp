@@ -213,6 +213,18 @@ SUGGESTIONS_MAP = {
         "Bei SEPA-Lastschrift (PaymentMeansCode 59) ist die IBAN des Käufers "
         "(BT-91) erforderlich."
     ),
+    "BT-20": (
+        "BT-20 (Zahlungsbedingungen) fehlt — "
+        "gemäß BR-DE-15 müssen Zahlungsbedingungen angegeben werden."
+    ),
+    "CC-BT-87": (
+        "Bei Kreditkartenzahlung (PaymentMeansCode 48) ist die Kartennummer "
+        "(BT-87, letzte 4-6 Stellen) erforderlich."
+    ),
+    "REP-BT-63": (
+        "Der steuerliche Vertreter (BG-11) wurde angegeben, aber die "
+        "USt-IdNr. des Vertreters (BT-63) fehlt — diese ist Pflicht."
+    ),
 }
 
 
@@ -681,6 +693,76 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 FieldCheck(
                     field="DD-BT-91",
                     name="IBAN des Käufers (SEPA-Lastschrift)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+    # BR-DE-15: Payment terms (BT-20) required for XRechnung
+    if xrechnung:
+        pt_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:SpecifiedTradePaymentTerms/ram:Description",
+            CII_NS,
+        )
+        pt_present = pt_el is not None and bool(
+            pt_el.text and pt_el.text.strip()
+        )
+        checks.append(
+            FieldCheck(
+                field="BT-20",
+                name="Zahlungsbedingungen",
+                present=pt_present,
+                value=(
+                    pt_el.text.strip()
+                    if pt_present and pt_el is not None and pt_el.text
+                    else ""
+                ),
+                required=True,
+            )
+        )
+
+    # Credit card (PaymentMeansCode=48): BT-87 (card PAN) required
+    if pm_code == "48":
+        card_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:SpecifiedTradeSettlementPaymentMeans"
+            "/ram:ApplicableTradeSettlementFinancialCard/ram:ID",
+            CII_NS,
+        )
+        card_present = card_el is not None and bool(
+            card_el.text and card_el.text.strip()
+        )
+        if not card_present:
+            checks.append(
+                FieldCheck(
+                    field="CC-BT-87",
+                    name="Kartennummer (Kreditkarte)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+    # Seller tax representative (BG-11): if present, BT-63 (VAT ID) required
+    rep_name_el = root.find(
+        ".//ram:SellerTaxRepresentativeTradeParty/ram:Name", CII_NS
+    )
+    if rep_name_el is not None and rep_name_el.text:
+        rep_tax_el = root.find(
+            ".//ram:SellerTaxRepresentativeTradeParty"
+            "/ram:SpecifiedTaxRegistration/ram:ID",
+            CII_NS,
+        )
+        rep_tax_present = rep_tax_el is not None and bool(
+            rep_tax_el.text and rep_tax_el.text.strip()
+        )
+        if not rep_tax_present:
+            checks.append(
+                FieldCheck(
+                    field="REP-BT-63",
+                    name="USt-IdNr. des Steuervertreters",
                     present=False,
                     value="",
                     required=True,

@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**443 tests | 99% coverage (1677 stmts, 2 defensive) | 0 failures | lint clean (ruff + mypy strict)**
+**458 tests | 99% coverage (1847 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -77,6 +77,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-45 | Buyer trading name | `test_trading_names_roundtrip` | PASS |
 | BT-17 | Tender or lot reference | `test_tender_reference_roundtrip` | PASS |
 | BT-133 | Buyer accounting reference | `test_bt133_roundtrip` | PASS |
+| BT-134/135 | Line-level billing period | `test_line_period_roundtrip` | PASS |
+| BT-147/148 | Gross price / price discount | `test_gross_price_and_discount_roundtrip` | PASS |
+| BT-158 | Item classification (CPV, etc.) | `test_item_classification_roundtrip` | PASS |
+| BG-11 | Seller tax representative (BT-62..65) | `test_seller_tax_rep_roundtrip` | PASS |
+| BG-10 | Payee party (BT-59..61) | `test_payee_party_roundtrip` | PASS |
+| BG-18 | Payment card (BT-87/88) | `test_payment_card_roundtrip` | PASS |
 | Skonto | Payment discount terms | `test_skonto_roundtrip` | PASS |
 
 ### Calculation Rules
@@ -100,6 +106,9 @@ Every mandatory Business Term is tested in generated XML output:
 | §33 UStDV | Kleinbetragsrechnung advisory (≤250€) | `test_small_invoice_gets_kb_hint` | PASS |
 | BR-E-10 | Exemption reason required for TaxCategory E | `test_compliance_missing_exemption_reason` | PASS |
 | BR-DE-24 | SEPA DD: mandate (BT-89) + buyer IBAN (BT-91) | `test_dd_missing_mandate_and_iban` | PASS |
+| BR-DE-15 | Payment terms (BT-20) required for XRechnung | `test_payment_terms_missing` | PASS |
+| CC-BT-87 | Credit card PAN required when code=48 | `test_credit_card_missing_pan` | PASS |
+| REP-BT-63 | Tax rep VAT ID required when BG-11 present | `test_tax_rep_without_tax_id` | PASS |
 | IBAN | IBAN format validation (ISO 13616) | `test_invalid_iban_*` | PASS |
 | BIC | BIC format validation (ISO 9362) | `test_invalid_bic_*` | PASS |
 
@@ -146,6 +155,12 @@ Every mandatory Business Term is tested in generated XML output:
 | Trading names roundtrip | BT-28/BT-45 generate → parse | `test_trading_names_roundtrip` | PASS |
 | Tender reference roundtrip | BT-17 generate → parse | `test_tender_reference_roundtrip` | PASS |
 | Exemption reason roundtrip | BT-120/BT-121 generate → parse | `test_exemption_reason_roundtrip` | PASS |
+| Line period roundtrip | BT-134/BT-135 generate → parse | `test_line_period_roundtrip` | PASS |
+| Seller tax rep roundtrip | BG-11 generate → parse | `test_seller_tax_rep_roundtrip` | PASS |
+| Payee roundtrip | BT-59/60/61 generate → parse | `test_payee_party_roundtrip` | PASS |
+| Payment card roundtrip | BT-87/88 generate → parse | `test_payment_card_roundtrip` | PASS |
+| Gross price roundtrip | BT-147/148 generate → parse | `test_gross_price_and_discount_roundtrip` | PASS |
+| Classification roundtrip | BT-158 generate → parse | `test_item_classification_roundtrip` | PASS |
 | Multi-reference coexistence | BT-17 + BT-18 in same invoice | `test_tender_and_invoiced_object_coexist` | PASS |
 | Non-ASCII party names | Cyrillic/Chinese names | `test_non_ascii_party_names` | PASS |
 | All type codes | 380, 381, 384, 389, 875, 876, 877 | `test_all_type_codes` | PASS |
@@ -204,16 +219,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 272 | 0 | **100%** |
-| `services/invoice_builder.py` | 259 | 0 | **100%** |
+| `models.py` | 291 | 0 | **100%** |
+| `services/invoice_builder.py` | 302 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
-| `services/xml_parser.py` | 522 | 2 | **99%** |
-| `tools/compliance.py` | 188 | 0 | **100%** |
+| `services/xml_parser.py` | 615 | 7 | **99%** |
+| `tools/compliance.py` | 203 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1677** | **2** | **99%** |
+| **TOTAL** | **1847** | **7** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
