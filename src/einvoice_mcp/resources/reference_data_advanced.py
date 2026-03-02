@@ -1,4 +1,4 @@
-"""Advanced reference resources (Leitweg-ID, tax category decision tree)."""
+"""Advanced reference resources — Leitweg-ID, tax tree, SEPA, CPV, BT-23, VAT exemptions."""
 
 import json
 
@@ -233,6 +233,334 @@ def tax_category_decision_tree() -> str:
                 "6. Gilt der Nullsteuersatz (§12 Abs. 3)? "
                 "→ Ja → Kategorie Z",
                 "7. Standardfall → Kategorie S mit 19% oder 7%",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def sepa_mandate_type_codes() -> str:
+    """SEPA-Mandatstyp-Codes fuer Lastschriftverfahren.
+
+    Referenzdaten fuer BT-89 (Mandatsreferenz) und die zugehoerigen
+    Mandatstypen im SEPA-Lastschriftverfahren.
+    """
+    return json.dumps(
+        {
+            "titel": "SEPA-Mandatstyp-Codes (Lastschriftverfahren)",
+            "kontext": (
+                "Bei Zahlungsart 49 (SEPA Core Direct Debit) oder "
+                "59 (SEPA B2B Direct Debit) muss ein SEPA-Mandat "
+                "vorliegen. Die Mandatsreferenz wird in BT-89 angegeben."
+            ),
+            "mandatstypen": {
+                "CORE": {
+                    "name": "SEPA-Basislastschrift",
+                    "payment_means_code": "49",
+                    "zielgruppe": "B2C und B2B",
+                    "widerrufsfrist": "8 Wochen (autorisiert), 13 Monate (unautorisiert)",
+                    "vorlaufzeit_erst": "5 Bankarbeitstage (D-5)",
+                    "vorlaufzeit_folge": "2 Bankarbeitstage (D-2)",
+                },
+                "B2B": {
+                    "name": "SEPA-Firmenlastschrift",
+                    "payment_means_code": "59",
+                    "zielgruppe": "Nur B2B (Unternehmen)",
+                    "widerrufsfrist": "Kein Widerrufsrecht",
+                    "vorlaufzeit_erst": "1 Bankarbeitstag (D-1)",
+                    "vorlaufzeit_folge": "1 Bankarbeitstag (D-1)",
+                },
+            },
+            "sequenz_typen": {
+                "FRST": "Erstlastschrift (erstes Einziehen unter neuem Mandat)",
+                "RCUR": "Folgelastschrift (wiederkehrend)",
+                "OOFF": "Einmallastschrift",
+                "FNAL": "Letzte Lastschrift (Mandat wird danach beendet)",
+            },
+            "pflichtfelder_e_rechnung": {
+                "BT-81": "PaymentMeansCode: 49 (Core) oder 59 (B2B)",
+                "BT-89": "Mandatsreferenz (eindeutige Kennung, max. 35 Zeichen)",
+                "BT-90": "Gläubiger-Identifikationsnummer (Creditor ID, DE...)",
+                "BT-91": "IBAN des Zahlungspflichtigen (Käufer-IBAN)",
+            },
+            "glaeubiger_id": {
+                "format": "DExxZZZ0nnnnnnnnnn",
+                "laenge": "18 Zeichen",
+                "beantragung": "Deutsche Bundesbank (https://www.glaeubiger-id.bundesbank.de)",
+                "beispiel": "DE98ZZZ09999999999",
+            },
+            "hinweise": [
+                "Mandatsreferenz + Gläubiger-ID müssen in der Pre-Notification angegeben werden",
+                "Pre-Notification: 14 Tage vor Einzug (verkürzt auf 1 Tag per Vereinbarung)",
+                "Mandat verfällt nach 36 Monaten ohne Einzug",
+                "BT-89 und BT-91 sind BR-DE-24 Pflichtfelder bei Code 59",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def cpv_classification_codes() -> str:
+    """Haeufige CPV-Codes fuer oeffentliche Vergaben (BT-158).
+
+    Common Procurement Vocabulary (CPV) Codes, die bei
+    XRechnung an oeffentliche Auftraggeber oft benoetigt werden.
+    """
+    return json.dumps(
+        {
+            "titel": "CPV-Klassifikationscodes (BT-158) — Öffentliche Vergabe",
+            "beschreibung": (
+                "Das CPV (Common Procurement Vocabulary) ist das "
+                "EU-Standard-Klassifikationssystem für öffentliche "
+                "Aufträge. Bei XRechnungen an öffentliche Auftraggeber "
+                "kann eine Warenklassifikation (BT-158) gefordert sein."
+            ),
+            "schema_id": {
+                "CPV": "Scheme Identifier für CPV",
+                "UNSPSC": "Scheme Identifier für UNSPSC",
+                "eClass": "Scheme Identifier für eCl@ss",
+            },
+            "haeufige_cpv_codes": {
+                "IT und Software": {
+                    "72000000": "IT-Dienste: Beratung, Software-Entwicklung",
+                    "72200000": "Softwareprogrammierung und -beratung",
+                    "72300000": "Datendienste",
+                    "30200000": "Computeranlagen und Zubehör",
+                    "48000000": "Softwarepaket und Informationssysteme",
+                },
+                "Beratung": {
+                    "79400000": "Unternehmens- und Managementberatung",
+                    "79410000": "Unternehmens- und Managementberatung",
+                    "79200000": "Buchführung, Wirtschaftsprüfung, Steuerberatung",
+                },
+                "Bau": {
+                    "45000000": "Bauarbeiten",
+                    "45200000": "Komplett- oder Teilbauleistungen",
+                    "45300000": "Bauinstallationsarbeiten",
+                    "71300000": "Dienstleistungen von Ingenieurbüros",
+                },
+                "Büro und Verwaltung": {
+                    "22000000": "Druckerzeugnisse",
+                    "30100000": "Büromaschinen, -geräte und -bedarf",
+                    "79500000": "Bürodienstleistungen",
+                    "64100000": "Post- und Kurierdienste",
+                },
+                "Gesundheit": {
+                    "85100000": "Dienstleistungen des Gesundheitswesens",
+                    "33100000": "Medizinische Geräte",
+                    "85140000": "Diverse Dienstleistungen im Gesundheitswesen",
+                },
+                "Facility Management": {
+                    "90900000": "Reinigungs- und Hygienedienste",
+                    "50700000": "Reparatur und Wartung von Gebäudeeinrichtungen",
+                    "98300000": "Diverse Dienstleistungen",
+                },
+            },
+            "e_rechnung_felder": {
+                "BT-158": "Item classification identifier (CPV-Code)",
+                "BT-158-1": "Scheme identifier: 'CPV'",
+                "BT-158-2": "Scheme version identifier (optional)",
+            },
+            "hinweise": [
+                "CPV-Codes haben 8 Ziffern + Prüfziffer (z.B. 72000000-5)",
+                "In der E-Rechnung nur die 8 Ziffern ohne Prüfziffer angeben",
+                "Öffentliche Auftraggeber können CPV als Pflichtfeld definieren",
+                "UNSPSC ist international verbreitet, CPV EU-spezifisch",
+                "eCl@ss (v5.1.4+) wird in der Industrie häufig verwendet",
+                "Bei mehreren Klassifikationen: pro Position ein BT-158 Eintrag",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def business_process_identifiers() -> str:
+    """Geschaeftsprozesstyp-Kennungen (BT-23).
+
+    Standardisierte Prozessbezeichner fuer den E-Rechnungsaustausch,
+    insbesondere Peppol BIS und XRechnung.
+    """
+    return json.dumps(
+        {
+            "titel": "Geschäftsprozesstyp-Kennungen (BT-23)",
+            "beschreibung": (
+                "BT-23 identifiziert den Geschäftsprozess, in dem "
+                "die Rechnung ausgetauscht wird. Bei Peppol-Netzwerk "
+                "und vielen öffentlichen Empfängern ist dies Pflicht."
+            ),
+            "standard_kennungen": {
+                "peppol_billing": {
+                    "id": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+                    "name": "Peppol BIS Billing 3.0",
+                    "verwendung": "Standard für Peppol-Netzwerk (EU-weit)",
+                },
+                "xrechnung": {
+                    "id": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+                    "name": "XRechnung (nutzt Peppol-Prozesskennung)",
+                    "verwendung": (
+                        "XRechnung verwendet dieselbe Prozesskennung "
+                        "wie Peppol BIS Billing"
+                    ),
+                },
+            },
+            "wann_pflicht": [
+                "Bei Versand über das Peppol-Netzwerk (immer Pflicht)",
+                "Bei vielen öffentlichen Auftraggebern in DE",
+                "Bei Nutzung von Access Points / Service Providern",
+            ],
+            "wann_optional": [
+                "Direkter bilateraler Austausch (E-Mail, Portal-Upload)",
+                "ZUGFeRD ohne Netzwerk-Routing",
+                "Interne Rechnungen (Konzernverrechnungen)",
+            ],
+            "e_rechnung_feld": {
+                "BT-23": "BusinessProcessType im XML-Header",
+                "xpath": (
+                    "rsm:ExchangedDocumentContext/"
+                    "ram:BusinessProcessSpecifiedDocumentContextParameter/"
+                    "ram:ID"
+                ),
+            },
+            "hinweise": [
+                "XRechnung setzt BT-23 nicht als Pflicht, empfiehlt aber die Angabe",
+                "Im Peppol-Netzwerk wird BT-23 für das Routing verwendet",
+                "Eigene Prozess-IDs sind möglich, aber nicht interoperabel",
+                "Bei fehlendem BT-23 kann der Empfänger die Rechnung ablehnen",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def vat_exemption_reason_texts() -> str:
+    """Deutsche USt-Befreiungsgrund-Texte (BT-120).
+
+    Standardisierte Befreiungsgruende fuer die haeufigsten
+    Steuerbefreiungen nach UStG mit passendem VATEX-Code (BT-121).
+    """
+    return json.dumps(
+        {
+            "titel": "USt-Befreiungsgründe — Texte für BT-120 und BT-121",
+            "beschreibung": (
+                "Bei steuerbefreiten Umsätzen (Kategorie E, AE, K, G) "
+                "muss der Befreiungsgrund (BT-120) und der zugehörige "
+                "Code (BT-121) angegeben werden."
+            ),
+            "befreiungsgruende": {
+                "kleinunternehmer": {
+                    "paragraph": "§19 UStG",
+                    "bt_120": (
+                        "Kein Ausweis von Umsatzsteuer, da Kleinunternehmer "
+                        "gemäß §19 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": "Kein Vorsteuerabzug beim Empfänger möglich",
+                },
+                "innergemeinschaftliche_lieferung": {
+                    "paragraph": "§4 Nr. 1b i.V.m. §6a UStG",
+                    "bt_120": (
+                        "Steuerfreie innergemeinschaftliche Lieferung "
+                        "gemäß §4 Nr. 1b i.V.m. §6a UStG."
+                    ),
+                    "bt_121": "VATEX-EU-IC",
+                    "tax_category": "K",
+                    "hinweis": "USt-IdNr. beider Parteien Pflicht",
+                },
+                "ausfuhrlieferung": {
+                    "paragraph": "§4 Nr. 1a i.V.m. §6 UStG",
+                    "bt_120": (
+                        "Steuerfreie Ausfuhrlieferung gemäß "
+                        "§4 Nr. 1a i.V.m. §6 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-G",
+                    "tax_category": "G",
+                    "hinweis": "Ausfuhrnachweis (Zoll) erforderlich",
+                },
+                "reverse_charge_13b_1": {
+                    "paragraph": "§13b Abs. 1 UStG",
+                    "bt_120": (
+                        "Steuerschuldnerschaft des Leistungsempfängers "
+                        "gemäß §13b Abs. 1 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-AE",
+                    "tax_category": "AE",
+                    "hinweis": "Ausländischer Unternehmer an DE-Empfänger",
+                },
+                "reverse_charge_13b_2_4": {
+                    "paragraph": "§13b Abs. 2 Nr. 4 UStG",
+                    "bt_120": (
+                        "Steuerschuldnerschaft des Leistungsempfängers "
+                        "für Bauleistungen gemäß §13b Abs. 2 Nr. 4 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-AE",
+                    "tax_category": "AE",
+                    "hinweis": "Bauleistungen an Bauleistende",
+                },
+                "medizinische_leistung": {
+                    "paragraph": "§4 Nr. 14 UStG",
+                    "bt_120": (
+                        "Steuerbefreite Heilbehandlung im Bereich der "
+                        "Humanmedizin gemäß §4 Nr. 14 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": "Nur ärztliche Heilbehandlungen, nicht Kosmetik",
+                },
+                "bildungsleistung": {
+                    "paragraph": "§4 Nr. 21 UStG",
+                    "bt_120": (
+                        "Steuerbefreite Bildungsleistung gemäß "
+                        "§4 Nr. 21 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": "Staatlich anerkannte Bildungseinrichtungen",
+                },
+                "versicherungsleistung": {
+                    "paragraph": "§4 Nr. 10 UStG",
+                    "bt_120": (
+                        "Steuerbefreite Versicherungsleistung gemäß "
+                        "§4 Nr. 10 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": "Versicherungsumsätze und Vermittlung",
+                },
+                "finanzdienstleistung": {
+                    "paragraph": "§4 Nr. 8 UStG",
+                    "bt_120": (
+                        "Steuerbefreite Finanzdienstleistung gemäß "
+                        "§4 Nr. 8 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": "Kreditgewährung, Wertpapierhandel",
+                },
+                "vermietung_wohnraum": {
+                    "paragraph": "§4 Nr. 12 UStG",
+                    "bt_120": (
+                        "Steuerbefreite Vermietung und Verpachtung "
+                        "von Grundstücken gemäß §4 Nr. 12 UStG."
+                    ),
+                    "bt_121": "VATEX-EU-O",
+                    "tax_category": "E",
+                    "hinweis": (
+                        "Option zur Steuerpflicht möglich (§9 UStG) "
+                        "bei Vermietung an Unternehmer"
+                    ),
+                },
+            },
+            "hinweise": [
+                "BT-120 und BT-121 sind bei Kategorie E, AE, K, G Pflicht",
+                "Freier Text in BT-120 erlaubt, Standardtexte empfohlen",
+                "VATEX-Codes stammen aus der CEF VATEX Code List",
+                "Bei Kombination mehrerer Befreiungen: pro Steuergruppe angeben",
+                "Detaillierte VATEX-Codes: siehe Resource einvoice://reference/vatex-codes",
             ],
         },
         ensure_ascii=False,

@@ -37,6 +37,12 @@ async def parse_einvoice(file_content: str, file_type: str = "xml") -> dict[str,
 
 
 async def _parse_xml(xml_content: str) -> dict[str, Any]:
+    if not xml_content or not xml_content.strip():
+        return {
+            "success": False,
+            "error": "Fehler: XML-Inhalt darf nicht leer sein.",
+        }
+
     if len(xml_content) > MAX_XML_SIZE:
         return {
             "success": False,
@@ -52,6 +58,12 @@ async def _parse_xml(xml_content: str) -> dict[str, Any]:
 
 
 async def _parse_pdf(pdf_base64: str) -> dict[str, Any]:
+    if not pdf_base64 or not pdf_base64.strip():
+        return {
+            "success": False,
+            "error": "Fehler: PDF-Base64-Inhalt darf nicht leer sein.",
+        }
+
     if len(pdf_base64) > MAX_PDF_BASE64_SIZE:
         return {
             "success": False,

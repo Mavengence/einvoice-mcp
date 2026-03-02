@@ -10008,3 +10008,211 @@ class TestEASSchemeValidation:
         assert br22.present is False
 
 
+# ---------------------------------------------------------------------------
+# New prompt registration tests (batch 3)
+# ---------------------------------------------------------------------------
+
+
+class TestBatch3PromptRegistration:
+    """Verify 5 new prompts from guides_additional are importable and non-empty."""
+
+    def test_rechnungsberichtigung_vs_storno(self) -> None:
+        from einvoice_mcp.prompts import rechnungsberichtigung_vs_storno
+
+        text = rechnungsberichtigung_vs_storno()
+        assert "381" in text
+        assert "384" in text
+        assert "Stornorechnung" in text or "Storno" in text
+
+    def test_reverse_charge_steuervertreter_combined(self) -> None:
+        from einvoice_mcp.prompts import reverse_charge_steuervertreter_combined
+
+        text = reverse_charge_steuervertreter_combined()
+        assert "Steuervertreter" in text
+        assert "13b" in text
+        assert "BG-11" in text or "BT-62" in text
+
+    def test_teilrechnung_workflow(self) -> None:
+        from einvoice_mcp.prompts import teilrechnung_workflow
+
+        text = teilrechnung_workflow()
+        assert "875" in text
+        assert "877" in text
+        assert "prepaid_amount" in text or "PrepaidAmount" in text
+
+    def test_innergemeinschaftliche_deep_dive(self) -> None:
+        from einvoice_mcp.prompts import innergemeinschaftliche_deep_dive
+
+        text = innergemeinschaftliche_deep_dive()
+        assert "Gelangensbestaetigung" in text or "Gelangensbestätigung" in text
+        assert "ZM" in text or "Zusammenfassende Meldung" in text
+
+    def test_skonto_berechnung_guide(self) -> None:
+        from einvoice_mcp.prompts import skonto_berechnung_guide
+
+        text = skonto_berechnung_guide()
+        assert "Skonto" in text
+        assert "BT-20" in text
+        assert "17" in text  # §17 UStG reference
+
+
+# ---------------------------------------------------------------------------
+# New resource tests (batch 2)
+# ---------------------------------------------------------------------------
+
+
+class TestBatch2Resources:
+    """Verify 4 new resources from reference_data_advanced."""
+
+    def test_sepa_mandate_type_codes(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import sepa_mandate_type_codes
+
+        data = json.loads(sepa_mandate_type_codes())
+        assert "mandatstypen" in data
+        assert "CORE" in data["mandatstypen"]
+        assert "B2B" in data["mandatstypen"]
+        assert "sequenz_typen" in data
+        assert "FRST" in data["sequenz_typen"]
+
+    def test_cpv_classification_codes(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import cpv_classification_codes
+
+        data = json.loads(cpv_classification_codes())
+        assert "haeufige_cpv_codes" in data
+        assert "IT und Software" in data["haeufige_cpv_codes"]
+        assert "Bau" in data["haeufige_cpv_codes"]
+
+    def test_business_process_identifiers(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import business_process_identifiers
+
+        data = json.loads(business_process_identifiers())
+        assert "standard_kennungen" in data
+        assert "peppol_billing" in data["standard_kennungen"]
+
+    def test_vat_exemption_reason_texts(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import vat_exemption_reason_texts
+
+        data = json.loads(vat_exemption_reason_texts())
+        assert "befreiungsgruende" in data
+        reasons = data["befreiungsgruende"]
+        assert "kleinunternehmer" in reasons
+        assert "innergemeinschaftliche_lieferung" in reasons
+        assert "ausfuhrlieferung" in reasons
+        assert "reverse_charge_13b_1" in reasons
+        # Each entry has bt_120 and bt_121
+        for key, entry in reasons.items():
+            assert "bt_120" in entry, f"{key} missing bt_120"
+            assert "bt_121" in entry, f"{key} missing bt_121"
+
+
+# ---------------------------------------------------------------------------
+# Tool input validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestToolInputValidation:
+    """Test empty input and edge-case validation for all tools."""
+
+    @pytest.mark.asyncio
+    async def test_validate_xrechnung_empty_xml(self) -> None:
+        from einvoice_mcp.tools.validate import validate_xrechnung
+
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_xrechnung("", mock_kosit)
+        assert result["valid"] is False
+        assert "leer" in result["errors"][0]["message"]
+
+    @pytest.mark.asyncio
+    async def test_validate_xrechnung_whitespace_only(self) -> None:
+        from einvoice_mcp.tools.validate import validate_xrechnung
+
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_xrechnung("   \n\t  ", mock_kosit)
+        assert result["valid"] is False
+        assert "leer" in result["errors"][0]["message"]
+
+    @pytest.mark.asyncio
+    async def test_validate_zugferd_empty_base64(self) -> None:
+        from einvoice_mcp.tools.validate import validate_zugferd
+
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_zugferd("", mock_kosit)
+        assert result["valid"] is False
+        assert "leer" in result["errors"][0]["message"]
+
+    @pytest.mark.asyncio
+    async def test_parse_xml_empty(self) -> None:
+        from einvoice_mcp.tools.parse import parse_einvoice
+
+        result = await parse_einvoice("", "xml")
+        assert result["success"] is False
+        assert "leer" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_parse_pdf_empty(self) -> None:
+        from einvoice_mcp.tools.parse import parse_einvoice
+
+        result = await parse_einvoice("", "pdf")
+        assert result["success"] is False
+        assert "leer" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_parse_invalid_file_type(self) -> None:
+        from einvoice_mcp.tools.parse import parse_einvoice
+
+        result = await parse_einvoice("<xml/>", "docx")
+        assert result["success"] is False
+        assert "Dateityp" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_parse_pdf_invalid_base64(self) -> None:
+        from einvoice_mcp.tools.parse import parse_einvoice
+
+        result = await parse_einvoice("not-valid-base64!!!", "pdf")
+        assert result["success"] is False
+        assert "Base64" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_validate_xrechnung_invalid_xml(self) -> None:
+        from einvoice_mcp.tools.validate import validate_xrechnung
+
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_xrechnung("this is not xml", mock_kosit)
+        assert result["valid"] is False
+        assert "XML" in result["errors"][0]["message"]
+
+    @pytest.mark.asyncio
+    async def test_validate_xrechnung_xxe_blocked(self) -> None:
+        from einvoice_mcp.tools.validate import validate_xrechnung
+
+        xxe_xml = (
+            '<?xml version="1.0"?>'
+            '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+            "<foo>&xxe;</foo>"
+        )
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_xrechnung(xxe_xml, mock_kosit)
+        assert result["valid"] is False
+        assert "DTD" in result["errors"][0]["message"] or "Entity" in result["errors"][0]["message"]
+
+    @pytest.mark.asyncio
+    async def test_validate_xrechnung_size_limit(self) -> None:
+        from einvoice_mcp.config import MAX_XML_SIZE
+        from einvoice_mcp.tools.validate import validate_xrechnung
+
+        huge = "x" * (MAX_XML_SIZE + 1)
+        mock_kosit = type("Mock", (), {"validate": lambda *a: None})()
+        result = await validate_xrechnung(huge, mock_kosit)
+        assert result["valid"] is False
+        msg = result["errors"][0]["message"]
+        assert "Größenlimit" in msg or "limit" in msg.lower()
+
+

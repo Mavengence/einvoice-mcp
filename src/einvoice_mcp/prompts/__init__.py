@@ -16,6 +16,13 @@ from einvoice_mcp.prompts.guides import (
     typecode_entscheidungshilfe,
     xrechnung_schnellstart,
 )
+from einvoice_mcp.prompts.guides_additional import (
+    innergemeinschaftliche_deep_dive,
+    rechnungsberichtigung_vs_storno,
+    reverse_charge_steuervertreter_combined,
+    skonto_berechnung_guide,
+    teilrechnung_workflow,
+)
 from einvoice_mcp.prompts.guides_advanced import (
     dauerrechnung_guide,
     drittlandlieferung_guide,
@@ -37,17 +44,22 @@ __all__ = [
     "gutschrift_erstellen",
     "gutschriftverfahren_389_guide",
     "handwerkerrechnung_35a",
+    "innergemeinschaftliche_deep_dive",
     "innergemeinschaftliche_lieferung_guide",
     "kleinunternehmer_guide",
     "korrekturrechnung_erstellen",
     "proforma_rechnung_guide",
     "ratenzahlung_rechnung",
+    "rechnungsberichtigung_vs_storno",
     "reiseleistungen_25_guide",
     "reverse_charge_checkliste",
+    "reverse_charge_steuervertreter_combined",
     "schlussrechnung_nach_abschlag",
+    "skonto_berechnung_guide",
     "steuernummer_vs_ustidnr_guide",
     "steuerprüfung_checkliste",
     "stornobuchung_workflow",
+    "teilrechnung_workflow",
     "typecode_entscheidungshilfe",
     "xrechnung_schnellstart",
 ]

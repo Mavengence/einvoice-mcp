@@ -18,8 +18,12 @@ from einvoice_mcp.resources.reference_data import (
     reference_vatex_codes,
 )
 from einvoice_mcp.resources.reference_data_advanced import (
+    business_process_identifiers,
+    cpv_classification_codes,
     leitweg_id_format,
+    sepa_mandate_type_codes,
     tax_category_decision_tree,
+    vat_exemption_reason_texts,
 )
 from einvoice_mcp.resources.schemas import (
     schema_allowance_charge,
@@ -31,6 +35,8 @@ from einvoice_mcp.resources.schemas import (
 
 __all__ = [
     "br_de_rules",
+    "business_process_identifiers",
+    "cpv_classification_codes",
     "credit_note_reasons",
     "e_rechnung_pflichten",
     "example_line_items",
@@ -47,7 +53,9 @@ __all__ = [
     "schema_item_attribute",
     "schema_line_item",
     "schema_supporting_document",
+    "sepa_mandate_type_codes",
     "skr03_mapping",
     "skr04_mapping",
     "tax_category_decision_tree",
+    "vat_exemption_reason_texts",
 ]

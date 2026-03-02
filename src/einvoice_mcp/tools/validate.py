@@ -25,6 +25,13 @@ async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict[str, 
     Returns:
         Validation result with errors, warnings, and profile info.
     """
+    if not xml_content or not xml_content.strip():
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: XML-Inhalt darf nicht leer sein."}],
+            "warnings": [],
+        }
+
     if len(xml_content) > MAX_XML_SIZE:
         return {
             "valid": False,
@@ -66,6 +73,13 @@ async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict[str, Any
     Returns:
         Validation result with errors, warnings, and profile info.
     """
+    if not pdf_base64 or not pdf_base64.strip():
+        return {
+            "valid": False,
+            "errors": [{"message": "Fehler: PDF-Base64-Inhalt darf nicht leer sein."}],
+            "warnings": [],
+        }
+
     if len(pdf_base64) > MAX_PDF_BASE64_SIZE:
         return {
             "valid": False,

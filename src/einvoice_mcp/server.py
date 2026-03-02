@@ -13,35 +13,40 @@ from einvoice_mcp.config import settings
 from einvoice_mcp.prompts import (
     abschlagsrechnung_guide,
     b2b_pflicht_2027,
+    bauleistungen_13b_guide,
+    dauerrechnung_guide,
+    differenzbesteuerung_25a_guide,
+    drittlandlieferung_guide,
     gutschrift_erstellen,
+    gutschriftverfahren_389_guide,
     handwerkerrechnung_35a,
+    innergemeinschaftliche_deep_dive,
+    innergemeinschaftliche_lieferung_guide,
+    kleinunternehmer_guide,
     korrekturrechnung_erstellen,
+    proforma_rechnung_guide,
     ratenzahlung_rechnung,
+    rechnungsberichtigung_vs_storno,
+    reiseleistungen_25_guide,
     reverse_charge_checkliste,
+    reverse_charge_steuervertreter_combined,
+    schlussrechnung_nach_abschlag,
+    skonto_berechnung_guide,
+    steuernummer_vs_ustidnr_guide,
     steuerprüfung_checkliste,
+    stornobuchung_workflow,
+    teilrechnung_workflow,
     typecode_entscheidungshilfe,
     xrechnung_schnellstart,
 )
-from einvoice_mcp.prompts.guides import (
-    bauleistungen_13b_guide,
-    differenzbesteuerung_25a_guide,
-    kleinunternehmer_guide,
-    stornobuchung_workflow,
-)
-from einvoice_mcp.prompts.guides_advanced import (
-    dauerrechnung_guide,
-    drittlandlieferung_guide,
-    gutschriftverfahren_389_guide,
-    innergemeinschaftliche_lieferung_guide,
-    proforma_rechnung_guide,
-    reiseleistungen_25_guide,
-    schlussrechnung_nach_abschlag,
-    steuernummer_vs_ustidnr_guide,
-)
 from einvoice_mcp.resources import (
     br_de_rules,
+    business_process_identifiers,
+    cpv_classification_codes,
     credit_note_reasons,
     e_rechnung_pflichten,
+    example_line_items,
+    leitweg_id_format,
     reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
@@ -54,13 +59,11 @@ from einvoice_mcp.resources import (
     schema_item_attribute,
     schema_line_item,
     schema_supporting_document,
+    sepa_mandate_type_codes,
     skr03_mapping,
     skr04_mapping,
-)
-from einvoice_mcp.resources.reference_data import example_line_items
-from einvoice_mcp.resources.reference_data_advanced import (
-    leitweg_id_format,
     tax_category_decision_tree,
+    vat_exemption_reason_texts,
 )
 from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 from einvoice_mcp.services.kosit import KoSITClient
@@ -135,6 +138,14 @@ mcp.resource("einvoice://reference/leitweg-id-format")(leitweg_id_format)
 mcp.resource("einvoice://reference/tax-category-decision-tree")(
     tax_category_decision_tree,
 )
+mcp.resource("einvoice://reference/sepa-mandate-type-codes")(sepa_mandate_type_codes)
+mcp.resource("einvoice://reference/cpv-classification-codes")(cpv_classification_codes)
+mcp.resource("einvoice://reference/business-process-identifiers")(
+    business_process_identifiers,
+)
+mcp.resource("einvoice://reference/vat-exemption-reason-texts")(
+    vat_exemption_reason_texts,
+)
 
 
 @mcp.resource("einvoice://system/kosit-status")
@@ -162,10 +173,6 @@ async def kosit_status(ctx: Context) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
-
 mcp.prompt()(steuerprüfung_checkliste)
 mcp.prompt()(b2b_pflicht_2027)
 mcp.prompt()(gutschrift_erstellen)
@@ -188,11 +195,11 @@ mcp.prompt()(schlussrechnung_nach_abschlag)
 mcp.prompt()(proforma_rechnung_guide)
 mcp.prompt()(drittlandlieferung_guide)
 mcp.prompt()(gutschriftverfahren_389_guide)
-
-
-# ---------------------------------------------------------------------------
-# Helper: collect generate-tool params for build_invoice_data
-# ---------------------------------------------------------------------------
+mcp.prompt()(rechnungsberichtigung_vs_storno)
+mcp.prompt()(reverse_charge_steuervertreter_combined)
+mcp.prompt()(teilrechnung_workflow)
+mcp.prompt()(innergemeinschaftliche_deep_dive)
+mcp.prompt()(skonto_berechnung_guide)
 
 
 def _collect_generate_params(local_vars: dict[str, Any]) -> dict[str, Any]:
@@ -202,11 +209,6 @@ def _collect_generate_params(local_vars: dict[str, Any]) -> dict[str, Any]:
     params["allowances_charges_json"] = params.pop("allowances_charges")
     params["supporting_documents_json"] = params.pop("supporting_documents")
     return params
-
-
-# ---------------------------------------------------------------------------
-# Tool 1: Validate XRechnung
-# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -230,11 +232,6 @@ async def einvoice_validate_xrechnung(xml_content: str, ctx: Context) -> str:
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# ---------------------------------------------------------------------------
-# Tool 2: Validate ZUGFeRD
-# ---------------------------------------------------------------------------
-
-
 @mcp.tool(
     annotations=ToolAnnotations(
         readOnlyHint=True,
@@ -252,11 +249,6 @@ async def einvoice_validate_zugferd(pdf_base64: str, ctx: Context) -> str:
     kosit: KoSITClient = ctx.request_context.lifespan_context["kosit"]
     result = await validate_zugferd(pdf_base64, kosit)
     return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# Tool 3: Generate XRechnung
-# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -479,11 +471,6 @@ async def einvoice_generate_xrechnung(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# ---------------------------------------------------------------------------
-# Tool 4: Generate ZUGFeRD
-# ---------------------------------------------------------------------------
-
-
 @mcp.tool(
     annotations=ToolAnnotations(
         readOnlyHint=False,
@@ -702,11 +689,6 @@ async def einvoice_generate_zugferd(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# ---------------------------------------------------------------------------
-# Tool 5: Parse E-Invoice
-# ---------------------------------------------------------------------------
-
-
 @mcp.tool(
     annotations=ToolAnnotations(
         readOnlyHint=True,
@@ -735,11 +717,6 @@ async def einvoice_parse(file_content: str, file_type: str = "xml") -> str:
     """
     result = await parse_einvoice(file_content, file_type)
     return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# Tool 6: Check Compliance
-# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -777,11 +754,6 @@ async def einvoice_check_compliance(
     kosit: KoSITClient = ctx.request_context.lifespan_context["kosit"]
     result = await check_compliance(xml_content, kosit, target_profile)
     return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 
 def main() -> None:
