@@ -92,6 +92,12 @@ _XRECHNUNG_ONLY_FIELDS = [
         ".//ram:SellerTradeParty/ram:DefinedTradeContact/ram:PersonName",
     ),
     (
+        "BT-42",
+        "Telefon des Ansprechpartners",
+        ".//ram:SellerTradeParty/ram:DefinedTradeContact"
+        "/ram:TelephoneUniversalCommunication/ram:CompleteNumber",
+    ),
+    (
         "BT-43",
         "E-Mail des Ansprechpartners",
         ".//ram:SellerTradeParty/ram:DefinedTradeContact"
@@ -127,6 +133,10 @@ SUGGESTIONS_MAP = {
     "BT-41": (
         "BT-41 (Ansprechpartner des Verkäufers) fehlt — "
         "gemäß BR-DE-5 muss ein Kontaktname angegeben werden."
+    ),
+    "BT-42": (
+        "BT-42 (Telefon des Ansprechpartners) fehlt — "
+        "gemäß BR-DE-6 ist die Telefonnummer des Ansprechpartners Pflicht."
     ),
     "BT-43": (
         "BT-43 (E-Mail des Ansprechpartners) fehlt — "
