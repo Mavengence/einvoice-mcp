@@ -3,8 +3,8 @@
 [![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-521%20passed-brightgreen.svg)](#compliance-proof)
-[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](#module-coverage)
+[![Tests](https://img.shields.io/badge/tests-531%20passed-brightgreen.svg)](#compliance-proof)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#module-coverage)
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
 
@@ -20,7 +20,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**521 tests | 99% coverage (2007 stmts, 9 defensive) | 0 failures | lint clean (ruff + mypy strict)**
+**531 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -201,6 +201,10 @@ Every mandatory Business Term is tested in generated XML output:
 | Unicode safety (umlauts) | ÄÖÜäöüß in all text fields | `test_unicode_invoice` | PASS |
 | High-value invoice | 50 line items with high amounts | `test_high_value_invoice` | PASS |
 | Mixed tax rates | 7% + 19% with exact rounding | `test_reduced_tax_rate` | PASS |
+| Classification version | BT-158-2 version roundtrip | `test_classification_with_version_roundtrip` | PASS |
+| UBL detection | UBL Invoice/CreditNote rejected | `test_ubl_invoice_rejected` | PASS |
+| Defensive handlers | Exception in buyer_reference/tax_rep/payee/exemption | `TestDefensiveExceptionHandlers` | PASS |
+| Pydantic BT mapping | Validation errors show BT numbers | `test_invalid_iban_shows_bt84` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -258,12 +262,12 @@ Every mandatory Business Term is tested in generated XML output:
 | `services/invoice_builder.py` | 335 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
-| `services/xml_parser.py` | 705 | 9 | **99%** |
+| `services/xml_parser.py` | 709 | 0 | **100%** |
 | `tools/compliance.py` | 217 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **2007** | **9** | **99%** |
+| **TOTAL** | **2011** | **0** | **100%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -574,6 +578,69 @@ See **[docs/GERMAN_COMPLIANCE_GUIDE.md](docs/GERMAN_COMPLIANCE_GUIDE.md)** for:
 
 - **ZUGFeRD Basic/Extended**: Generation produces XML with correct guideline URIs, but parsing, validation, and compliance checks are tested for XRechnung 3.0 and ZUGFeRD EN16931 only.
 - **Batch processing**: Each tool call processes one invoice. For bulk operations, call the tools in sequence.
+
+---
+
+## Troubleshooting
+
+### KoSIT Validator nicht erreichbar
+
+```
+Fehler: KoSIT-Validator nicht erreichbar. Bitte prüfen Sie die Verbindung.
+```
+
+1. Start the Docker containers: `make docker-up`
+2. Wait for healthy status: `docker compose -f docker/docker-compose.yml ps`
+3. Verify manually: `curl http://localhost:8081/server/health`
+4. Check if port 8081 is blocked by firewall or another process
+
+### Docker Container startet nicht
+
+```bash
+# Check logs
+docker compose -f docker/docker-compose.yml logs kosit
+
+# Common issue: port already in use
+lsof -i :8081
+
+# Restart clean
+docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml up -d
+```
+
+### UBL-Format erkannt
+
+```
+Fehler: UBL-Format erkannt. Dieses Tool unterstützt nur CII.
+```
+
+The parser only supports CII (Cross Industry Invoice) XML, which is the standard for XRechnung and ZUGFeRD. If you have a UBL invoice, convert it to CII first using an external tool.
+
+### Pydantic Validation Errors
+
+When generating invoices, field errors now reference BT numbers:
+
+```
+Fehler: Ungültige Rechnungsdaten:
+  - BT-84 (IBAN): String should match pattern ...
+  - BT-27 (Verkäufername): String should have at least 1 character
+```
+
+Check the [German Compliance Guide](docs/GERMAN_COMPLIANCE_GUIDE.md) for field requirements.
+
+### Tests laufen nicht
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run unit tests only (no Docker needed)
+make test
+
+# Run integration tests (requires Docker)
+make docker-up
+pytest -m integration
+```
 
 ---
 

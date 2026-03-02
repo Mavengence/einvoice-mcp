@@ -364,4 +364,132 @@ payment_terms_text: '2% Skonto bei Zahlung innerhalb von 10 Tagen, 30 Tage netto
 
 ---
 
+## Praxisbeispiele
+
+### Beispiel 1: Reverse Charge — Bauleistung (§13b Abs. 2 Nr. 4)
+
+Ein Subunternehmer (DE) erbringt Bauleistungen an ein Bauunternehmen (DE).
+
+```
+Erstelle eine XRechnung:
+- Rechnungsnummer: RC-2026-001
+- Verkäufer: SubBau GmbH, Berliner Str. 10, 10115 Berlin, USt-IdNr. DE111222333
+- Käufer: HauptBau AG, Münchner Str. 5, 80331 München, USt-IdNr. DE444555666
+- Position: Estricharbeiten, 200 m², 45.00 EUR/m², Steuer: AE (0%)
+- Steuerbefreiung: "Steuerschuldnerschaft des Leistungsempfängers gem. §13b Abs. 2 Nr. 4 UStG"
+- Befreiungscode: vatex-eu-ae
+- Lieferdatum: 2026-02-28
+- SEPA-Überweisung mit IBAN DE89370400440532013000
+```
+
+**Ergebnis:**
+- Netto: 9.000,00 EUR
+- USt: 0,00 EUR (Käufer schuldet die Steuer)
+- Brutto: 9.000,00 EUR
+
+### Beispiel 2: Innergemeinschaftliche Lieferung (§4 Nr. 1b)
+
+Deutsche Firma liefert Maschinen an französische Firma.
+
+```
+Erstelle eine XRechnung:
+- Rechnungsnummer: IC-2026-001
+- Verkäufer: TechMaschinen GmbH, Industriestr. 1, 70173 Stuttgart, USt-IdNr. DE777888999
+- Käufer: Machines SARL, 15 Rue de l'Industrie, 75001 Paris, FR, USt-IdNr. FR12345678901
+- Position: CNC-Fräsmaschine, 1 Stück, 45000.00 EUR, Steuer: K (0%)
+- Steuerbefreiung: "Innergemeinschaftliche Lieferung gem. §4 Nr. 1b UStG"
+- Befreiungscode: vatex-eu-ic
+```
+
+**Wichtig:** Käufer-Land (FR) ≠ Verkäufer-Land (DE). Der MCP-Server prüft dies automatisch.
+
+### Beispiel 3: Kleinunternehmer (§19 UStG)
+
+Freiberufler ohne USt-Ausweis.
+
+```
+Erstelle eine XRechnung:
+- Rechnungsnummer: KU-2026-001
+- Verkäufer: Max Mustermann, Goethestr. 5, 10117 Berlin (Steuernr. 27/123/45678)
+- Käufer: Stadtverwaltung Berlin, Rathausstr. 15, 10178 Berlin
+- Position: Grafikdesign, 20 Stunden, 50.00 EUR/h, Steuer: E (0%)
+- Steuerbefreiung: "Kein Ausweis der Umsatzsteuer aufgrund Anwendung der Kleinunternehmerregelung gem. §19 UStG"
+- Befreiungscode: vatex-eu-132
+- Leitweg-ID: 11-1234567-89
+```
+
+**Hinweis:** Statt `seller_tax_id` wird `seller_tax_number` verwendet.
+
+### Beispiel 4: Korrekturrechnung (TypeCode 384)
+
+Fehlerhafte Rechnung RE-2025-099 korrigieren.
+
+```
+Erstelle eine XRechnung:
+- Rechnungsnummer: KR-2026-001
+- TypeCode: 384
+- Vorherige Rechnungsnummer: RE-2025-099
+- Hinweis: "Korrektur der Rechnung RE-2025-099 — Leistungszeitraum korrigiert"
+- [restliche Daten wie in der Originalrechnung, aber mit korrigierten Werten]
+```
+
+### Beispiel 5: Abschlagsrechnung (TypeCode 875/876/877)
+
+Bauvorhaben mit drei Abschlägen und Schlussrechnung.
+
+```
+# 1. Abschlag (Vorauszahlung vor Leistungsbeginn)
+TypeCode: 876
+contract_reference: BAU-2026-001
+invoice_note: "1. Abschlag — 30% der Auftragssumme"
+
+# 2. Abschlag (Teilleistung erbracht)
+TypeCode: 875
+contract_reference: BAU-2026-001
+invoice_note: "2. Abschlag — Rohbau fertiggestellt (50%)"
+
+# 3. Schlussrechnung
+TypeCode: 877
+contract_reference: BAU-2026-001
+invoice_note: "Schlussrechnung — Abzüglich 1. Abschlag (30.000€) und 2. Abschlag (50.000€)"
+```
+
+---
+
+## Validierungsfehler verstehen
+
+### KoSIT-Fehlermeldungen
+
+| KoSIT-Code | Bedeutung | Lösung |
+|------------|-----------|--------|
+| `BR-DE-1` | Leitweg-ID fehlt oder ungültig | `leitweg_id` korrekt setzen |
+| `BR-DE-5` | Verkäufer-Kontakt fehlt | `seller_contact_name` setzen |
+| `BR-DE-6` | Verkäufer-Telefon fehlt | `seller_contact_phone` setzen |
+| `BR-DE-7` | Verkäufer-E-Mail fehlt | `seller_contact_email` setzen |
+| `BR-DE-15` | Zahlungsbedingungen fehlen | `payment_terms_text` setzen |
+| `BR-DE-17` | Lieferdatum fehlt | `delivery_date` oder `service_period_*` setzen |
+| `BR-DE-23` | Keine IBAN bei SEPA-Zahlung | `seller_iban` setzen |
+| `BR-DE-24` | Keine Mandatsreferenz bei Lastschrift | `mandate_reference_id` setzen |
+| `BR-CO-13` | Nettobetrag stimmt nicht | Positionen und Zu-/Abschläge prüfen |
+| `BR-CO-14` | Steuerbetrag stimmt nicht | Rundungsprobleme bei gemischten Sätzen |
+| `BR-E-10` | Befreiungsgrund fehlt bei Kategorie E | `tax_exemption_reason` setzen |
+| `BR-AE-10` | Reverse Charge ohne Käufer-USt-IdNr. | `buyer_tax_id` setzen |
+| `BR-IC-10` | IC-Lieferung ohne Käufer-USt-IdNr. | `buyer_tax_id` setzen |
+
+### UBL-Format-Fehler
+
+Wenn Sie die Fehlermeldung „UBL-Format erkannt" erhalten, bedeutet dies, dass die XML-Datei im UBL-Format (Universal Business Language) vorliegt. Dieses Tool unterstützt nur **CII** (Cross Industry Invoice). UBL-Rechnungen müssen zunächst konvertiert werden.
+
+---
+
+## Weiterführende Ressourcen
+
+- **XRechnung 3.0 Spezifikation**: [koordinierungsstelle.gv.at](https://xeinkauf.de/xrechnung/)
+- **EN 16931 Richtlinie**: EU-Norm für elektronische Rechnungsstellung
+- **KoSIT Validator**: [github.com/itplr-kosit/validator](https://github.com/itplr-kosit/validator)
+- **Leitweg-ID-Register**: Über die jeweiligen Landesportale
+- **BMF-Schreiben 2024-11-15**: Pflicht zur E-Rechnung im B2B-Bereich
+
+---
+
 *Dieses Dokument wird regelmäßig aktualisiert. Stand: März 2026.*

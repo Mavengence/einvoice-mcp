@@ -108,4 +108,11 @@ All notable changes to the einvoice-mcp project.
 - GitHub Actions CI (lint + test)
 - PyPI publish workflow
 - Makefile for common operations
-- 521 tests, 99% coverage (2007 stmts), ruff + mypy strict clean
+- Smithery manifest for MCP marketplace
+- PEP 561 py.typed marker
+- Integration tests for KoSIT validator (5 tests, skipped by default)
+- Sample XRechnung 3.0 fixture (tests/fixtures/sample_xrechnung.xml)
+- Deployment guide (docs/DEPLOYMENT.md)
+- UBL format detection (rejects UBL with clear German error)
+- Pydantic validation errors with BT number references
+- 531 tests, 100% coverage (2011 stmts), ruff + mypy strict clean
