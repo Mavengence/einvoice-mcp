@@ -11,7 +11,14 @@ from mcp.types import ToolAnnotations
 from pydantic import ValidationError as PydanticValidationError
 
 from einvoice_mcp.config import settings
-from einvoice_mcp.models import AllowanceCharge, InvoiceData, InvoiceProfile, LineItem
+from einvoice_mcp.models import (
+    AllowanceCharge,
+    InvoiceData,
+    InvoiceProfile,
+    ItemAttribute,
+    LineItem,
+    SupportingDocument,
+)
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.tools.compliance import check_compliance
 from einvoice_mcp.tools.generate import generate_xrechnung, generate_zugferd
@@ -77,6 +84,24 @@ def schema_allowance_charge() -> str:
     'allowances_charges' Parameter der generate-Tools zu erstellen.
     """
     return json.dumps(AllowanceCharge.model_json_schema(), ensure_ascii=False, indent=2)
+
+
+@mcp.resource("einvoice://schemas/item-attribute")
+def schema_item_attribute() -> str:
+    """JSON-Schema für Artikelmerkmale (BG-30, BT-160/BT-161).
+
+    Name/Wert-Paare für Produkteigenschaften wie Farbe, Größe, Material.
+    """
+    return json.dumps(ItemAttribute.model_json_schema(), ensure_ascii=False, indent=2)
+
+
+@mcp.resource("einvoice://schemas/supporting-document")
+def schema_supporting_document() -> str:
+    """JSON-Schema für zusätzliche Belegdokumente (BG-24, BT-122..BT-125).
+
+    Anhänge wie Zollpapiere, Zertifikate, Zeitnachweise.
+    """
+    return json.dumps(SupportingDocument.model_json_schema(), ensure_ascii=False, indent=2)
 
 
 @mcp.resource("einvoice://schemas/invoice-data")
