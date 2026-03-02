@@ -23,6 +23,7 @@ from einvoice_mcp.resources.reference_data_advanced import (
     leitweg_id_format,
     sepa_mandate_type_codes,
     tax_category_decision_tree,
+    uncl_5189_allowance_reason_codes,
     vat_exemption_reason_texts,
 )
 from einvoice_mcp.resources.schemas import (
@@ -57,5 +58,6 @@ __all__ = [
     "skr03_mapping",
     "skr04_mapping",
     "tax_category_decision_tree",
+    "uncl_5189_allowance_reason_codes",
     "vat_exemption_reason_texts",
 ]

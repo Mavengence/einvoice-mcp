@@ -63,6 +63,7 @@ from einvoice_mcp.resources import (
     skr03_mapping,
     skr04_mapping,
     tax_category_decision_tree,
+    uncl_5189_allowance_reason_codes,
     vat_exemption_reason_texts,
 )
 from einvoice_mcp.services.invoice_data_builder import build_invoice_data
@@ -145,6 +146,9 @@ mcp.resource("einvoice://reference/business-process-identifiers")(
 )
 mcp.resource("einvoice://reference/vat-exemption-reason-texts")(
     vat_exemption_reason_texts,
+)
+mcp.resource("einvoice://reference/uncl-5189-allowance-reason-codes")(
+    uncl_5189_allowance_reason_codes,
 )
 
 

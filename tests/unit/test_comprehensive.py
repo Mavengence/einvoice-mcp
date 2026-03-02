@@ -10216,3 +10216,287 @@ class TestToolInputValidation:
         assert "Größenlimit" in msg or "limit" in msg.lower()
 
 
+# ---------------------------------------------------------------------------
+# BR-CO-11/12/13 line-level arithmetic checks
+# ---------------------------------------------------------------------------
+
+
+class TestBRCO11LineNetSum:
+    """BR-CO-11: BT-106 = sum of all line net amounts."""
+
+    def _build_xml_with_lines(
+        self, line_nets: list[str], declared_total: str,
+    ) -> str:
+        lines_xml = ""
+        for net in line_nets:
+            lines_xml += f"""
+            <ram:IncludedSupplyChainTradeLineItem>
+                <ram:SpecifiedLineTradeSettlement>
+                    <ram:SpecifiedTradeSettlementLineMonetarySummation>
+                        <ram:LineTotalAmount>{net}</ram:LineTotalAmount>
+                    </ram:SpecifiedTradeSettlementLineMonetarySummation>
+                </ram:SpecifiedLineTradeSettlement>
+            </ram:IncludedSupplyChainTradeLineItem>"""
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:SupplyChainTradeTransaction>
+                {lines_xml}
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                        <ram:LineTotalAmount>{declared_total}</ram:LineTotalAmount>
+                        <ram:TaxBasisTotalAmount>{declared_total}</ram:TaxBasisTotalAmount>
+                    </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_correct_sum_passes(self) -> None:
+        from xml.etree.ElementTree import fromstring
+
+        from einvoice_mcp.models import FieldCheck
+        from einvoice_mcp.tools.arithmetic_checks import check_arithmetic
+
+        xml = self._build_xml_with_lines(["100.00", "50.00"], "150.00")
+        root = fromstring(xml)
+        checks: list[FieldCheck] = []
+        check_arithmetic(checks, root)
+        co11 = [c for c in checks if c.field == "BR-CO-11"]
+        assert len(co11) == 0
+
+    def test_wrong_sum_flagged(self) -> None:
+        from xml.etree.ElementTree import fromstring
+
+        from einvoice_mcp.models import FieldCheck
+        from einvoice_mcp.tools.arithmetic_checks import check_arithmetic
+
+        xml = self._build_xml_with_lines(["100.00", "50.00"], "200.00")
+        root = fromstring(xml)
+        checks: list[FieldCheck] = []
+        check_arithmetic(checks, root)
+        co11 = [c for c in checks if c.field == "BR-CO-11"]
+        assert len(co11) == 1
+        assert co11[0].present is False
+
+
+class TestBRCO13TaxGroupCalc:
+    """BR-CO-13: Tax amount = basis x rate per group."""
+
+    def _build_tax_xml(
+        self, basis: str, rate: str, calculated: str,
+    ) -> str:
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100">
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:ApplicableTradeTax>
+                        <ram:BasisAmount>{basis}</ram:BasisAmount>
+                        <ram:RateApplicablePercent>{rate}</ram:RateApplicablePercent>
+                        <ram:CalculatedAmount>{calculated}</ram:CalculatedAmount>
+                    </ram:ApplicableTradeTax>
+                    <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                        <ram:TaxBasisTotalAmount>{basis}</ram:TaxBasisTotalAmount>
+                    </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_correct_tax_calc_passes(self) -> None:
+        from xml.etree.ElementTree import fromstring
+
+        from einvoice_mcp.models import FieldCheck
+        from einvoice_mcp.tools.arithmetic_checks import check_arithmetic
+
+        xml = self._build_tax_xml("100.00", "19.00", "19.00")
+        root = fromstring(xml)
+        checks: list[FieldCheck] = []
+        check_arithmetic(checks, root)
+        co13 = [c for c in checks if c.field == "BR-CO-13"]
+        assert len(co13) == 0
+
+    def test_wrong_tax_calc_flagged(self) -> None:
+        from xml.etree.ElementTree import fromstring
+
+        from einvoice_mcp.models import FieldCheck
+        from einvoice_mcp.tools.arithmetic_checks import check_arithmetic
+
+        xml = self._build_tax_xml("100.00", "19.00", "25.00")
+        root = fromstring(xml)
+        checks: list[FieldCheck] = []
+        check_arithmetic(checks, root)
+        co13 = [c for c in checks if c.field == "BR-CO-13"]
+        assert len(co13) == 1
+        assert "25.00" in co13[0].value
+
+
+# ---------------------------------------------------------------------------
+# UNCL 5189 resource test
+# ---------------------------------------------------------------------------
+
+
+class TestUNCL5189Resource:
+    """Test UNCL 5189 allowance/charge reason codes resource."""
+
+    def test_structure(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import uncl_5189_allowance_reason_codes
+
+        data = json.loads(uncl_5189_allowance_reason_codes())
+        assert "abschlag_codes" in data
+        assert "zuschlag_codes" in data
+        assert "95" in data["abschlag_codes"]  # Generic discount
+        assert "63" in data["abschlag_codes"]  # Early payment
+        assert "e_rechnung_felder" in data
+
+
+# ---------------------------------------------------------------------------
+# Generate tool error path tests
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateErrorPaths:
+    """Test error paths in generate tools."""
+
+    @staticmethod
+    def _make_invoice_data():
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        seller = Party(
+            name="Test GmbH",
+            address=Address(
+                street="Str. 1", city="Berlin",
+                postal_code="10115", country_code="DE",
+            ),
+            tax_id="DE123456789",
+        )
+        buyer = Party(
+            name="Buyer GmbH",
+            address=Address(
+                street="Str. 2", city="München",
+                postal_code="80331", country_code="DE",
+            ),
+            tax_id="DE987654321",
+        )
+        items = [
+            LineItem(
+                description="Test", quantity="1",
+                unit_price="100.00", tax_rate="19.00",
+                tax_category=TaxCategory.S,
+            ),
+        ]
+        return InvoiceData(
+            invoice_id="TEST-ERR",
+            issue_date="2026-01-01",
+            seller=seller, buyer=buyer, items=items,
+        )
+
+    @pytest.mark.asyncio
+    async def test_generate_xrechnung_build_failure(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from einvoice_mcp.errors import InvoiceGenerationError
+        from einvoice_mcp.tools.generate import generate_xrechnung
+
+        data = self._make_invoice_data()
+        mock_kosit = AsyncMock()
+        with patch(
+            "einvoice_mcp.tools.generate.build_xml",
+            side_effect=InvoiceGenerationError("Build failed"),
+        ):
+            result = await generate_xrechnung(data, mock_kosit)
+        assert result["success"] is False
+        assert "fehlgeschlagen" in result.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_generate_zugferd_pdf_failure(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from einvoice_mcp.errors import InvoiceGenerationError
+        from einvoice_mcp.tools.generate import generate_zugferd
+
+        data = self._make_invoice_data()
+        mock_kosit = AsyncMock()
+        with patch(
+            "einvoice_mcp.tools.generate.build_xml",
+            return_value=b"<xml/>",
+        ), patch(
+            "einvoice_mcp.tools.generate.generate_invoice_pdf",
+            side_effect=InvoiceGenerationError("PDF failed"),
+        ):
+            result = await generate_zugferd(data, mock_kosit)
+        assert result["success"] is False
+        assert "fehlgeschlagen" in result.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_generate_xrechnung_validation_failure(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from einvoice_mcp.errors import KoSITConnectionError
+        from einvoice_mcp.tools.generate import generate_xrechnung
+
+        data = self._make_invoice_data()
+        mock_kosit = AsyncMock()
+        mock_kosit.validate.side_effect = KoSITConnectionError()
+        with patch(
+            "einvoice_mcp.tools.generate.build_xml",
+            return_value=b"<xml/>",
+        ):
+            result = await generate_xrechnung(data, mock_kosit)
+        # Should still succeed (build worked) but validation fails
+        assert result["success"] is True
+        assert result["validation"]["valid"] is False
+
+
+# ---------------------------------------------------------------------------
+# KoSIT client error path tests
+# ---------------------------------------------------------------------------
+
+
+class TestKoSITClientErrorPaths:
+    """Test KoSIT client error handling."""
+
+    @pytest.mark.asyncio
+    async def test_health_check_failure(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from einvoice_mcp.services.kosit import KoSITClient
+
+        client = KoSITClient()
+        with patch.object(
+            client, "_client", create=True,
+        ):
+            import httpx
+            mock_client = AsyncMock()
+            mock_client.get.side_effect = httpx.ConnectError("refused")
+            client._client = mock_client
+            result = await client.health_check()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_validate_connection_error(self) -> None:
+        from unittest.mock import AsyncMock
+
+        import httpx
+
+        from einvoice_mcp.errors import KoSITConnectionError
+        from einvoice_mcp.services.kosit import KoSITClient
+
+        client = KoSITClient()
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = httpx.ConnectError("refused")
+        client._client = mock_client
+        with pytest.raises(KoSITConnectionError):
+            await client.validate(b"<xml/>")
+
+

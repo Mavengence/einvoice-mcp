@@ -566,3 +566,80 @@ def vat_exemption_reason_texts() -> str:
         ensure_ascii=False,
         indent=2,
     )
+
+
+def uncl_5189_allowance_reason_codes() -> str:
+    """UNCL 5189 Zu-/Abschlagsgrundcodes (BT-97/BT-98, BT-140/BT-141).
+
+    Standardisierte Grund-Codes fuer Zu- und Abschlaege auf Dokument-
+    und Positionsebene nach UN/CEFACT Code List 5189.
+    """
+    return json.dumps(
+        {
+            "titel": "UNCL 5189 — Zu-/Abschlagsgrund-Codes",
+            "beschreibung": (
+                "Code List 5189 (UN/CEFACT) definiert standardisierte "
+                "Gründe für Zu- und Abschläge. Verwendet in BT-97/BT-98 "
+                "(Dokumentebene) und BT-140/BT-141 (Positionsebene)."
+            ),
+            "abschlag_codes": {
+                "41": "Bonusrabatt",
+                "42": "Händlerrabatt",
+                "60": "Herstellerrabatt",
+                "62": "Sonderrabatt wegen Auftragsgröße",
+                "63": "Frühzahlungsrabatt (Skonto)",
+                "64": "Sonderrabatt",
+                "65": "Produktionsrabatt",
+                "66": "Treuepunkte-Rabatt",
+                "67": "Katalograbatt",
+                "68": "Premiumrabatt",
+                "70": "Markenrabatt",
+                "71": "Preisnachlass für defekte Ware",
+                "88": "Materialzuschlag/-abschlag",
+                "95": "Rabatt",
+                "100": "Sondervereinbarung",
+                "102": "Festgesetzter langfristiger Preis",
+                "103": "Vorübergehende Vereinbarung",
+                "104": "Standardrabatt",
+                "105": "Preisänderung im Zeitraum",
+            },
+            "zuschlag_codes": {
+                "AA": "Werbung",
+                "AAA": "Telekommunikation",
+                "ABL": "Zusätzliche Verpackung",
+                "ADR": "Andere Dienstleistungen",
+                "ADT": "Abholung",
+                "FC": "Frachtkosten",
+                "FI": "Finanzierungskosten",
+                "LA": "Arbeitszuschlag",
+                "PC": "Verpackung",
+            },
+            "e_rechnung_felder": {
+                "dokument_abschlag": {
+                    "BT-97": "Abschlagsgrund-Code (UNCL 5189)",
+                    "BT-98": "Abschlagsgrund Freitext",
+                },
+                "dokument_zuschlag": {
+                    "BT-104": "Zuschlagsgrund-Code (UNCL 7161)",
+                    "BT-105": "Zuschlagsgrund Freitext",
+                },
+                "position_abschlag": {
+                    "BT-140": "Positionsabschlagsgrund-Code (UNCL 5189)",
+                    "BT-141": "Positionsabschlagsgrund Freitext",
+                },
+                "position_zuschlag": {
+                    "BT-145": "Positionszuschlagsgrund-Code (UNCL 7161)",
+                    "BT-146": "Positionszuschlagsgrund Freitext",
+                },
+            },
+            "hinweise": [
+                "Code 95 ('Rabatt') ist der generische Standardcode für Abschläge",
+                "Bei Skonto: Code 63 + Prozentsatz in BT-20 kodieren",
+                "Freitext (BT-98/BT-105) ist zusätzlich zum Code erlaubt",
+                "Zuschlagscodes folgen UNCL 7161, nicht 5189",
+                "In der E-Rechnung: Code + Text zusammen für Interoperabilität",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
