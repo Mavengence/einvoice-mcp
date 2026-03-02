@@ -9,7 +9,6 @@ from einvoice_mcp.resources.compliance_data import (
 )
 from einvoice_mcp.resources.reference_data import (
     example_line_items,
-    leitweg_id_format,
     reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
@@ -17,6 +16,9 @@ from einvoice_mcp.resources.reference_data import (
     reference_type_codes,
     reference_unit_codes,
     reference_vatex_codes,
+)
+from einvoice_mcp.resources.reference_data_advanced import (
+    leitweg_id_format,
     tax_category_decision_tree,
 )
 from einvoice_mcp.resources.schemas import (

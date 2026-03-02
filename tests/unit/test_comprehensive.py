@@ -9039,7 +9039,7 @@ class TestNewResources:
     """New reference resources return valid JSON with expected keys."""
 
     def test_leitweg_id_format_resource(self) -> None:
-        from einvoice_mcp.resources.reference_data import leitweg_id_format
+        from einvoice_mcp.resources.reference_data_advanced import leitweg_id_format
 
         text = leitweg_id_format()
         data = json.loads(text)
@@ -9049,7 +9049,7 @@ class TestNewResources:
         assert "regex" in data["validierung"]
 
     def test_tax_category_decision_tree_resource(self) -> None:
-        from einvoice_mcp.resources.reference_data import (
+        from einvoice_mcp.resources.reference_data_advanced import (
             tax_category_decision_tree,
         )
 

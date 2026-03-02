@@ -57,8 +57,8 @@ from einvoice_mcp.resources import (
     skr03_mapping,
     skr04_mapping,
 )
-from einvoice_mcp.resources.reference_data import (
-    example_line_items,
+from einvoice_mcp.resources.reference_data import example_line_items
+from einvoice_mcp.resources.reference_data_advanced import (
     leitweg_id_format,
     tax_category_decision_tree,
 )
@@ -112,20 +112,12 @@ mcp = FastMCP(
 )
 
 
-# ---------------------------------------------------------------------------
-# Resources — schemas
-# ---------------------------------------------------------------------------
-
+# Resources — schemas, code tables, compliance
 mcp.resource("einvoice://schemas/line-item")(schema_line_item)
 mcp.resource("einvoice://schemas/allowance-charge")(schema_allowance_charge)
 mcp.resource("einvoice://schemas/item-attribute")(schema_item_attribute)
 mcp.resource("einvoice://schemas/supporting-document")(schema_supporting_document)
 mcp.resource("einvoice://schemas/invoice-data")(schema_invoice_data)
-
-# ---------------------------------------------------------------------------
-# Resources — reference code tables
-# ---------------------------------------------------------------------------
-
 mcp.resource("einvoice://reference/type-codes")(reference_type_codes)
 mcp.resource("einvoice://reference/payment-means-codes")(reference_payment_means_codes)
 mcp.resource("einvoice://reference/tax-categories")(reference_tax_categories)
@@ -133,11 +125,6 @@ mcp.resource("einvoice://reference/unit-codes")(reference_unit_codes)
 mcp.resource("einvoice://reference/eas-codes")(reference_eas_codes)
 mcp.resource("einvoice://reference/currency-codes")(reference_currency_codes)
 mcp.resource("einvoice://examples/line-items")(example_line_items)
-
-# ---------------------------------------------------------------------------
-# Resources — compliance & regulation
-# ---------------------------------------------------------------------------
-
 mcp.resource("einvoice://reference/e-rechnung-pflichten")(e_rechnung_pflichten)
 mcp.resource("einvoice://reference/br-de-rules")(br_de_rules)
 mcp.resource("einvoice://reference/skr03-mapping")(skr03_mapping)
