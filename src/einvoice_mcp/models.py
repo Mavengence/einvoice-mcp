@@ -1,10 +1,16 @@
 """Pydantic models for invoice data, validation results, and parsed output."""
 
+import re
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
+
+# IBAN: 2-letter country code + 2 check digits + up to 30 alphanumeric BBAN
+_IBAN_RE = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$")
+# BIC/SWIFT: 8 or 11 alphanumeric characters
+_BIC_RE = re.compile(r"^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$")
 
 
 class InvoiceProfile(StrEnum):
@@ -215,6 +221,33 @@ class InvoiceData(BaseModel):
                 f"Ungültiger Zahlungsart-Code '{v}'. Erlaubt: {allowed}"
             )
         return v
+
+    @field_validator("seller_iban", "buyer_iban")
+    @classmethod
+    def validate_iban(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        normalized = v.replace(" ", "").upper()
+        if not _IBAN_RE.match(normalized):
+            raise ValueError(
+                f"Ungültiges IBAN-Format '{v}'. "
+                "Erwartet: 2 Buchstaben Ländercode + 2 Prüfziffern "
+                "+ 11-30 alphanumerische Zeichen (z.B. DE89370400440532013000)."
+            )
+        return normalized
+
+    @field_validator("seller_bic")
+    @classmethod
+    def validate_bic(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        normalized = v.replace(" ", "").upper()
+        if not _BIC_RE.match(normalized):
+            raise ValueError(
+                f"Ungültiges BIC-Format '{v}'. "
+                "Erwartet: 8 oder 11 Zeichen (z.B. COBADEFFXXX)."
+            )
+        return normalized
 
     seller: Party = Field(..., description="Verkäufer / Rechnungssteller")
     buyer: Party = Field(..., description="Käufer / Rechnungsempfänger")

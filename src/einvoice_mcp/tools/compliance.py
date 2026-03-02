@@ -1,6 +1,7 @@
 """Compliance checking tool for XRechnung/ZUGFeRD."""
 
 import logging
+import re
 from typing import Any
 
 from defusedxml import ElementTree
@@ -165,6 +166,22 @@ SUGGESTIONS_MAP = {
     ),
     "RC-TAX-RATE": (
         "Bei Reverse Charge (§13b UStG / Kategorie AE) "
+        "muss der Steuersatz 0% betragen."
+    ),
+    "LW-FMT": (
+        "Die Leitweg-ID hat kein gültiges Format. "
+        "Erwartet: Grobadresse-Feinadresse-Prüfziffer (z.B. 04011000-12345-67)."
+    ),
+    "VAT-FMT": (
+        "Die deutsche USt-IdNr. hat kein gültiges Format. "
+        "Erwartet: DE + 9 Ziffern (z.B. DE123456789)."
+    ),
+    "IC-BT-48": (
+        "Bei innergemeinschaftlicher Lieferung (Steuerkategorie K / §4 Nr. 1b UStG) "
+        "muss die USt-IdNr. des Käufers (BT-48) angegeben sein."
+    ),
+    "IC-TAX-RATE": (
+        "Bei innergemeinschaftlicher Lieferung (Kategorie K) "
         "muss der Steuersatz 0% betragen."
     ),
     "KU-NOTE": (
@@ -466,6 +483,58 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 except ValueError:
                     pass
 
+    # Intra-community supply (§4 Nr. 1b UStG / TaxCategory K) checks:
+    # When TaxCategory K is used, buyer VAT ID (BT-48) must be present
+    # for intra-community verification.
+    has_k = any(
+        el.text and el.text.strip() == "K" for el in tax_cats
+    )
+    if has_k:
+        buyer_tax_regs_k = root.findall(
+            ".//ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
+            CII_NS,
+        )
+        buyer_has_va_k = any(
+            el.get("schemeID") == "VA" and el.text
+            for el in buyer_tax_regs_k
+        )
+        if not buyer_has_va_k:
+            checks.append(
+                FieldCheck(
+                    field="IC-BT-48",
+                    name="USt-IdNr. des Käufers (innergemeinschaftlich)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+        # Tax rate must be 0% for K category
+        for tax_el in root.findall(".//ram:ApplicableTradeTax", CII_NS):
+            cat_el = tax_el.find("ram:CategoryCode", CII_NS)
+            rate_el = tax_el.find("ram:RateApplicablePercent", CII_NS)
+            if (
+                cat_el is not None
+                and cat_el.text
+                and cat_el.text.strip() == "K"
+                and rate_el is not None
+                and rate_el.text
+            ):
+                try:
+                    rate_val = float(rate_el.text.strip())
+                    if rate_val != 0.0:
+                        checks.append(
+                            FieldCheck(
+                                field="IC-TAX-RATE",
+                                name="Steuersatz bei ig. Lieferung",
+                                present=False,
+                                value=rate_el.text.strip(),
+                                required=True,
+                            )
+                        )
+                except ValueError:
+                    pass
+
     # §19 UStG (Kleinunternehmerregelung) hint:
     # When TaxCategory E (Exempt) is used with 0% rate AND no note references
     # a VAT exemption reason (§19, §4, Art. 132/135 MwStSystRL, etc.),
@@ -494,5 +563,45 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                     required=False,  # recommendation, not hard requirement
                 )
             )
+
+    # Leitweg-ID format validation (advisory, XRechnung only)
+    if xrechnung:
+        buyer_ref_el = root.find(
+            ".//ram:ApplicableHeaderTradeAgreement/ram:BuyerReference", CII_NS
+        )
+        if buyer_ref_el is not None and buyer_ref_el.text:
+            leitweg = buyer_ref_el.text.strip()
+            # Leitweg-ID format: coarse check — digits, letters, dashes
+            # Typical: 04011000-12345-67 or similar
+            if leitweg and not re.match(
+                r"^[0-9]{2,12}-[0-9A-Za-z]{1,30}-[0-9A-Za-z]{2,5}$", leitweg
+            ):
+                checks.append(
+                    FieldCheck(
+                        field="LW-FMT",
+                        name="Leitweg-ID Format",
+                        present=False,
+                        value=leitweg,
+                        required=False,
+                    )
+                )
+
+    # German VAT ID format validation (advisory)
+    for tax_el in tax_regs:
+        if tax_el.get("schemeID") == "VA" and tax_el.text:
+            vat_id = tax_el.text.strip()
+            if vat_id.startswith("DE") and not re.match(
+                r"^DE\d{9}$", vat_id
+            ):
+                checks.append(
+                    FieldCheck(
+                        field="VAT-FMT",
+                        name="USt-IdNr. Format",
+                        present=False,
+                        value=vat_id,
+                        required=False,
+                    )
+                )
+                break
 
     return checks

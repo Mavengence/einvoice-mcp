@@ -4080,3 +4080,447 @@ class TestComplianceValueError:
         await client.close()
 
 
+class TestIbanBicValidation:
+    """Test IBAN and BIC format validation in InvoiceData."""
+
+    def _rebuild(
+        self, base: InvoiceData, **updates: object
+    ) -> InvoiceData:
+        """Rebuild InvoiceData with updates to trigger validators."""
+        return InvoiceData.model_validate(
+            base.model_dump() | updates
+        )
+
+    def test_valid_german_iban(self, sample_invoice_data: InvoiceData) -> None:
+        """Valid German IBAN accepted."""
+        data = self._rebuild(
+            sample_invoice_data, seller_iban="DE89370400440532013000"
+        )
+        assert data.seller_iban == "DE89370400440532013000"
+
+    def test_valid_iban_with_spaces(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """IBAN with spaces normalized to uppercase without spaces."""
+        data = self._rebuild(
+            sample_invoice_data,
+            seller_iban="DE89 3704 0044 0532 0130 00",
+        )
+        assert data.seller_iban == "DE89370400440532013000"
+
+    def test_valid_iban_lowercase(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Lowercase IBAN normalized to uppercase."""
+        data = self._rebuild(
+            sample_invoice_data, seller_iban="de89370400440532013000"
+        )
+        assert data.seller_iban == "DE89370400440532013000"
+
+    def test_invalid_iban_too_short(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """IBAN too short → ValidationError."""
+        with pytest.raises(ValidationError, match="IBAN"):
+            self._rebuild(sample_invoice_data, seller_iban="DE89")
+
+    def test_invalid_iban_no_country(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """IBAN without country code → ValidationError."""
+        with pytest.raises(ValidationError, match="IBAN"):
+            self._rebuild(
+                sample_invoice_data, seller_iban="12345678901234567890"
+            )
+
+    def test_invalid_iban_special_chars(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """IBAN with special characters → ValidationError."""
+        with pytest.raises(ValidationError, match="IBAN"):
+            self._rebuild(
+                sample_invoice_data,
+                seller_iban="DE89-3704-0044-0532-0130-00",
+            )
+
+    def test_buyer_iban_validated(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Buyer IBAN also validated."""
+        data = self._rebuild(
+            sample_invoice_data, buyer_iban="AT611904300234573201"
+        )
+        assert data.buyer_iban == "AT611904300234573201"
+
+    def test_invalid_buyer_iban(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Invalid buyer IBAN → ValidationError."""
+        with pytest.raises(ValidationError, match="IBAN"):
+            self._rebuild(sample_invoice_data, buyer_iban="INVALID")
+
+    def test_none_iban_accepted(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """None IBAN (not set) accepted."""
+        data = self._rebuild(sample_invoice_data, seller_iban=None)
+        assert data.seller_iban is None
+
+    def test_valid_bic_8_chars(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Valid 8-char BIC accepted."""
+        data = self._rebuild(
+            sample_invoice_data, seller_bic="COBADEFF"
+        )
+        assert data.seller_bic == "COBADEFF"
+
+    def test_valid_bic_11_chars(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Valid 11-char BIC accepted."""
+        data = self._rebuild(
+            sample_invoice_data, seller_bic="COBADEFFXXX"
+        )
+        assert data.seller_bic == "COBADEFFXXX"
+
+    def test_invalid_bic_wrong_length(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BIC with wrong length → ValidationError."""
+        with pytest.raises(ValidationError, match="BIC"):
+            self._rebuild(sample_invoice_data, seller_bic="COBADE")
+
+    def test_invalid_bic_digits_start(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BIC starting with digits → ValidationError."""
+        with pytest.raises(ValidationError, match="BIC"):
+            self._rebuild(sample_invoice_data, seller_bic="12345678")
+
+    def test_none_bic_accepted(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """None BIC (not set) accepted."""
+        data = self._rebuild(sample_invoice_data, seller_bic=None)
+        assert data.seller_bic is None
+
+
+class TestIntraCommunityCompliance:
+    """Test intra-community supply (K) compliance checks."""
+
+    @respx.mock
+    async def test_k_missing_buyer_vat(self) -> None:
+        """Intra-community (K) without buyer VAT → IC-BT-48 error."""
+        data = InvoiceData(
+            invoice_id="IC-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="ig. Lieferung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.K,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "IC-BT-48" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_k_valid_with_buyer_vat(self) -> None:
+        """Intra-community (K) with buyer VAT → passes IC checks."""
+        data = InvoiceData(
+            invoice_id="IC-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="FR12345678901",
+            ),
+            items=[
+                LineItem(
+                    description="ig. Lieferung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.K,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "IC-BT-48" not in result.get("missing_fields", [])
+        await client.close()
+
+    @respx.mock
+    async def test_k_nonzero_tax_rate(self) -> None:
+        """Intra-community (K) with non-zero rate → IC-TAX-RATE error."""
+        data = InvoiceData(
+            invoice_id="IC-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="FR12345678901",
+            ),
+            items=[
+                LineItem(
+                    description="ig. Lieferung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("19"),
+                    tax_category=TaxCategory.K,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "IC-TAX-RATE" in result["missing_fields"]
+        await client.close()
+
+    @respx.mock
+    async def test_k_non_numeric_rate(self) -> None:
+        """Intra-community (K) with non-numeric rate → ValueError caught."""
+        data = InvoiceData(
+            invoice_id="IC-004",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+                tax_id="FR12345678901",
+            ),
+            items=[
+                LineItem(
+                    description="ig. Lieferung",
+                    quantity="1",
+                    unit_price="1000",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.K,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        xml = xml.replace(
+            "<ram:RateApplicablePercent>0</ram:RateApplicablePercent>",
+            "<ram:RateApplicablePercent>xyz</ram:RateApplicablePercent>",
+            1,
+        )
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        assert "IC-TAX-RATE" not in result.get("missing_fields", [])
+        await client.close()
+
+
+class TestLeitwegIdFormatCompliance:
+    """Test Leitweg-ID and VAT ID format validation."""
+
+    @respx.mock
+    async def test_valid_leitweg_format(self) -> None:
+        """Valid Leitweg-ID format → no LW-FMT warning."""
+        data = InvoiceData(
+            invoice_id="LW-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+            buyer_reference="04011000-12345-67",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        advisory = [
+            fc["field"]
+            for fc in result.get("field_checks", [])
+            if fc["field"] == "LW-FMT"
+        ]
+        assert advisory == []
+        await client.close()
+
+    @respx.mock
+    async def test_invalid_leitweg_format(self) -> None:
+        """Invalid Leitweg-ID format → LW-FMT advisory."""
+        data = InvoiceData(
+            invoice_id="LW-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+            buyer_reference="not-a-leitweg",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        suggestions = result.get("suggestions", [])
+        has_lw_warning = any("Leitweg-ID" in s for s in suggestions)
+        assert has_lw_warning
+        await client.close()
+
+    @respx.mock
+    async def test_invalid_german_vat_format(self) -> None:
+        """Invalid DE VAT ID format → VAT-FMT advisory."""
+        data = InvoiceData(
+            invoice_id="VAT-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE12",  # Too short for DE format
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        suggestions = result.get("suggestions", [])
+        has_vat_warning = any("USt-IdNr" in s for s in suggestions)
+        assert has_vat_warning
+        await client.close()
+
+    @respx.mock
+    async def test_valid_german_vat_format(self) -> None:
+        """Valid DE VAT ID format → no VAT-FMT warning."""
+        data = InvoiceData(
+            invoice_id="VAT-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        vat_checks = [
+            fc for fc in result.get("field_checks", [])
+            if fc["field"] == "VAT-FMT"
+        ]
+        assert vat_checks == []
+        await client.close()
+
+    @respx.mock
+    async def test_non_de_vat_no_format_check(self) -> None:
+        """Non-DE VAT ID → no format check applied."""
+        data = InvoiceData(
+            invoice_id="VAT-003",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_id="ATU12345678",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        vat_checks = [
+            fc for fc in result.get("field_checks", [])
+            if fc["field"] == "VAT-FMT"
+        ]
+        assert vat_checks == []
+        await client.close()
+
+
