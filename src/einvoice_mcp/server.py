@@ -71,6 +71,10 @@ def _build_invoice_data(
     buyer_postal_code: str,
     buyer_country_code: str,
     items_json: str,
+    seller_street_2: str = "",
+    seller_street_3: str = "",
+    buyer_street_2: str = "",
+    buyer_street_3: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -126,6 +130,8 @@ def _build_invoice_data(
                     "name": seller_name,
                     "address": {
                         "street": seller_street,
+                        "street_2": seller_street_2 or None,
+                        "street_3": seller_street_3 or None,
                         "city": seller_city,
                         "postal_code": seller_postal_code,
                         "country_code": seller_country_code,
@@ -139,6 +145,8 @@ def _build_invoice_data(
                     "name": buyer_name,
                     "address": {
                         "street": buyer_street,
+                        "street_2": buyer_street_2 or None,
+                        "street_3": buyer_street_3 or None,
                         "city": buyer_city,
                         "postal_code": buyer_postal_code,
                         "country_code": buyer_country_code,
@@ -251,6 +259,10 @@ async def einvoice_generate_xrechnung(
     buyer_country_code: str,
     items: str,
     ctx: Context,
+    seller_street_2: str = "",
+    seller_street_3: str = "",
+    buyer_street_2: str = "",
+    buyer_street_3: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -301,6 +313,10 @@ async def einvoice_generate_xrechnung(
         buyer_postal_code: PLZ des Käufers.
         buyer_country_code: Ländercode des Käufers (z.B. "DE").
         items: JSON-Array der Positionen.
+        seller_street_2: Adresszeile 2 des Verkäufers (BT-36).
+        seller_street_3: Adresszeile 3 des Verkäufers (BT-37).
+        buyer_street_2: Adresszeile 2 des Käufers (BT-51).
+        buyer_street_3: Adresszeile 3 des Käufers (BT-52).
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: "EUR").
         payment_terms_days: Zahlungsziel in Tagen (optional).
@@ -337,12 +353,16 @@ async def einvoice_generate_xrechnung(
         issue_date=issue_date,
         seller_name=seller_name,
         seller_street=seller_street,
+        seller_street_2=seller_street_2,
+        seller_street_3=seller_street_3,
         seller_city=seller_city,
         seller_postal_code=seller_postal_code,
         seller_country_code=seller_country_code,
         seller_tax_id=seller_tax_id,
         buyer_name=buyer_name,
         buyer_street=buyer_street,
+        buyer_street_2=buyer_street_2,
+        buyer_street_3=buyer_street_3,
         buyer_city=buyer_city,
         buyer_postal_code=buyer_postal_code,
         buyer_country_code=buyer_country_code,
@@ -414,6 +434,10 @@ async def einvoice_generate_zugferd(
     buyer_country_code: str,
     items: str,
     ctx: Context,
+    seller_street_2: str = "",
+    seller_street_3: str = "",
+    buyer_street_2: str = "",
+    buyer_street_3: str = "",
     buyer_tax_id: str = "",
     currency: str = "EUR",
     payment_terms_days: int | None = None,
@@ -462,6 +486,10 @@ async def einvoice_generate_zugferd(
         buyer_postal_code: PLZ des Käufers.
         buyer_country_code: Land des Käufers.
         items: JSON-Array der Positionen.
+        seller_street_2: Adresszeile 2 des Verkäufers (BT-36).
+        seller_street_3: Adresszeile 3 des Verkäufers (BT-37).
+        buyer_street_2: Adresszeile 2 des Käufers (BT-51).
+        buyer_street_3: Adresszeile 3 des Käufers (BT-52).
         buyer_tax_id: USt-IdNr. des Käufers (optional).
         currency: Währungscode (Standard: EUR).
         payment_terms_days: Zahlungsziel in Tagen (optional).
@@ -498,12 +526,16 @@ async def einvoice_generate_zugferd(
         issue_date=issue_date,
         seller_name=seller_name,
         seller_street=seller_street,
+        seller_street_2=seller_street_2,
+        seller_street_3=seller_street_3,
         seller_city=seller_city,
         seller_postal_code=seller_postal_code,
         seller_country_code=seller_country_code,
         seller_tax_id=seller_tax_id,
         buyer_name=buyer_name,
         buyer_street=buyer_street,
+        buyer_street_2=buyer_street_2,
+        buyer_street_3=buyer_street_3,
         buyer_city=buyer_city,
         buyer_postal_code=buyer_postal_code,
         buyer_country_code=buyer_country_code,

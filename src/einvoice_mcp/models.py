@@ -28,6 +28,12 @@ class TaxCategory(StrEnum):
 
 class Address(BaseModel):
     street: str = Field(..., min_length=1, max_length=200, description="Straße und Hausnummer")
+    street_2: str | None = Field(
+        default=None, max_length=200, description="Adresszeile 2 (BT-36/BT-51)"
+    )
+    street_3: str | None = Field(
+        default=None, max_length=200, description="Adresszeile 3 (BT-37/BT-52)"
+    )
     city: str = Field(..., min_length=1, max_length=100, description="Stadt")
     postal_code: str = Field(..., min_length=1, max_length=20, description="Postleitzahl")
     country_code: str = Field(

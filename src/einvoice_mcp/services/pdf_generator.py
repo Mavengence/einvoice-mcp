@@ -111,11 +111,21 @@ def _build_pdf(data: InvoiceData) -> bytes:
         ["Verkäufer:", "Käufer:"],
         [data.seller.name, data.buyer.name],
         [data.seller.address.street, data.buyer.address.street],
-        [
-            f"{data.seller.address.postal_code} {data.seller.address.city}",
-            f"{data.buyer.address.postal_code} {data.buyer.address.city}",
-        ],
     ]
+    if data.seller.address.street_2 or data.buyer.address.street_2:
+        party_data.append([
+            data.seller.address.street_2 or "",
+            data.buyer.address.street_2 or "",
+        ])
+    if data.seller.address.street_3 or data.buyer.address.street_3:
+        party_data.append([
+            data.seller.address.street_3 or "",
+            data.buyer.address.street_3 or "",
+        ])
+    party_data.append([
+        f"{data.seller.address.postal_code} {data.seller.address.city}",
+        f"{data.buyer.address.postal_code} {data.buyer.address.city}",
+    ])
     if data.seller.tax_id:
         buyer_tax = f"USt-IdNr.: {data.buyer.tax_id}" if data.buyer.tax_id else ""
         party_data.append([f"USt-IdNr.: {data.seller.tax_id}", buyer_tax])

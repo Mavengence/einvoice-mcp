@@ -2839,3 +2839,79 @@ class TestDueDateRoundtrip:
         )
         pdf_no_due = generate_invoice_pdf(data_no_due)
         assert len(pdf_bytes) > len(pdf_no_due)
+
+
+# ============================================================================
+# 42. Address line 2/3 roundtrip (BT-36/37, BT-51/52)
+# ============================================================================
+
+
+class TestAddressLineRoundtrip:
+    def test_full_address_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Address lines 2+3 roundtrip through XML build/parse."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller": sample_invoice_data.seller.model_copy(
+                    update={
+                        "address": Address(
+                            street="Hauptstr. 1",
+                            street_2="Gebäude B",
+                            street_3="3. OG",
+                            city="Berlin",
+                            postal_code="10115",
+                        )
+                    }
+                ),
+                "buyer": sample_invoice_data.buyer.model_copy(
+                    update={
+                        "address": Address(
+                            street="Musterweg 5",
+                            street_2="Postfach 42",
+                            street_3="Eingang C",
+                            city="München",
+                            postal_code="80331",
+                        )
+                    }
+                ),
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.address.street_2 == "Gebäude B"
+        assert parsed.seller.address.street_3 == "3. OG"
+        assert parsed.buyer is not None
+        assert parsed.buyer.address.street_2 == "Postfach 42"
+        assert parsed.buyer.address.street_3 == "Eingang C"
+
+    def test_no_extra_lines(self, sample_invoice_data: InvoiceData) -> None:
+        """No address lines 2/3 → parsed as None."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.address.street_2 is None
+        assert parsed.seller.address.street_3 is None
+
+    def test_address_lines_in_pdf(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """PDF generates successfully with extra address lines."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller": sample_invoice_data.seller.model_copy(
+                    update={
+                        "address": Address(
+                            street="Hauptstr. 1",
+                            street_2="Gebäude B",
+                            street_3="Hinterhaus",
+                            city="Berlin",
+                            postal_code="10115",
+                        )
+                    }
+                ),
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert pdf_bytes.startswith(b"%PDF")

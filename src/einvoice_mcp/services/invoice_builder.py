@@ -64,6 +64,10 @@ def _build_document(data: InvoiceData) -> bytes:
     # Seller
     doc.trade.agreement.seller.name = data.seller.name
     doc.trade.agreement.seller.address.line_one = data.seller.address.street
+    if data.seller.address.street_2:
+        doc.trade.agreement.seller.address.line_two = data.seller.address.street_2
+    if data.seller.address.street_3:
+        doc.trade.agreement.seller.address.line_three = data.seller.address.street_3
     doc.trade.agreement.seller.address.postcode = data.seller.address.postal_code
     doc.trade.agreement.seller.address.city_name = data.seller.address.city
     doc.trade.agreement.seller.address.country_id = data.seller.address.country_code
@@ -97,6 +101,10 @@ def _build_document(data: InvoiceData) -> bytes:
     # Buyer
     doc.trade.agreement.buyer.name = data.buyer.name
     doc.trade.agreement.buyer.address.line_one = data.buyer.address.street
+    if data.buyer.address.street_2:
+        doc.trade.agreement.buyer.address.line_two = data.buyer.address.street_2
+    if data.buyer.address.street_3:
+        doc.trade.agreement.buyer.address.line_three = data.buyer.address.street_3
     doc.trade.agreement.buyer.address.postcode = data.buyer.address.postal_code
     doc.trade.agreement.buyer.address.city_name = data.buyer.address.city
     doc.trade.agreement.buyer.address.country_id = data.buyer.address.country_code

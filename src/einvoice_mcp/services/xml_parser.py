@@ -249,8 +249,12 @@ def _extract_party(party_obj: object) -> Party | None:
             return None
 
         addr_obj = getattr(party_obj, "address", None)
+        street_2_val = _str_element(getattr(addr_obj, "line_two", "")) or None
+        street_3_val = _str_element(getattr(addr_obj, "line_three", "")) or None
         address = Address(
             street=_str_element(getattr(addr_obj, "line_one", "")),
+            street_2=street_2_val,
+            street_3=street_3_val,
             city=_str_element(getattr(addr_obj, "city_name", "")),
             postal_code=_str_element(getattr(addr_obj, "postcode", "")),
             country_code=_str_element(getattr(addr_obj, "country_id", "DE")) or "DE",
