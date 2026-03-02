@@ -387,6 +387,22 @@ class InvoiceData(BaseModel):
             "z.B. 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'"
         ),
     )
+    buyer_iban: str | None = Field(
+        default=None,
+        max_length=34,
+        description=(
+            "IBAN des Käufers (BT-91) — "
+            "Pflicht bei SEPA-Lastschrift (PaymentMeansCode 59)"
+        ),
+    )
+    mandate_reference_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "SEPA-Mandatsreferenz (BT-89) — "
+            "Pflicht bei SEPA-Lastschrift"
+        ),
+    )
     skonto_percent: Decimal | None = Field(
         default=None,
         ge=0,
@@ -584,6 +600,10 @@ class ParsedInvoice(BaseModel):
     )
     remittance_information: str = Field(
         default="", description="Verwendungszweck (BT-83)"
+    )
+    buyer_iban: str = Field(default="", description="IBAN des Käufers (BT-91)")
+    mandate_reference_id: str = Field(
+        default="", description="SEPA-Mandatsreferenz (BT-89)"
     )
     seller_iban: str = Field(default="", description="IBAN des Verkäufers (BT-84)")
     seller_bic: str = Field(default="", description="BIC des Verkäufers (BT-86)")

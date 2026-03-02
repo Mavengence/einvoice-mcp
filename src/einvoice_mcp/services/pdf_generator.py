@@ -132,6 +132,29 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elif data.seller.tax_number:
         party_data.append([f"Steuernummer: {data.seller.tax_number}", ""])
 
+    # Contact info
+    seller_contact = data.seller_contact_name or data.seller.contact_name
+    buyer_contact = data.buyer_contact_name or data.buyer.contact_name
+    if seller_contact or buyer_contact:
+        party_data.append([
+            f"Kontakt: {seller_contact}" if seller_contact else "",
+            f"Kontakt: {buyer_contact}" if buyer_contact else "",
+        ])
+    seller_phone = data.seller_contact_phone or data.seller.contact_phone
+    seller_email = data.seller_contact_email or data.seller.contact_email
+    buyer_phone = data.buyer_contact_phone or data.buyer.contact_phone
+    buyer_email = data.buyer_contact_email or data.buyer.contact_email
+    if seller_phone or buyer_phone:
+        party_data.append([
+            f"Tel.: {seller_phone}" if seller_phone else "",
+            f"Tel.: {buyer_phone}" if buyer_phone else "",
+        ])
+    if seller_email or buyer_email:
+        party_data.append([
+            seller_email or "",
+            buyer_email or "",
+        ])
+
     party_table = Table(party_data, colWidths=[85 * mm, 85 * mm])
     party_table.setStyle(
         TableStyle(

@@ -317,10 +317,11 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # IBAN / BIC / Bank name (BT-84, BT-86)
+    # IBAN / BIC / Bank name (BT-84, BT-86) and buyer IBAN (BT-91)
     seller_iban = ""
     seller_bic = ""
     seller_bank_name = ""
+    buyer_iban = ""
     try:
         pm_container = doc.trade.settlement.payment_means
         if hasattr(pm_container, "children"):
@@ -338,7 +339,26 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     bic_val = _str_element(getattr(inst, "bic", ""))
                     if bic_val:
                         seller_bic = bic_val
+                # Buyer/payer IBAN (BT-91) for SEPA direct debit
+                payer = getattr(pm, "payer_account", None)
+                if payer:
+                    payer_iban = _str_element(getattr(payer, "iban", ""))
+                    if payer_iban:
+                        buyer_iban = payer_iban
                 if seller_iban:
+                    break
+    except Exception:
+        pass
+
+    # SEPA mandate reference (BT-89)
+    mandate_reference_id = ""
+    try:
+        terms = doc.trade.settlement.terms
+        if hasattr(terms, "children"):
+            for term in terms.children:
+                mid = _str_element(getattr(term, "debit_mandate_id", ""))
+                if mid:
+                    mandate_reference_id = mid
                     break
     except Exception:
         pass
@@ -377,6 +397,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         business_process_type=business_process_type,
         remittance_information=remittance_information,
         allowances_charges=allowances_charges,
+        buyer_iban=buyer_iban,
+        mandate_reference_id=mandate_reference_id,
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,

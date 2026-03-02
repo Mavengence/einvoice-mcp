@@ -147,6 +147,8 @@ def _build_invoice_data(
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
+    buyer_iban: str = "",
+    mandate_reference_id: str = "",
     skonto_percent: str = "",
     skonto_days: int | None = None,
     skonto_base_amount: str = "",
@@ -247,6 +249,8 @@ def _build_invoice_data(
                 "despatch_advice_reference": despatch_advice_reference or None,
                 "invoiced_object_identifier": invoiced_object_identifier or None,
                 "business_process_type": business_process_type or None,
+                "buyer_iban": buyer_iban or None,
+                "mandate_reference_id": mandate_reference_id or None,
                 "skonto_percent": skonto_percent or None,
                 "skonto_days": skonto_days,
                 "skonto_base_amount": skonto_base_amount or None,
@@ -378,6 +382,8 @@ async def einvoice_generate_xrechnung(
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
+    buyer_iban: str = "",
+    mandate_reference_id: str = "",
     skonto_percent: str = "",
     skonto_days: int | None = None,
     skonto_base_amount: str = "",
@@ -451,6 +457,8 @@ async def einvoice_generate_xrechnung(
         seller_tax_number: Steuernummer (BT-32).
         seller_registration_id: Handelsregister/GLN (BT-29).
         buyer_registration_id: GLN des Käufers (BT-46).
+        buyer_iban: IBAN des Käufers (BT-91, SEPA-Lastschrift).
+        mandate_reference_id: SEPA-Mandatsreferenz (BT-89).
         skonto_percent: Skonto-Prozentsatz (z.B. "2.00").
         skonto_days: Skonto-Frist in Tagen.
         skonto_base_amount: Skonto-Basisbetrag (optional).
@@ -519,6 +527,8 @@ async def einvoice_generate_xrechnung(
         business_process_type=business_process_type,
         seller_registration_id=seller_registration_id,
         buyer_registration_id=buyer_registration_id,
+        buyer_iban=buyer_iban,
+        mandate_reference_id=mandate_reference_id,
         skonto_percent=skonto_percent,
         skonto_days=skonto_days,
         skonto_base_amount=skonto_base_amount,
@@ -608,6 +618,8 @@ async def einvoice_generate_zugferd(
     despatch_advice_reference: str = "",
     invoiced_object_identifier: str = "",
     business_process_type: str = "",
+    buyer_iban: str = "",
+    mandate_reference_id: str = "",
     skonto_percent: str = "",
     skonto_days: int | None = None,
     skonto_base_amount: str = "",
@@ -679,6 +691,8 @@ async def einvoice_generate_zugferd(
         seller_tax_number: Steuernummer (BT-32).
         seller_registration_id: Handelsregister/GLN (BT-29).
         buyer_registration_id: GLN des Käufers (BT-46).
+        buyer_iban: IBAN des Käufers (BT-91, SEPA-Lastschrift).
+        mandate_reference_id: SEPA-Mandatsreferenz (BT-89).
         skonto_percent: Skonto-Prozentsatz (z.B. "2.00").
         skonto_days: Skonto-Frist in Tagen.
         skonto_base_amount: Skonto-Basisbetrag (optional).
@@ -747,6 +761,8 @@ async def einvoice_generate_zugferd(
         business_process_type=business_process_type,
         seller_registration_id=seller_registration_id,
         buyer_registration_id=buyer_registration_id,
+        buyer_iban=buyer_iban,
+        mandate_reference_id=mandate_reference_id,
         skonto_percent=skonto_percent,
         skonto_days=skonto_days,
         skonto_base_amount=skonto_base_amount,

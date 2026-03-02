@@ -3749,6 +3749,73 @@ class TestSkontoRoundtrip:
         assert len(pdf_bytes) > len(pdf_no_skonto)
 
 
+class TestPdfContactInfo:
+    """Tests for contact info display in PDF."""
+
+    def test_pdf_with_contact_info(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """PDF with contact info generates successfully."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_contact_name": "Max Mustermann",
+                "seller_contact_phone": "+49 30 12345678",
+                "seller_contact_email": "max@techcorp.de",
+                "buyer_contact_name": "Erika Muster",
+                "buyer_contact_phone": "+49 89 9876543",
+                "buyer_contact_email": "erika@buyer.de",
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
+        assert pdf_bytes[:5] == b"%PDF-"
+
+    def test_pdf_with_party_contact(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Contact info from Party model also renders in PDF."""
+        seller = sample_invoice_data.seller.model_copy(
+            update={
+                "contact_name": "Erika Muster",
+                "contact_phone": "+49 89 9876543",
+                "contact_email": "erika@example.de",
+            }
+        )
+        data = sample_invoice_data.model_copy(update={"seller": seller})
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
+        assert pdf_bytes[:5] == b"%PDF-"
+
+
+class TestSepaDirectDebitRoundtrip:
+    """Roundtrip tests for SEPA direct debit (BG-19)."""
+
+    def test_sepa_direct_debit_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """SEPA direct debit fields roundtrip through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "payment_means_type_code": "59",
+                "buyer_iban": "DE75512108001245126199",
+                "mandate_reference_id": "MANDATE-2026-001",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer_iban == "DE75512108001245126199"
+        assert parsed.mandate_reference_id == "MANDATE-2026-001"
+
+    def test_no_direct_debit(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No direct debit → empty strings parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer_iban == ""
+        assert parsed.mandate_reference_id == ""
+
+
 class TestInvoicedObjectIdentifierRoundtrip:
     """Roundtrip tests for invoiced object identifier (BT-18)."""
 

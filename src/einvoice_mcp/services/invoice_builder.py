@@ -275,6 +275,9 @@ def _build_document(data: InvoiceData) -> bytes:
             pm.payee_account.account_name = data.seller_bank_name
     if data.seller_bic:
         pm.payee_institution.bic = data.seller_bic
+    # SEPA direct debit (BG-19): buyer's IBAN
+    if data.buyer_iban:
+        pm.payer_account.iban = data.buyer_iban
     doc.trade.settlement.payment_means.add(pm)
 
     # Remittance information (BT-83) / Verwendungszweck
@@ -360,12 +363,16 @@ def _build_document(data: InvoiceData) -> bytes:
             f"{data.skonto_days} Tagen."
         )
     has_skonto = data.skonto_percent is not None and data.skonto_days is not None
-    if payment_text or data.due_date or has_skonto:
+    has_mandate = bool(data.mandate_reference_id)
+    if payment_text or data.due_date or has_skonto or has_mandate:
         pt = PaymentTerms()
         if payment_text:
             pt.description = payment_text
         if data.due_date:
             pt.due = data.due_date
+        # SEPA mandate reference (BT-89)
+        if has_mandate:
+            pt.debit_mandate_id = data.mandate_reference_id
         # Structured Skonto (PaymentDiscountTerms)
         if has_skonto:
             pt.discount_terms.calculation_percent = data.skonto_percent
