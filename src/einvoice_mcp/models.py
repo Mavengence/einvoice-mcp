@@ -86,6 +86,25 @@ class Party(BaseModel):
     )
 
 
+class LineAllowanceCharge(BaseModel):
+    """Line-level allowance or charge (BG-27/BG-28).
+
+    charge=False → line allowance/discount (BT-136..BT-139)
+    charge=True  → line charge/surcharge (BT-141..BT-144)
+    """
+
+    charge: bool = Field(
+        default=False,
+        description="True=Zuschlag, False=Abzug/Rabatt",
+    )
+    amount: Decimal = Field(
+        ..., ge=0, description="Betrag (BT-136/BT-141)"
+    )
+    reason: str = Field(
+        default="", max_length=500, description="Grund (BT-139/BT-144)"
+    )
+
+
 class LineItem(BaseModel):
     description: str = Field(..., min_length=1, max_length=500, description="Positionsbeschreibung")
     quantity: Decimal = Field(..., gt=0, description="Menge")
@@ -109,6 +128,11 @@ class LineItem(BaseModel):
     )
     item_note: str | None = Field(
         default=None, max_length=1000, description="Positionshinweis (BT-127)"
+    )
+    allowances_charges: list["LineAllowanceCharge"] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Positions-Zu-/Abschläge (BG-27/BG-28)",
     )
 
 
@@ -445,6 +469,12 @@ class Totals(BaseModel):
     tax_total: Decimal
     gross_total: Decimal
     due_payable: Decimal
+
+
+class ParsedLineAllowanceCharge(BaseModel):
+    charge: bool = Field(default=False, description="True=Zuschlag, False=Rabatt")
+    amount: Decimal = Field(default=Decimal("0"), description="Betrag")
+    reason: str = Field(default="", description="Grund")
 
 
 class ParsedAllowanceCharge(BaseModel):

@@ -230,6 +230,15 @@ def _build_document(data: InvoiceData) -> bytes:
         net_amount = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
         li.settlement.monetary_summation.total_amount = net_amount
 
+        # Line-level allowances/charges (BG-27/BG-28)
+        for lac in item.allowances_charges:
+            line_ac = TradeAllowanceCharge()
+            line_ac.indicator = lac.charge
+            line_ac.actual_amount = lac.amount
+            if lac.reason:
+                line_ac.reason = lac.reason
+            li.settlement.allowance_charge.add(line_ac)
+
         li.settlement.trade_tax.type_code = "VAT"
         li.settlement.trade_tax.category_code = item.tax_category.value
         li.settlement.trade_tax.rate_applicable_percent = item.tax_rate

@@ -10,6 +10,7 @@ from drafthorse.models.document import Document
 from einvoice_mcp.errors import InvoiceParsingError
 from einvoice_mcp.models import (
     Address,
+    LineAllowanceCharge,
     LineItem,
     ParsedAllowanceCharge,
     ParsedInvoice,
@@ -478,6 +479,27 @@ def _extract_items(doc: Document) -> list[LineItem]:
                         item_note = text
                         break
 
+            # Line-level allowances/charges (BG-27/BG-28)
+            line_allowances: list[LineAllowanceCharge] = []
+            line_ac_container = getattr(li.settlement, "allowance_charge", None)
+            if line_ac_container and hasattr(line_ac_container, "children"):
+                for lac_item in line_ac_container.children:
+                    lac_indicator = getattr(lac_item, "indicator", None)
+                    lac_val = getattr(lac_indicator, "_value", None)
+                    if lac_val is not None:
+                        lac_is_charge = bool(lac_val)
+                    else:
+                        lac_is_charge = bool(lac_indicator) if lac_indicator is not None else False
+                    lac_amount = _safe_decimal(getattr(lac_item, "actual_amount", "0"))
+                    lac_reason = _str_element(getattr(lac_item, "reason", ""))
+                    line_allowances.append(
+                        LineAllowanceCharge(
+                            charge=lac_is_charge,
+                            amount=lac_amount,
+                            reason=lac_reason,
+                        )
+                    )
+
             # Product identifiers (BT-155, BT-156, BT-157)
             seller_item_id = _str_element(
                 getattr(li.product, "seller_assigned_id", "")
@@ -521,6 +543,7 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     standard_item_id=standard_item_id,
                     standard_item_scheme=standard_item_scheme,
                     item_note=item_note,
+                    allowances_charges=line_allowances,
                 )
             )
         except Exception:

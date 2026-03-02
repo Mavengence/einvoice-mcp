@@ -24,6 +24,7 @@ from einvoice_mcp.models import (
     AllowanceCharge,
     InvoiceData,
     InvoiceProfile,
+    LineAllowanceCharge,
     LineItem,
     Party,
     TaxBreakdown,
@@ -3024,6 +3025,69 @@ class TestRegistrationIdRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.buyer is not None
         assert parsed.buyer.registration_id == "9876543210123"
+
+
+class TestLineAllowancesChargesRoundtrip:
+    """Roundtrip tests for line-level allowances/charges (BG-27/BG-28)."""
+
+    def test_line_allowance_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line-level allowance roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={
+                    "allowances_charges": [
+                        LineAllowanceCharge(
+                            charge=False,
+                            amount=Decimal("5.00"),
+                            reason="Positionsrabatt",
+                        ),
+                    ],
+                }
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.items[0].allowances_charges) == 1
+        lac = parsed.items[0].allowances_charges[0]
+        assert lac.charge is False
+        assert lac.amount == Decimal("5.00")
+        assert lac.reason == "Positionsrabatt"
+
+    def test_line_charge_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line-level charge roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={
+                    "allowances_charges": [
+                        LineAllowanceCharge(
+                            charge=True,
+                            amount=Decimal("3.00"),
+                            reason="Sonderbehandlung",
+                        ),
+                    ],
+                }
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.items[0].allowances_charges) == 1
+        lac = parsed.items[0].allowances_charges[0]
+        assert lac.charge is True
+        assert lac.amount == Decimal("3.00")
+
+    def test_no_line_allowances(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No line allowances → empty list."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].allowances_charges == []
 
 
 class TestDeliveryLocationRoundtrip:
