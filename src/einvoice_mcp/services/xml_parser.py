@@ -206,6 +206,41 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Despatch advice reference (BT-16)
+    despatch_advice_reference = ""
+    try:
+        da_id = doc.trade.delivery.despatch_advice.issuer_assigned_id
+        val = _str_element(da_id)
+        if val:
+            despatch_advice_reference = val
+    except Exception:
+        pass
+
+    # Invoiced object identifier (BT-18) — AdditionalReferencedDocument TypeCode=130
+    invoiced_object_identifier = ""
+    try:
+        add_refs = doc.trade.agreement.additional_references
+        if hasattr(add_refs, "children"):
+            for ref in add_refs.children:
+                tc = _str_element(getattr(ref, "type_code", ""))
+                if tc == "130":
+                    oid = _str_element(getattr(ref, "issuer_assigned_id", ""))
+                    if oid:
+                        invoiced_object_identifier = oid
+                        break
+    except Exception:
+        pass
+
+    # Business process type (BT-23)
+    business_process_type = ""
+    try:
+        bp_id = doc.context.business_parameter.id
+        val = _str_element(bp_id)
+        if val:
+            business_process_type = val
+    except Exception:
+        pass
+
     # Preceding invoice number (BT-25)
     preceding_invoice_number = ""
     try:
@@ -322,6 +357,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
+        despatch_advice_reference=despatch_advice_reference,
+        invoiced_object_identifier=invoiced_object_identifier,
+        business_process_type=business_process_type,
         remittance_information=remittance_information,
         allowances_charges=allowances_charges,
         seller_iban=seller_iban,

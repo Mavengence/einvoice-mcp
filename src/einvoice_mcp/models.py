@@ -366,6 +366,27 @@ class InvoiceData(BaseModel):
             "Pflicht bei Gutschrift (381) per §14 Abs. 4 UStG"
         ),
     )
+    despatch_advice_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Lieferscheinnummer (BT-16)",
+    )
+    invoiced_object_identifier: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Kennung des Abrechnungsobjekts (BT-18) — "
+            "z.B. Vertragskonto, Zählernummer, Abonnement-ID"
+        ),
+    )
+    business_process_type: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Geschäftsprozesstyp (BT-23) — "
+            "z.B. 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'"
+        ),
+    )
     payment_means_type_code: str = Field(
         default="58",
         max_length=3,
@@ -526,6 +547,15 @@ class ParsedInvoice(BaseModel):
     )
     preceding_invoice_number: str = Field(
         default="", description="Vorherige Rechnungsnummer (BT-25)"
+    )
+    despatch_advice_reference: str = Field(
+        default="", description="Lieferscheinnummer (BT-16)"
+    )
+    invoiced_object_identifier: str = Field(
+        default="", description="Kennung des Abrechnungsobjekts (BT-18)"
+    )
+    business_process_type: str = Field(
+        default="", description="Geschäftsprozesstyp (BT-23)"
     )
     remittance_information: str = Field(
         default="", description="Verwendungszweck (BT-83)"

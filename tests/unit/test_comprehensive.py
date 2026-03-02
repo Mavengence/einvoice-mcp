@@ -3476,3 +3476,118 @@ class TestAllowancesChargesRoundtrip:
         # PDF with allowances should differ from without
         pdf_no_ac = generate_invoice_pdf(sample_invoice_data)
         assert len(pdf_bytes) != len(pdf_no_ac)
+
+
+class TestInvoicedObjectIdentifierRoundtrip:
+    """Roundtrip tests for invoiced object identifier (BT-18)."""
+
+    def test_bt18_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Invoiced object identifier roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={"invoiced_object_identifier": "METER-12345"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoiced_object_identifier == "METER-12345"
+
+    def test_no_bt18(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No invoiced object identifier → empty string parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoiced_object_identifier == ""
+
+    def test_bt18_xml_contains_type_code_130(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """BT-18 generates AdditionalReferencedDocument with TypeCode 130."""
+        data = sample_invoice_data.model_copy(
+            update={"invoiced_object_identifier": "SUB-999"}
+        )
+        xml_bytes = build_xml(data)
+        xml_str = xml_bytes.decode("utf-8")
+        assert "130" in xml_str
+        assert "SUB-999" in xml_str
+
+
+class TestDespatchAdviceRoundtrip:
+    """Roundtrip tests for despatch advice reference (BT-16)."""
+
+    def test_bt16_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Despatch advice reference roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={"despatch_advice_reference": "DESP-2026-001"}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.despatch_advice_reference == "DESP-2026-001"
+
+    def test_no_bt16(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No despatch advice reference → empty string parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.despatch_advice_reference == ""
+
+
+class TestBusinessProcessTypeRoundtrip:
+    """Roundtrip tests for business process type (BT-23)."""
+
+    def test_bt23_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Business process type roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "business_process_type": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.business_process_type == (
+            "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"
+        )
+
+    def test_no_bt23(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No business process type → empty string parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.business_process_type == ""
+
+
+class TestRegistrationIdRoundtrip:
+    """Roundtrip tests for party registration IDs (BT-29/BT-46)."""
+
+    def test_seller_registration_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Seller registration ID (BT-29) roundtrips through XML."""
+        seller = sample_invoice_data.seller.model_copy(
+            update={"registration_id": "4000001000005"}
+        )
+        data = sample_invoice_data.model_copy(update={"seller": seller})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.registration_id == "4000001000005"
+
+    def test_buyer_registration_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Buyer registration ID (BT-46) roundtrips through XML."""
+        buyer = sample_invoice_data.buyer.model_copy(
+            update={"registration_id": "4000002000006"}
+        )
+        data = sample_invoice_data.model_copy(update={"buyer": buyer})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer is not None
+        assert parsed.buyer.registration_id == "4000002000006"

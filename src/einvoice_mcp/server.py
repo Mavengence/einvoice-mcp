@@ -126,6 +126,8 @@ def _build_invoice_data(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    seller_registration_id: str = "",
+    buyer_registration_id: str = "",
     delivery_party_name: str = "",
     delivery_street: str = "",
     delivery_city: str = "",
@@ -142,6 +144,9 @@ def _build_invoice_data(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    despatch_advice_reference: str = "",
+    invoiced_object_identifier: str = "",
+    business_process_type: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges_json: str = "",
@@ -185,6 +190,7 @@ def _build_invoice_data(
                     },
                     "tax_id": seller_tax_id or None,
                     "tax_number": seller_tax_number or None,
+                    "registration_id": seller_registration_id or None,
                     "electronic_address": seller_electronic_address or None,
                     "electronic_address_scheme": seller_electronic_address_scheme,
                 },
@@ -199,6 +205,7 @@ def _build_invoice_data(
                         "country_code": buyer_country_code,
                     },
                     "tax_id": buyer_tax_id or None,
+                    "registration_id": buyer_registration_id or None,
                     "electronic_address": buyer_electronic_address or None,
                     "electronic_address_scheme": buyer_electronic_address_scheme,
                 },
@@ -234,6 +241,9 @@ def _build_invoice_data(
                 "contract_reference": contract_reference or None,
                 "project_reference": project_reference or None,
                 "preceding_invoice_number": preceding_invoice_number or None,
+                "despatch_advice_reference": despatch_advice_reference or None,
+                "invoiced_object_identifier": invoiced_object_identifier or None,
+                "business_process_type": business_process_type or None,
                 "payment_means_type_code": payment_means_type_code,
                 "remittance_information": remittance_information or None,
             }
@@ -341,6 +351,8 @@ async def einvoice_generate_xrechnung(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    seller_registration_id: str = "",
+    buyer_registration_id: str = "",
     delivery_party_name: str = "",
     delivery_street: str = "",
     delivery_city: str = "",
@@ -357,6 +369,9 @@ async def einvoice_generate_xrechnung(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    despatch_advice_reference: str = "",
+    invoiced_object_identifier: str = "",
+    business_process_type: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges: str = "",
@@ -421,6 +436,12 @@ async def einvoice_generate_xrechnung(
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        despatch_advice_reference: Lieferscheinnummer (BT-16).
+        invoiced_object_identifier: Abrechnungsobjekt (BT-18).
+        business_process_type: Geschäftsprozesstyp (BT-23).
+        seller_tax_number: Steuernummer (BT-32).
+        seller_registration_id: Handelsregister/GLN (BT-29).
+        buyer_registration_id: GLN des Käufers (BT-46).
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
         allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
@@ -481,6 +502,11 @@ async def einvoice_generate_xrechnung(
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
+        despatch_advice_reference=despatch_advice_reference,
+        invoiced_object_identifier=invoiced_object_identifier,
+        business_process_type=business_process_type,
+        seller_registration_id=seller_registration_id,
+        buyer_registration_id=buyer_registration_id,
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
         allowances_charges_json=allowances_charges,
@@ -546,6 +572,8 @@ async def einvoice_generate_zugferd(
     seller_bank_name: str = "",
     type_code: str = "380",
     seller_tax_number: str = "",
+    seller_registration_id: str = "",
+    buyer_registration_id: str = "",
     delivery_party_name: str = "",
     delivery_street: str = "",
     delivery_city: str = "",
@@ -562,6 +590,9 @@ async def einvoice_generate_zugferd(
     contract_reference: str = "",
     project_reference: str = "",
     preceding_invoice_number: str = "",
+    despatch_advice_reference: str = "",
+    invoiced_object_identifier: str = "",
+    business_process_type: str = "",
     payment_means_type_code: str = "58",
     remittance_information: str = "",
     allowances_charges: str = "",
@@ -624,6 +655,12 @@ async def einvoice_generate_zugferd(
         contract_reference: Vertragsnummer (BT-12).
         project_reference: Projektreferenz (BT-11).
         preceding_invoice_number: Vorige Rechnungsnr. (BT-25).
+        despatch_advice_reference: Lieferscheinnummer (BT-16).
+        invoiced_object_identifier: Abrechnungsobjekt (BT-18).
+        business_process_type: Geschäftsprozesstyp (BT-23).
+        seller_tax_number: Steuernummer (BT-32).
+        seller_registration_id: Handelsregister/GLN (BT-29).
+        buyer_registration_id: GLN des Käufers (BT-46).
         payment_means_type_code: Zahlungsart (BT-81, Standard 58).
         remittance_information: Verwendungszweck (BT-83).
         allowances_charges: JSON-Array der Zu-/Abschläge (BG-20/BG-21).
@@ -684,6 +721,11 @@ async def einvoice_generate_zugferd(
         contract_reference=contract_reference,
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
+        despatch_advice_reference=despatch_advice_reference,
+        invoiced_object_identifier=invoiced_object_identifier,
+        business_process_type=business_process_type,
+        seller_registration_id=seller_registration_id,
+        buyer_registration_id=buyer_registration_id,
         payment_means_type_code=payment_means_type_code,
         remittance_information=remittance_information,
         allowances_charges_json=allowances_charges,

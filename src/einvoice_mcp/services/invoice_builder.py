@@ -12,6 +12,7 @@ from drafthorse.models.document import Document
 from drafthorse.models.note import IncludedNote
 from drafthorse.models.party import TaxRegistration
 from drafthorse.models.payment import PaymentMeans, PaymentTerms
+from drafthorse.models.references import AdditionalReferencedDocument
 from drafthorse.models.tradelines import LineItem as DHLineItem
 
 from einvoice_mcp.errors import InvoiceGenerationError
@@ -51,6 +52,10 @@ def _build_document(data: InvoiceData) -> bytes:
     guideline = GUIDELINE_MAP.get(data.profile)
     if guideline:
         doc.context.guideline_parameter.id = guideline
+
+    # Business process type (BT-23)
+    if data.business_process_type:
+        doc.context.business_parameter.id = data.business_process_type
 
     # Header
     doc.header.id = data.invoice_id
@@ -175,6 +180,13 @@ def _build_document(data: InvoiceData) -> bytes:
         )
         doc.trade.agreement.procuring_project_type.name = ""
 
+    # Invoiced object identifier (BT-18) — AdditionalReferencedDocument TypeCode=130
+    if data.invoiced_object_identifier:
+        obj_ref = AdditionalReferencedDocument()
+        obj_ref.issuer_assigned_id = data.invoiced_object_identifier
+        obj_ref.type_code = "130"
+        doc.trade.agreement.additional_references.add(obj_ref)
+
     # Preceding invoice reference (BT-25) — for credit notes (381)
     if data.preceding_invoice_number:
         doc.trade.settlement.invoice_referenced_document.issuer_assigned_id = (
@@ -193,6 +205,12 @@ def _build_document(data: InvoiceData) -> bytes:
             doc.trade.delivery.ship_to.address.postcode = data.delivery_postal_code
         if data.delivery_country_code:
             doc.trade.delivery.ship_to.address.country_id = data.delivery_country_code
+
+    # Despatch advice reference (BT-16)
+    if data.despatch_advice_reference:
+        doc.trade.delivery.despatch_advice.issuer_assigned_id = (
+            data.despatch_advice_reference
+        )
 
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
     if data.delivery_date:
