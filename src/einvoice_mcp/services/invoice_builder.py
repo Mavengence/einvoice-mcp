@@ -108,6 +108,10 @@ def _build_document(data: InvoiceData) -> bytes:
         seller_tax_num.id = ("FC", data.seller.tax_number)
         doc.trade.agreement.seller.tax_registrations.add(seller_tax_num)
 
+    # Seller additional legal information (BT-33)
+    if data.seller_additional_legal_info:
+        doc.trade.agreement.seller.description = data.seller_additional_legal_info
+
     # Seller electronic address (BT-34) — mandatory for XRechnung 3.0
     if data.seller.electronic_address:
         doc.trade.agreement.seller.electronic_address.uri_ID = (
@@ -305,7 +309,7 @@ def _build_document(data: InvoiceData) -> bytes:
     # Line items
     for idx, item in enumerate(data.items, 1):
         li = DHLineItem()
-        li.document.line_id = str(idx)
+        li.document.line_id = item.line_id or str(idx)
         # Line item note (BT-127)
         if item.item_note:
             line_note = IncludedNote()
@@ -381,6 +385,20 @@ def _build_document(data: InvoiceData) -> bytes:
         if item.buyer_accounting_reference:
             li.settlement.accounting_account.id = item.buyer_accounting_reference
 
+        # Line object identifier (BT-128)
+        if item.line_object_identifier:
+            li.settlement.additional_referenced_document.issuer_assigned_id = (
+                item.line_object_identifier
+            )
+            li.settlement.additional_referenced_document.type_code = "130"
+
+        # Line purchase order reference (BT-132)
+        if item.line_purchase_order_reference:
+            from drafthorse.models.references import InvoiceReferencedDocument
+            line_po = InvoiceReferencedDocument()
+            line_po.issuer_assigned_id = item.line_purchase_order_reference
+            li.settlement.invoice_referenced_document.add(line_po)
+
         li.settlement.trade_tax.type_code = "VAT"
         li.settlement.trade_tax.category_code = item.tax_category.value
         li.settlement.trade_tax.rate_applicable_percent = item.tax_rate
@@ -421,6 +439,14 @@ def _build_document(data: InvoiceData) -> bytes:
             doc.trade.settlement.payee.legal_organization.id = (
                 data.payee_legal_registration_id
             )
+
+    # Creditor reference ID (BT-90) — for SEPA direct debit
+    if data.creditor_reference_id:
+        doc.trade.settlement.creditor_reference_id = data.creditor_reference_id
+
+    # Buyer accounting reference (BT-19) — document-level
+    if data.buyer_accounting_reference:
+        doc.trade.settlement.accounting_account.id = data.buyer_accounting_reference
 
     # Remittance information (BT-83) / Verwendungszweck
     if data.remittance_information:
@@ -475,6 +501,9 @@ def _build_document(data: InvoiceData) -> bytes:
             trade_tax.exemption_reason = data.tax_exemption_reason
         if data.tax_exemption_reason_code and cat in ("E", "AE", "K", "G", "Z", "O"):
             trade_tax.exemption_reason_code = data.tax_exemption_reason_code
+        # BT-8: VAT point date code (UNTDID 2005) — relevant for Istbesteuerung (§20 UStG)
+        if data.vat_point_date_code:
+            trade_tax.due_date_type_code = data.vat_point_date_code
         doc.trade.settlement.trade_tax.add(trade_tax)
 
     # Monetary summation

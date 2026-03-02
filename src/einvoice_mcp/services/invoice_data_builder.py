@@ -58,6 +58,10 @@ FIELD_TO_BT: dict[str, str] = {
     "skonto_percent": "Skonto-Prozentsatz",
     "skonto_days": "Skonto-Frist (Tage)",
     "skonto_base_amount": "Skonto-Basisbetrag",
+    "vat_point_date_code": "BT-8 (Steuerzeitpunkt-Code)",
+    "seller_additional_legal_info": "BT-33 (Zusätzliche rechtl. Info)",
+    "creditor_reference_id": "BT-90 (Gläubiger-ID)",
+    "buyer_accounting_reference": "BT-19 (Abrechnungsreferenz Käufer)",
 }
 
 
@@ -165,6 +169,10 @@ def build_invoice_data(
     payment_means_text: str = "",
     supporting_documents_json: str = "",
     prepaid_amount: str = "",
+    vat_point_date_code: str = "",
+    seller_additional_legal_info: str = "",
+    creditor_reference_id: str = "",
+    buyer_accounting_reference: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -291,6 +299,10 @@ def build_invoice_data(
                 "payment_means_text": payment_means_text or None,
                 "supporting_documents": sd_list,
                 "prepaid_amount": prepaid_amount or None,
+                "vat_point_date_code": vat_point_date_code or None,
+                "seller_additional_legal_info": seller_additional_legal_info or None,
+                "creditor_reference_id": creditor_reference_id or None,
+                "buyer_accounting_reference": buyer_accounting_reference or None,
                 **(
                     {
                         "seller_tax_representative": {

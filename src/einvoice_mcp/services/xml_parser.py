@@ -371,6 +371,37 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         logger.debug("Failed to extract seller tax representative (BG-11)", exc_info=True)
 
+    # Seller additional legal information (BT-33)
+    seller_additional_legal_info = ""
+    try:
+        desc = str_element(getattr(doc.trade.agreement.seller, "description", ""))
+        if desc:
+            seller_additional_legal_info = desc
+    except Exception:
+        logger.debug("Failed to extract seller legal info (BT-33)", exc_info=True)
+
+    # Creditor reference ID (BT-90)
+    creditor_reference_id = ""
+    try:
+        cri = str_element(
+            getattr(doc.trade.settlement, "creditor_reference_id", "")
+        )
+        if cri:
+            creditor_reference_id = cri
+    except Exception:
+        logger.debug("Failed to extract creditor reference (BT-90)", exc_info=True)
+
+    # Buyer accounting reference (BT-19) — document level
+    buyer_accounting_reference = ""
+    try:
+        acct = getattr(doc.trade.settlement, "accounting_account", None)
+        if acct:
+            acct_id = str_element(getattr(acct, "id", ""))
+            if acct_id:
+                buyer_accounting_reference = acct_id
+    except Exception:
+        logger.debug("Failed to extract buyer accounting ref (BT-19)", exc_info=True)
+
     # Business process type (BT-23)
     business_process_type = ""
     try:
@@ -381,9 +412,10 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         logger.debug("Failed to extract business process type (BT-23)", exc_info=True)
 
-    # VAT exemption reason (BT-120/BT-121)
+    # VAT exemption reason (BT-120/BT-121) and VAT point date code (BT-8)
     tax_exemption_reason = ""
     tax_exemption_reason_code = ""
+    vat_point_date_code = ""
     try:
         trade_tax_container = doc.trade.settlement.trade_tax
         if hasattr(trade_tax_container, "children"):
@@ -394,6 +426,10 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     tax_exemption_reason = er
                 if erc:
                     tax_exemption_reason_code = erc
+                # BT-8: DueDateTypeCode (UNTDID 2005)
+                ddc = str_element(getattr(tax_entry, "due_date_type_code", ""))
+                if ddc and not vat_point_date_code:
+                    vat_point_date_code = ddc
                 if tax_exemption_reason or tax_exemption_reason_code:
                     break
     except Exception:
@@ -583,6 +619,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         payment_terms=payment_terms,
         tax_exemption_reason=tax_exemption_reason,
         tax_exemption_reason_code=tax_exemption_reason_code,
+        vat_point_date_code=vat_point_date_code,
         skonto_percent=skonto_percent,
         skonto_days=skonto_days,
         purchase_order_reference=purchase_order_reference,
@@ -614,6 +651,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         payment_means_text=payment_means_text,
         buyer_reference=buyer_reference,
         supporting_documents=supporting_documents,
+        seller_additional_legal_info=seller_additional_legal_info,
+        creditor_reference_id=creditor_reference_id,
+        buyer_accounting_reference=buyer_accounting_reference,
     )
 
 

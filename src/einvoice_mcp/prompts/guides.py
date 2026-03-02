@@ -510,3 +510,124 @@ def bauleistungen_13b_guide() -> str:
         "- Falscher Hinweistext → formaler Mangel\n"
         "- Leistung fällt nicht unter §13b → normaler Steuerausweis nötig"
     )
+
+
+def differenzbesteuerung_25a_guide() -> str:
+    """Differenzbesteuerung nach §25a UStG — E-Rechnung für Gebrauchtwaren.
+
+    Anleitung für Händler von Gebrauchtwaren, Antiquitäten, Sammlerstücken
+    und Kunstgegenständen, die die Differenzbesteuerung anwenden.
+    """
+    return (
+        "# Differenzbesteuerung (§25a UStG) — E-Rechnung\n\n"
+        "## Wann anwendbar?\n"
+        "- Wiederverkäufer von Gebrauchtwaren, Antiquitäten, "
+        "Sammlerstücken, Kunstgegenständen\n"
+        "- Ware wurde von Privatperson oder Kleinunternehmer ohne "
+        "USt-Ausweis erworben\n"
+        "- Händler versteuert nur die **Marge** "
+        "(Verkaufspreis - Einkaufspreis)\n\n"
+        "## Pflichtangaben auf der Rechnung\n"
+        "1. **Hinweis auf Differenzbesteuerung** (BT-22):\n"
+        '   `"Gebrauchtgegenstände / Sonderregelung nach §25a UStG"`\n'
+        "2. **Kein gesonderter Steuerausweis** — "
+        "USt darf NICHT ausgewiesen werden (§25a Abs. 3 UStG)\n"
+        "3. Bruttopreis = Endpreis inkl. enthaltener Steuer\n\n"
+        "## Technische Umsetzung (CII/XRechnung)\n"
+        "```json\n"
+        "{\n"
+        '  "tax_category": "S",\n'
+        '  "tax_rate": "0.00",\n'
+        '  "tax_exemption_reason": '
+        '"Differenzbesteuerung nach §25a UStG",\n'
+        '  "tax_exemption_reason_code": "vatex-eu-o",\n'
+        '  "invoice_note": "Gebrauchtgegenstände / '
+        'Sonderregelung nach §25a UStG"\n'
+        "}\n"
+        "```\n\n"
+        "**Wichtig:** Der Bruttopreis wird als Positionspreis angegeben. "
+        "Die Steuer auf die Marge wird **intern** berechnet, erscheint "
+        "aber NICHT auf der Rechnung.\n\n"
+        "## Beispiel-Position\n"
+        "```json\n"
+        "{\n"
+        '  "description": "Gebrauchtes Notebook ThinkPad X1",\n'
+        '  "quantity": "1",\n'
+        '  "unit_price": "499.00",\n'
+        '  "tax_rate": "0.00",\n'
+        '  "tax_category": "S"\n'
+        "}\n"
+        "```\n\n"
+        "## Häufige Fehler\n"
+        "- Steuer gesondert ausweisen → Steuerschuld nach §14c UStG!\n"
+        "- Hinweis auf §25a fehlt → formaler Mangel\n"
+        "- Anwendung bei Neuware → §25a nur für Gebrauchtwaren\n"
+        "- Vorsteuerabzug beim Einkauf → dann keine Differenzbesteuerung"
+    )
+
+
+def stornobuchung_workflow() -> str:
+    """Storno und Korrektur von E-Rechnungen — Wann 381, 384 oder neue 380?
+
+    Entscheidungshilfe für die korrekte Vorgehensweise bei Rechnungs-
+    korrekturen und Stornierungen im E-Rechnungs-Kontext.
+    """
+    return (
+        "# Storno & Korrektur von E-Rechnungen\n\n"
+        "## Überblick: Welcher Belegtyp?\n\n"
+        "| Situation | Typ | BT-3 |\n"
+        "|-----------|-----|------|\n"
+        "| Vollständige Stornierung | Gutschrift | 381 |\n"
+        "| Teilkorrektur (Menge/Preis) | Korrekturrechnung | 384 |\n"
+        "| Komplett neue Rechnung | Rechnung | 380 |\n\n"
+        "## 1. Gutschrift (381) — Vollstorno\n"
+        "Verwendet bei:\n"
+        "- Komplette Rechnungsstornierung\n"
+        "- Rückabwicklung des gesamten Geschäfts\n"
+        "- Retoure aller Positionen\n\n"
+        "**Pflichtfelder:**\n"
+        "- `preceding_invoice_number` (BT-25): Nummer der "
+        "Originalrechnung\n"
+        "- `preceding_invoice_date` (BT-26): Datum der "
+        "Originalrechnung\n"
+        "- Alle Positionen mit **negativen Beträgen** oder "
+        "mit gleichen Beträgen und Verweis auf Gutschrift\n\n"
+        "```json\n"
+        "{\n"
+        '  "type_code": "381",\n'
+        '  "preceding_invoice_number": "RE-2026-001",\n'
+        '  "preceding_invoice_date": "2026-01-15",\n'
+        '  "invoice_note": "Vollständige Stornierung von '
+        'RE-2026-001"\n'
+        "}\n"
+        "```\n\n"
+        "## 2. Korrekturrechnung (384) — Teilkorrektur\n"
+        "Verwendet bei:\n"
+        "- Preisänderung einzelner Positionen\n"
+        "- Mengenkorrektur\n"
+        "- Nachträglicher Rabatt\n\n"
+        "**Pflichtfelder:**\n"
+        "- `preceding_invoice_number` (BT-25)\n"
+        "- `preceding_invoice_date` (BT-26)\n"
+        "- Nur die **Differenz** als Position aufführen\n\n"
+        "```json\n"
+        "{\n"
+        '  "type_code": "384",\n'
+        '  "preceding_invoice_number": "RE-2026-001",\n'
+        '  "preceding_invoice_date": "2026-01-15",\n'
+        '  "invoice_note": "Preiskorrektur Position 2"\n'
+        "}\n"
+        "```\n\n"
+        "## 3. Neue Rechnung (380) — Neuausstellung\n"
+        "Verwendet bei:\n"
+        "- Originalrechnung war formal ungültig\n"
+        "- Empfänger fordert komplette Neuausstellung\n"
+        "- Storno + Neuausstellung als Paar\n\n"
+        "**Workflow:** Erst 381 (Storno), dann neue 380.\n\n"
+        "## Steuerliche Hinweise\n"
+        "- Gutschrift/Korrektur muss im **gleichen Voranmeldungs"
+        "zeitraum** wie die Originalrechnung korrigiert werden\n"
+        "- Bei Vorsteuerabzug des Empfängers: Korrektur löst "
+        "Vorsteuerberichtigung nach §17 UStG aus\n"
+        "- Aufbewahrungspflicht: 10 Jahre für alle Belege (§14b UStG)"
+    )

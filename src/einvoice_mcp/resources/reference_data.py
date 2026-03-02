@@ -548,3 +548,41 @@ def example_line_items() -> str:
         ensure_ascii=False,
         indent=2,
     )
+
+
+def reference_currency_codes() -> str:
+    """ISO 4217 Währungscodes — häufig verwendete Codes für deutschen/EU-Handel.
+
+    Standard: EUR. Weitere Codes für Exporteure und internationale Rechnungen.
+    """
+    return json.dumps(
+        {
+            "EUR": "Euro (Standard)",
+            "USD": "US-Dollar",
+            "GBP": "Britisches Pfund",
+            "CHF": "Schweizer Franken",
+            "PLN": "Polnischer Zloty",
+            "CZK": "Tschechische Krone",
+            "SEK": "Schwedische Krone",
+            "DKK": "Dänische Krone",
+            "NOK": "Norwegische Krone",
+            "HUF": "Ungarischer Forint",
+            "RON": "Rumänischer Leu",
+            "BGN": "Bulgarischer Lew",
+            "HRK": "Kroatische Kuna",
+            "TRY": "Türkische Lira",
+            "JPY": "Japanischer Yen",
+            "CNY": "Chinesischer Yuan",
+            "CAD": "Kanadischer Dollar",
+            "AUD": "Australischer Dollar",
+            "INR": "Indische Rupie",
+            "BRL": "Brasilianischer Real",
+            "hinweis": (
+                "Währung wird in BT-5 (Rechnungswährung) angegeben. "
+                "Für EN 16931 muss die Währung ein gültiger ISO 4217 Code "
+                "in Großbuchstaben sein (3 Zeichen)."
+            ),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )

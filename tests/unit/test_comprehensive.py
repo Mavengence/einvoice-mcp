@@ -6,6 +6,7 @@ roundtrips, and boundary conditions identified in coverage analysis.
 
 import base64
 import json
+from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -8489,7 +8490,10 @@ class TestBRDEDateFormats:
         data = _quick_invoice()
         xml_bytes = build_xml(data)
         checks = check_fields(xml_bytes.decode("utf-8"))
-        date_rules = [c for c in checks if c.field.startswith("BR-DE-") and "Datumsformat" in c.name]
+        date_rules = [
+            c for c in checks
+            if c.field.startswith("BR-DE-") and "Datumsformat" in c.name
+        ]
         assert len(date_rules) == 0, "Valid format 102 should not be flagged"
 
     def test_wrong_format_flagged(self) -> None:
@@ -8501,5 +8505,216 @@ class TestBRDEDateFormats:
         br_de_9 = [c for c in checks if c.field == "BR-DE-9"]
         assert len(br_de_9) == 1
         assert "203" in br_de_9[0].value
+
+
+class TestBT8VatPointDateCode:
+    """BT-8: VAT point date code (UNTDID 2005) roundtrip."""
+
+    def test_bt8_roundtrip(self) -> None:
+        """vat_point_date_code=35 should survive build → parse cycle."""
+        data = _quick_invoice(vat_point_date_code="35")
+        xml_bytes = build_xml(data)
+        # Verify the code appears in the raw XML
+        assert b"DueDateTypeCode" in xml_bytes
+        assert b"35" in xml_bytes
+        # Parse back and check
+        parsed = parse_xml(xml_bytes)
+        assert parsed.vat_point_date_code == "35"
+
+    def test_bt8_omitted_by_default(self) -> None:
+        """Without vat_point_date_code, no DueDateTypeCode element should appear."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        assert b"DueDateTypeCode" not in xml_bytes
+        parsed = parse_xml(xml_bytes)
+        assert parsed.vat_point_date_code == ""
+
+    def test_bt8_code_432_payment_date(self) -> None:
+        """Code 432 (payment date) for Istbesteuerung §20 UStG."""
+        data = _quick_invoice(vat_point_date_code="432")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.vat_point_date_code == "432"
+
+
+class TestNewBTFieldsRoundtrip:
+    """Roundtrip tests for newly added BT fields."""
+
+    def test_bt33_seller_additional_legal_info(self) -> None:
+        """BT-33: Seller additional legal information roundtrip."""
+        data = _quick_invoice(
+            seller_additional_legal_info="Eingetragen HRB 12345 AG Muenchen"
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_additional_legal_info == (
+            "Eingetragen HRB 12345 AG Muenchen"
+        )
+
+    def test_bt90_creditor_reference_id(self) -> None:
+        """BT-90: Creditor reference ID for SEPA direct debit."""
+        data = _quick_invoice(creditor_reference_id="DE98ZZZ09999999999")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.creditor_reference_id == "DE98ZZZ09999999999"
+
+    def test_bt19_buyer_accounting_reference(self) -> None:
+        """BT-19: Buyer accounting reference (doc-level)."""
+        data = _quick_invoice(buyer_accounting_reference="KST-42")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer_accounting_reference == "KST-42"
+
+    def test_bt126_custom_line_id(self) -> None:
+        """BT-126: Custom line ID override."""
+        data = _quick_invoice()
+        data.items[0].line_id = "POS-A"
+        xml_bytes = build_xml(data)
+        assert b"POS-A" in xml_bytes
+
+    def test_bt128_line_object_identifier(self) -> None:
+        """BT-128: Line object identifier roundtrip."""
+        data = _quick_invoice()
+        data.items[0].line_object_identifier = "CONTRACT-X-42"
+        xml_bytes = build_xml(data)
+        assert b"CONTRACT-X-42" in xml_bytes
+
+    def test_bt132_line_purchase_order_reference(self) -> None:
+        """BT-132: Line purchase order reference roundtrip."""
+        data = _quick_invoice()
+        data.items[0].line_purchase_order_reference = "PO-LINE-001"
+        xml_bytes = build_xml(data)
+        assert b"PO-LINE-001" in xml_bytes
+
+    def test_fields_absent_by_default(self) -> None:
+        """New fields should be absent/empty by default."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_additional_legal_info == ""
+        assert parsed.creditor_reference_id == ""
+        assert parsed.buyer_accounting_reference == ""
+
+
+class TestDateValidation:
+    """Date consistency validators on InvoiceData."""
+
+    def test_service_period_inverted_rejected(self) -> None:
+        """service_period_end before start should be rejected."""
+        with pytest.raises(ValidationError, match="Leistungszeitraum"):
+            _quick_invoice(
+                service_period_start=date(2026, 3, 1),
+                service_period_end=date(2026, 2, 1),
+            )
+
+    def test_service_period_valid_accepted(self) -> None:
+        """Normal service period should be accepted."""
+        data = _quick_invoice(
+            service_period_start=date(2026, 1, 1),
+            service_period_end=date(2026, 3, 31),
+        )
+        assert data.service_period_start == date(2026, 1, 1)
+        assert data.service_period_end == date(2026, 3, 31)
+
+    def test_due_date_before_issue_date_rejected(self) -> None:
+        """due_date before issue_date should be rejected."""
+        with pytest.raises(ValidationError, match="Fälligkeitsdatum"):
+            _quick_invoice(due_date=date(2025, 12, 31))
+
+    def test_due_date_same_as_issue_date_accepted(self) -> None:
+        """due_date == issue_date (sofort fällig) should be accepted."""
+        data = _quick_invoice(due_date=date(2026, 3, 1))
+        assert data.due_date == date(2026, 3, 1)
+
+
+class TestMultiTaxDocAllowanceRoundtrip:
+    """Multi-tax groups + document-level allowances/charges combined."""
+
+    def test_mixed_rates_with_allowance_and_charge(self) -> None:
+        """19% and 7% items + doc-level allowance at 19% + charge at 7%."""
+        data = _quick_invoice(
+            items=[
+                LineItem(
+                    description="Hauptleistung 19%",
+                    quantity=Decimal("2"),
+                    unit_price=Decimal("100.00"),
+                    tax_rate=Decimal("19.00"),
+                ),
+                LineItem(
+                    description="Buch 7%",
+                    quantity=Decimal("3"),
+                    unit_price=Decimal("20.00"),
+                    tax_rate=Decimal("7.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            allowances_charges=[
+                AllowanceCharge(
+                    charge=False,
+                    amount=Decimal("10.00"),
+                    reason="Treuerabatt",
+                    tax_rate=Decimal("19.00"),
+                ),
+                AllowanceCharge(
+                    charge=True,
+                    amount=Decimal("5.00"),
+                    reason="Versandkosten",
+                    tax_rate=Decimal("7.00"),
+                ),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+
+        # Net: 200 + 60 = 260
+        assert parsed.totals is not None
+        assert parsed.totals.net_total == Decimal("260.00")
+
+        # Tax basis: 260 - 10 (allowance) + 5 (charge) = 255
+        # 19% group: 200 - 10 = 190 -> tax = 36.10
+        # 7% group: 60 + 5 = 65 -> tax = 4.55
+        assert len(parsed.tax_breakdown) == 2
+        rates = {tb.tax_rate for tb in parsed.tax_breakdown}
+        assert Decimal("19.00") in rates
+        assert Decimal("7.00") in rates
+
+        # Allowances/charges roundtrip
+        assert len(parsed.allowances_charges) == 2
+        allowance = [ac for ac in parsed.allowances_charges if not ac.charge]
+        charge = [ac for ac in parsed.allowances_charges if ac.charge]
+        assert len(allowance) == 1
+        assert allowance[0].amount == Decimal("10.00")
+        assert len(charge) == 1
+        assert charge[0].amount == Decimal("5.00")
+
+
+class TestAllowancePercentageRoundtrip:
+    """Document-level allowance with base_amount and percentage."""
+
+    def test_percentage_based_allowance(self) -> None:
+        """Allowance with base_amount + percentage should build correctly."""
+        data = _quick_invoice(
+            allowances_charges=[
+                AllowanceCharge(
+                    charge=False,
+                    amount=Decimal("20.00"),
+                    reason="10% Rabatt auf 200 EUR",
+                    base_amount=Decimal("200.00"),
+                    percentage=Decimal("10.00"),
+                    tax_rate=Decimal("19.00"),
+                ),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        xml_str = xml_bytes.decode("utf-8")
+        # base_amount should appear in XML
+        assert "200.00" in xml_str
+        # percentage should appear
+        assert "10.00" in xml_str
+        # Parse back — amount should survive
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.allowances_charges) == 1
+        assert parsed.allowances_charges[0].amount == Decimal("20.00")
+        assert not parsed.allowances_charges[0].charge
 
 

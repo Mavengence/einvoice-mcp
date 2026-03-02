@@ -62,6 +62,9 @@ class ParsedInvoice(BaseModel):
     invoice_id: str = Field(default="", description="Rechnungsnummer")
     type_code: str = Field(default="380", description="Rechnungsartcode (BT-3)")
     issue_date: str = Field(default="", description="Rechnungsdatum")
+    vat_point_date_code: str = Field(
+        default="", description="Steuerzeitpunkt-Code (BT-8)"
+    )
     seller: Party | None = Field(default=None, description="Verkaeufer")
     buyer: Party | None = Field(default=None, description="Kaeufer")
     items: list[LineItem] = Field(default_factory=list, description="Positionen")
@@ -165,6 +168,15 @@ class ParsedInvoice(BaseModel):
     supporting_documents: list[SupportingDocument] = Field(
         default_factory=list,
         description="Zusaetzliche Belegdokumente (BG-24)",
+    )
+    seller_additional_legal_info: str = Field(
+        default="", description="Zusaetzliche rechtliche Info (BT-33)"
+    )
+    creditor_reference_id: str = Field(
+        default="", description="Glaeubigeridentifikationsnummer (BT-90)"
+    )
+    buyer_accounting_reference: str = Field(
+        default="", description="Abrechnungsreferenz Kaeufer (BT-19)"
     )
 
 

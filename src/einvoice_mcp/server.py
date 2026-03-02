@@ -24,12 +24,15 @@ from einvoice_mcp.prompts import (
 )
 from einvoice_mcp.prompts.guides import (
     bauleistungen_13b_guide,
+    differenzbesteuerung_25a_guide,
     kleinunternehmer_guide,
+    stornobuchung_workflow,
 )
 from einvoice_mcp.resources import (
     br_de_rules,
     credit_note_reasons,
     e_rechnung_pflichten,
+    reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
     reference_tax_categories,
@@ -109,6 +112,7 @@ mcp.resource("einvoice://reference/payment-means-codes")(reference_payment_means
 mcp.resource("einvoice://reference/tax-categories")(reference_tax_categories)
 mcp.resource("einvoice://reference/unit-codes")(reference_unit_codes)
 mcp.resource("einvoice://reference/eas-codes")(reference_eas_codes)
+mcp.resource("einvoice://reference/currency-codes")(reference_currency_codes)
 mcp.resource("einvoice://examples/line-items")(example_line_items)
 
 # ---------------------------------------------------------------------------
@@ -164,6 +168,8 @@ mcp.prompt()(handwerkerrechnung_35a)
 mcp.prompt()(typecode_entscheidungshilfe)
 mcp.prompt()(kleinunternehmer_guide)
 mcp.prompt()(bauleistungen_13b_guide)
+mcp.prompt()(differenzbesteuerung_25a_guide)
+mcp.prompt()(stornobuchung_workflow)
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +343,10 @@ async def einvoice_generate_xrechnung(
     payment_means_text: str = "",
     supporting_documents: str = "",
     prepaid_amount: str = "",
+    vat_point_date_code: str = "",
+    seller_additional_legal_info: str = "",
+    creditor_reference_id: str = "",
+    buyer_accounting_reference: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -435,6 +445,11 @@ async def einvoice_generate_xrechnung(
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
         prepaid_amount: Bereits gezahlter Betrag (BT-113, z.B. Abschlagszahlungen).
+        vat_point_date_code: Steuerzeitpunkt-Code (BT-8, UNTDID 2005).
+            3=Rechnungsdatum, 35=Lieferdatum, 432=Zahlungsdatum.
+        seller_additional_legal_info: Zusaetzliche rechtl. Info (BT-33).
+        creditor_reference_id: Glaeubigeridentifikationsnr. (BT-90).
+        buyer_accounting_reference: Kontierung Kaeufer (BT-19).
     """
     data = build_invoice_data(**_collect_generate_params(locals()))
 
@@ -553,6 +568,10 @@ async def einvoice_generate_zugferd(
     payment_means_text: str = "",
     supporting_documents: str = "",
     prepaid_amount: str = "",
+    vat_point_date_code: str = "",
+    seller_additional_legal_info: str = "",
+    creditor_reference_id: str = "",
+    buyer_accounting_reference: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -649,6 +668,11 @@ async def einvoice_generate_zugferd(
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
         prepaid_amount: Bereits gezahlter Betrag (BT-113, z.B. Abschlagszahlungen).
+        vat_point_date_code: Steuerzeitpunkt-Code (BT-8, UNTDID 2005).
+            3=Rechnungsdatum, 35=Lieferdatum, 432=Zahlungsdatum.
+        seller_additional_legal_info: Zusaetzliche rechtl. Info (BT-33).
+        creditor_reference_id: Glaeubigeridentifikationsnr. (BT-90).
+        buyer_accounting_reference: Kontierung Kaeufer (BT-19).
     """
     data = build_invoice_data(**_collect_generate_params(locals()))
 

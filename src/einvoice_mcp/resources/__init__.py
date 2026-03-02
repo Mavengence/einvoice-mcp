@@ -9,6 +9,7 @@ from einvoice_mcp.resources.compliance_data import (
 )
 from einvoice_mcp.resources.reference_data import (
     example_line_items,
+    reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
     reference_tax_categories,
@@ -29,6 +30,7 @@ __all__ = [
     "credit_note_reasons",
     "e_rechnung_pflichten",
     "example_line_items",
+    "reference_currency_codes",
     "reference_eas_codes",
     "reference_payment_means_codes",
     "reference_tax_categories",

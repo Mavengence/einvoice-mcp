@@ -46,6 +46,11 @@ class LineAllowanceCharge(BaseModel):
 
 
 class LineItem(BaseModel):
+    line_id: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Positionsnummer (BT-126) -- Standard: automatisch 1,2,3...",
+    )
     description: str = Field(..., min_length=1, max_length=500, description="Positionsbeschreibung")
     quantity: Decimal = Field(..., gt=0, description="Menge")
     unit_code: str = Field(
@@ -125,6 +130,21 @@ class LineItem(BaseModel):
         default_factory=list,
         max_length=50,
         description="Artikelmerkmale (BG-30, BT-160/BT-161) -- Name/Wert-Paare",
+    )
+    line_object_identifier: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Kennung des Abrechnungsobjekts (BT-128) -- z.B. Vertragsnr.",
+    )
+    line_object_identifier_scheme: str = Field(
+        default="AWV",
+        max_length=20,
+        description="Schema der Abrechnungsobjekt-Kennung (BT-128-1)",
+    )
+    line_purchase_order_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Bestellpositionsnummer (BT-132) -- Referenz zur Bestellposition",
     )
 
 

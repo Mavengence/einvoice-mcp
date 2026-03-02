@@ -4,7 +4,7 @@ import re
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from einvoice_mcp.models.enums import VALID_PAYMENT_MEANS_CODES, VALID_TYPE_CODES, InvoiceProfile
 from einvoice_mcp.models.line_items import (
@@ -82,6 +82,16 @@ class InvoiceData(BaseModel):
                 "Erwartet: 8 oder 11 Zeichen (z.B. COBADEFFXXX)."
             )
         return normalized
+
+    vat_point_date_code: str | None = Field(
+        default=None,
+        pattern=r"^\d{1,3}$",
+        description=(
+            "Steuerzeitpunkt-Code (BT-8, UNTDID 2005): "
+            "3=Rechnungsdatum, 35=Lieferdatum, 432=Zahlungsdatum. "
+            "Relevant bei Istbesteuerung (SS20 UStG)."
+        ),
+    )
 
     seller: Party = Field(..., description="Verkaeufer / Rechnungssteller")
     buyer: Party = Field(..., description="Kaeufer / Rechnungsempfaenger")
@@ -403,6 +413,30 @@ class InvoiceData(BaseModel):
             "z.B. Zollpapiere, Zertifikate, Zeitnachweise"
         ),
     )
+    seller_additional_legal_info: str | None = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Zusaetzliche rechtliche Informationen des Verkaeufers (BT-33) -- "
+            "z.B. 'Eingetragen im Handelsregister Muenchen HRB 12345'"
+        ),
+    )
+    creditor_reference_id: str | None = Field(
+        default=None,
+        max_length=35,
+        description=(
+            "Glaeubigeridentifikationsnummer (BT-90) -- "
+            "Pflicht bei SEPA-Lastschrift, z.B. DE98ZZZ09999999999"
+        ),
+    )
+    buyer_accounting_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Abrechnungsreferenz des Kaeufers (BT-19) -- "
+            "z.B. Kostenstelle, Projektnummer fuer Buchung beim Kaeufer"
+        ),
+    )
     prepaid_amount: Decimal | None = Field(
         default=None,
         ge=0,
@@ -411,6 +445,26 @@ class InvoiceData(BaseModel):
             "z.B. Abschlagszahlungen bei Schlussrechnungen"
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_date_consistency(self) -> "InvoiceData":
+        """Check semantic date consistency."""
+        if (
+            self.service_period_start is not None
+            and self.service_period_end is not None
+            and self.service_period_start > self.service_period_end
+        ):
+            raise ValueError(
+                "Leistungszeitraum-Ende (BT-74) liegt vor dem Beginn (BT-73)."
+            )
+        if (
+            self.due_date is not None
+            and self.due_date < self.issue_date
+        ):
+            raise ValueError(
+                "Fälligkeitsdatum (BT-9) liegt vor dem Rechnungsdatum (BT-2)."
+            )
+        return self
 
     @staticmethod
     def _line_net_amount(item: LineItem) -> Decimal:
