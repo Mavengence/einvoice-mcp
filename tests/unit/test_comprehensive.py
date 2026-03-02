@@ -2915,3 +2915,63 @@ class TestAddressLineRoundtrip:
         )
         pdf_bytes = generate_invoice_pdf(data)
         assert pdf_bytes.startswith(b"%PDF")
+
+
+# ============================================================================
+# 43. Buyer contact roundtrip (BT-44, BT-46, BT-47)
+# ============================================================================
+
+
+class TestBuyerContactRoundtrip:
+    def test_buyer_contact_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Buyer contact (BT-44/46/47) roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "buyer_contact_name": "Anna Schmidt",
+                "buyer_contact_email": "anna@example.de",
+                "buyer_contact_phone": "+49 89 987654",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer is not None
+        assert parsed.buyer.contact_name == "Anna Schmidt"
+        assert parsed.buyer.contact_email == "anna@example.de"
+        assert parsed.buyer.contact_phone == "+49 89 987654"
+
+    def test_no_buyer_contact(self, sample_invoice_data: InvoiceData) -> None:
+        """No buyer contact → contact fields are None."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "buyer_contact_name": None,
+                "buyer_contact_email": None,
+                "buyer_contact_phone": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.buyer is not None
+        assert parsed.buyer.contact_name is None
+        assert parsed.buyer.contact_email is None
+        assert parsed.buyer.contact_phone is None
+
+    def test_both_contacts(self, sample_invoice_data: InvoiceData) -> None:
+        """Both seller and buyer contacts roundtrip independently."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_contact_name": "Hans Müller",
+                "seller_contact_email": "hans@seller.de",
+                "buyer_contact_name": "Anna Schmidt",
+                "buyer_contact_email": "anna@buyer.de",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name == "Hans Müller"
+        assert parsed.seller.contact_email == "hans@seller.de"
+        assert parsed.buyer is not None
+        assert parsed.buyer.contact_name == "Anna Schmidt"
+        assert parsed.buyer.contact_email == "anna@buyer.de"

@@ -176,6 +176,21 @@ class InvoiceData(BaseModel):
         max_length=50,
         description="Telefon des Ansprechpartners (BT-42)",
     )
+    buyer_contact_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Ansprechpartner des Käufers (BT-44)",
+    )
+    buyer_contact_email: str | None = Field(
+        default=None,
+        max_length=200,
+        description="E-Mail des Käufer-Ansprechpartners (BT-47)",
+    )
+    buyer_contact_phone: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Telefon des Käufer-Ansprechpartners (BT-46)",
+    )
     seller_iban: str | None = Field(
         default=None,
         max_length=34,

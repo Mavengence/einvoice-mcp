@@ -88,6 +88,9 @@ def _build_invoice_data(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    buyer_contact_name: str = "",
+    buyer_contact_email: str = "",
+    buyer_contact_phone: str = "",
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
@@ -164,6 +167,9 @@ def _build_invoice_data(
                 "seller_contact_name": seller_contact_name or None,
                 "seller_contact_email": seller_contact_email or None,
                 "seller_contact_phone": seller_contact_phone or None,
+                "buyer_contact_name": buyer_contact_name or None,
+                "buyer_contact_email": buyer_contact_email or None,
+                "buyer_contact_phone": buyer_contact_phone or None,
                 "seller_iban": seller_iban or None,
                 "seller_bic": seller_bic or None,
                 "seller_bank_name": seller_bank_name or None,
@@ -276,6 +282,9 @@ async def einvoice_generate_xrechnung(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    buyer_contact_name: str = "",
+    buyer_contact_email: str = "",
+    buyer_contact_phone: str = "",
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
@@ -330,6 +339,9 @@ async def einvoice_generate_xrechnung(
         seller_contact_name: Ansprechpartner (BT-41).
         seller_contact_email: E-Mail (BT-43).
         seller_contact_phone: Telefon (BT-42).
+        buyer_contact_name: Ansprechpartner Käufer (BT-44).
+        buyer_contact_email: E-Mail Käufer (BT-47).
+        buyer_contact_phone: Telefon Käufer (BT-46).
         seller_iban: IBAN (BT-84).
         seller_bic: BIC (BT-86).
         seller_bank_name: Bankname.
@@ -380,6 +392,9 @@ async def einvoice_generate_xrechnung(
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,
+        buyer_contact_name=buyer_contact_name,
+        buyer_contact_email=buyer_contact_email,
+        buyer_contact_phone=buyer_contact_phone,
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
@@ -451,6 +466,9 @@ async def einvoice_generate_zugferd(
     seller_contact_name: str = "",
     seller_contact_email: str = "",
     seller_contact_phone: str = "",
+    buyer_contact_name: str = "",
+    buyer_contact_email: str = "",
+    buyer_contact_phone: str = "",
     seller_iban: str = "",
     seller_bic: str = "",
     seller_bank_name: str = "",
@@ -503,6 +521,9 @@ async def einvoice_generate_zugferd(
         seller_contact_name: Ansprechpartner (BT-41).
         seller_contact_email: E-Mail (BT-43).
         seller_contact_phone: Telefon (BT-42).
+        buyer_contact_name: Ansprechpartner Käufer (BT-44).
+        buyer_contact_email: E-Mail Käufer (BT-47).
+        buyer_contact_phone: Telefon Käufer (BT-46).
         seller_iban: IBAN (BT-84).
         seller_bic: BIC (BT-86).
         seller_bank_name: Bankname.
@@ -553,6 +574,9 @@ async def einvoice_generate_zugferd(
         seller_contact_name=seller_contact_name,
         seller_contact_email=seller_contact_email,
         seller_contact_phone=seller_contact_phone,
+        buyer_contact_name=buyer_contact_name,
+        buyer_contact_email=buyer_contact_email,
+        buyer_contact_phone=buyer_contact_phone,
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,

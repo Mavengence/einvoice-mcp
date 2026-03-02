@@ -121,6 +121,14 @@ def _build_document(data: InvoiceData) -> bytes:
             data.buyer.electronic_address,
         )
 
+    # Buyer contact (BT-44, BT-46, BT-47)
+    if data.buyer_contact_name:
+        doc.trade.agreement.buyer.contact.person_name = data.buyer_contact_name
+    if data.buyer_contact_email:
+        doc.trade.agreement.buyer.contact.email.address = data.buyer_contact_email
+    if data.buyer_contact_phone:
+        doc.trade.agreement.buyer.contact.telephone.number = data.buyer_contact_phone
+
     # Buyer reference (BT-10) — required for XRechnung
     buyer_ref = data.buyer_reference or data.leitweg_id
     if buyer_ref:
