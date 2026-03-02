@@ -724,6 +724,78 @@ class TestComplianceEdgeCases:
         await client.close()
 
     @respx.mock
+    async def test_exempt_without_note_triggers_ku_hint(self) -> None:
+        """TaxCategory E without §19 note triggers KU-NOTE advisory."""
+        data = InvoiceData(
+            invoice_id="KU-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Kleiner Betrieb",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="500",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.E,
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "ZUGFERD")
+        # KU-NOTE should appear in suggestions but NOT in missing_fields
+        # (since required=False)
+        assert "KU-NOTE" not in result["missing_fields"]
+        assert any("§19" in s for s in result["suggestions"])
+        await client.close()
+
+    @respx.mock
+    async def test_exempt_with_note_no_ku_hint(self) -> None:
+        """TaxCategory E with §19 note does NOT trigger KU-NOTE."""
+        data = InvoiceData(
+            invoice_id="KU-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Kleiner Betrieb",
+                address=Address(street="S", city="S", postal_code="00000"),
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="B", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="1",
+                    unit_price="500",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.E,
+                ),
+            ],
+            invoice_note="Gemäß §19 UStG wird keine Umsatzsteuer berechnet.",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "ZUGFERD")
+        ku_suggestions = [
+            s for s in result["suggestions"]
+            if "§19" in s and "Kleinunternehmer" in s
+        ]
+        assert ku_suggestions == []
+        await client.close()
+
+    @respx.mock
     async def test_zugferd_profile_compliance(self) -> None:
         """Test compliance with ZUGFERD target profile — should NOT flag BT-10, BT-34, etc."""
         xml = build_xml(
@@ -3610,6 +3682,71 @@ class TestAllowancesChargesRoundtrip:
         # PDF with allowances should differ from without
         pdf_no_ac = generate_invoice_pdf(sample_invoice_data)
         assert len(pdf_bytes) != len(pdf_no_ac)
+
+
+class TestSkontoRoundtrip:
+    """Roundtrip tests for Skonto (early payment discount)."""
+
+    def test_skonto_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Skonto terms roundtrip through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "skonto_percent": Decimal("2.00"),
+                "skonto_days": 10,
+                "payment_terms_days": None,  # Clear to let Skonto text generate
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.skonto_percent == "2.00"
+        assert "10" in parsed.skonto_days
+        assert "Skonto" in parsed.payment_terms
+
+    def test_skonto_with_base_amount(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Skonto with explicit base amount."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "skonto_percent": Decimal("3.00"),
+                "skonto_days": 14,
+                "skonto_base_amount": Decimal("1000.00"),
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.skonto_percent == "3.00"
+
+    def test_no_skonto(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No Skonto → empty strings parsed."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.skonto_percent == ""
+        assert parsed.skonto_days == ""
+
+    def test_skonto_in_pdf(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Skonto generates payment terms text in PDF."""
+        # Clear payment_terms_days so Skonto text is generated
+        base = sample_invoice_data.model_copy(
+            update={"payment_terms_days": None}
+        )
+        data = base.model_copy(
+            update={
+                "skonto_percent": Decimal("2.00"),
+                "skonto_days": 10,
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
+        # PDF with Skonto should be larger than without
+        pdf_no_skonto = generate_invoice_pdf(base)
+        assert len(pdf_bytes) > len(pdf_no_skonto)
 
 
 class TestInvoicedObjectIdentifierRoundtrip:

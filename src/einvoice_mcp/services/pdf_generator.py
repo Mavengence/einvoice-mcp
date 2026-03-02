@@ -301,10 +301,19 @@ def _build_pdf(data: InvoiceData) -> bytes:
         )
         elements.append(ref_table)
 
-    # Payment terms (BT-20)
+    # Payment terms (BT-20) and Skonto
     payment_text = data.payment_terms_text
     if not payment_text and data.payment_terms_days is not None:
         payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
+    if (
+        not payment_text
+        and data.skonto_percent is not None
+        and data.skonto_days is not None
+    ):
+        payment_text = (
+            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von "
+            f"{data.skonto_days} Tagen."
+        )
     if payment_text:
         elements.append(Spacer(1, 8 * mm))
         terms_data = [[payment_text]]

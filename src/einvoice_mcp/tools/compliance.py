@@ -167,6 +167,12 @@ SUGGESTIONS_MAP = {
         "Bei Reverse Charge (§13b UStG / Kategorie AE) "
         "muss der Steuersatz 0% betragen."
     ),
+    "KU-NOTE": (
+        "Steuerkategorie E (steuerbefreit) erkannt, aber kein Hinweis auf §19 UStG "
+        "(Kleinunternehmerregelung) oder einen anderen Befreiungsgrund in den "
+        "Rechnungsbemerkungen gefunden. Bitte fügen Sie einen Hinweis wie "
+        "'Gemäß §19 UStG wird keine Umsatzsteuer berechnet.' hinzu."
+    ),
 }
 
 
@@ -205,6 +211,14 @@ async def check_compliance(
     field_checks = _check_fields(xml_content, xrechnung=is_xrechnung)
     missing_fields = [fc.field for fc in field_checks if fc.required and not fc.present]
     suggestions = [SUGGESTIONS_MAP[f] for f in missing_fields if f in SUGGESTIONS_MAP]
+
+    # Add non-required but missing advisory checks (warnings, not errors)
+    advisory_fields = [
+        fc.field for fc in field_checks if not fc.required and not fc.present
+    ]
+    for af in advisory_fields:
+        if af in SUGGESTIONS_MAP:
+            suggestions.append(SUGGESTIONS_MAP[af])
 
     # KoSIT validation
     kosit_valid = None
@@ -451,5 +465,34 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                         )
                 except ValueError:
                     pass
+
+    # §19 UStG (Kleinunternehmerregelung) hint:
+    # When TaxCategory E (Exempt) is used with 0% rate AND no note references
+    # a VAT exemption reason (§19, §4, Art. 132/135 MwStSystRL, etc.),
+    # suggest adding a clarifying note.
+    has_e = any(
+        el.text and el.text.strip() == "E" for el in tax_cats
+    )
+    if has_e:
+        # Check if any note references an exemption reason
+        notes = root.findall(
+            ".//rsm:ExchangedDocument/ram:IncludedNote/ram:Content", CII_NS
+        )
+        exemption_keywords = ["§19", "§ 19", "§4", "§ 4", "steuerbefreit", "exempt"]
+        has_exemption_note = any(
+            note_el.text
+            and any(kw.lower() in note_el.text.lower() for kw in exemption_keywords)
+            for note_el in notes
+        )
+        if not has_exemption_note:
+            checks.append(
+                FieldCheck(
+                    field="KU-NOTE",
+                    name="Hinweis Steuerbefreiung (§19 UStG)",
+                    present=False,
+                    value="",
+                    required=False,  # recommendation, not hard requirement
+                )
+            )
 
     return checks

@@ -353,12 +353,28 @@ def _build_document(data: InvoiceData) -> bytes:
     payment_text = data.payment_terms_text
     if not payment_text and data.payment_terms_days is not None:
         payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
-    if payment_text or data.due_date:
+    # Auto-generate Skonto text if skonto_percent is set but no explicit text
+    if data.skonto_percent is not None and data.skonto_days is not None and not payment_text:
+        payment_text = (
+            f"{data.skonto_percent:.1f}% Skonto bei Zahlung innerhalb von "
+            f"{data.skonto_days} Tagen."
+        )
+    has_skonto = data.skonto_percent is not None and data.skonto_days is not None
+    if payment_text or data.due_date or has_skonto:
         pt = PaymentTerms()
         if payment_text:
             pt.description = payment_text
         if data.due_date:
             pt.due = data.due_date
+        # Structured Skonto (PaymentDiscountTerms)
+        if has_skonto:
+            pt.discount_terms.calculation_percent = data.skonto_percent
+            pt.discount_terms.basis_period_measure = (
+                str(data.skonto_days),
+                "DAY",
+            )
+            if data.skonto_base_amount is not None:
+                pt.discount_terms.basis_amount = data.skonto_base_amount
         doc.trade.settlement.terms.add(pt)
 
     # Serialize without local XSD validation — KoSIT validates the full document.

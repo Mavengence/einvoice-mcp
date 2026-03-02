@@ -387,6 +387,29 @@ class InvoiceData(BaseModel):
             "z.B. 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'"
         ),
     )
+    skonto_percent: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description=(
+            "Skonto-Prozentsatz (z.B. 2.00 für 2%) — "
+            "wird automatisch in BT-20 Zahlungsbedingungen übernommen"
+        ),
+    )
+    skonto_days: int | None = Field(
+        default=None,
+        ge=0,
+        le=365,
+        description="Skonto-Frist in Tagen (z.B. 10 für '10 Tage 2% Skonto')",
+    )
+    skonto_base_amount: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Skonto-Basisbetrag — "
+            "falls abweichend vom Rechnungsbetrag (BT-115)"
+        ),
+    )
     payment_means_type_code: str = Field(
         default="58",
         max_length=3,
@@ -533,6 +556,8 @@ class ParsedInvoice(BaseModel):
     due_date: str = Field(default="", description="Fälligkeitsdatum (BT-9)")
     invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
+    skonto_percent: str = Field(default="", description="Skonto-Prozentsatz")
+    skonto_days: str = Field(default="", description="Skonto-Frist in Tagen")
     purchase_order_reference: str = Field(
         default="", description="Bestellnummer (BT-13)"
     )

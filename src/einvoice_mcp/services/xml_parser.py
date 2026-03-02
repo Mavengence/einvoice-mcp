@@ -146,9 +146,11 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # Payment terms (BT-20) and due date (BT-9)
+    # Payment terms (BT-20) and due date (BT-9) and Skonto
     payment_terms = ""
     due_date = ""
+    skonto_percent = ""
+    skonto_days = ""
     try:
         terms = doc.trade.settlement.terms
         if hasattr(terms, "children"):
@@ -161,6 +163,17 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     due_val = str(due_obj).strip()
                     if due_val and due_val != "None":
                         due_date = due_val
+                # Skonto (PaymentDiscountTerms)
+                dt = getattr(term, "discount_terms", None)
+                if dt:
+                    pct = _safe_decimal(getattr(dt, "calculation_percent", "0"))
+                    if pct > 0:
+                        skonto_percent = str(pct)
+                    bpm = getattr(dt, "basis_period_measure", None)
+                    if bpm:
+                        bpm_str = _str_element(bpm)
+                        if bpm_str:
+                            skonto_days = bpm_str
                 if payment_terms or due_date:
                     break
     except Exception:
@@ -352,6 +365,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         due_date=due_date,
         invoice_note=invoice_note,
         payment_terms=payment_terms,
+        skonto_percent=skonto_percent,
+        skonto_days=skonto_days,
         purchase_order_reference=purchase_order_reference,
         sales_order_reference=sales_order_reference,
         contract_reference=contract_reference,
