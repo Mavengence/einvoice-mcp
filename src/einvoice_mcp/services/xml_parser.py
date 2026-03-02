@@ -52,7 +52,9 @@ def parse_xml(xml_bytes: bytes) -> ParsedInvoice:
         raise InvoiceParsingError(
             "UBL-Format erkannt. Dieses Tool unterstützt nur CII "
             "(Cross Industry Invoice / ZUGFeRD / XRechnung CII). "
-            "UBL-Rechnungen müssen zunächst in CII konvertiert werden.",
+            "UBL-Rechnungen können mit dem EN 16931 XSLT-Converter "
+            "(https://github.com/ConnectingEurope/eInvoicing-EN16931) "
+            "oder Saxon nach CII konvertiert werden.",
             controlled=True,
         )
 
@@ -160,8 +162,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         logger.debug("Failed to extract service period (BT-73/BT-74)", exc_info=True)
 
-    # Invoice note (BT-22)
+    # Invoice notes (BG-1, BT-22) — collect all
     invoice_note = ""
+    invoice_notes: list[str] = []
     try:
         notes = getattr(doc.header, "notes", None)
         if notes and hasattr(notes, "children"):
@@ -169,10 +172,11 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 content = getattr(note, "content", None)
                 text = str_element(content) if content else str_element(note)
                 if text:
-                    invoice_note = text
-                    break
+                    invoice_notes.append(text)
+        if invoice_notes:
+            invoice_note = invoice_notes[0]
     except Exception:
-        logger.debug("Failed to extract invoice note (BT-22)", exc_info=True)
+        logger.debug("Failed to extract invoice notes (BT-22)", exc_info=True)
 
     # Payment terms (BT-20) and due date (BT-9) and Skonto
     payment_terms = ""
@@ -616,6 +620,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         service_period_end=service_period_end,
         due_date=due_date,
         invoice_note=invoice_note,
+        invoice_notes=invoice_notes,
         payment_terms=payment_terms,
         tax_exemption_reason=tax_exemption_reason,
         tax_exemption_reason_code=tax_exemption_reason_code,

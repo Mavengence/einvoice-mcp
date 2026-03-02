@@ -86,7 +86,11 @@ class ParsedInvoice(BaseModel):
     service_period_start: str = Field(default="", description="Leistungszeitraum Beginn (BT-73)")
     service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
     due_date: str = Field(default="", description="Faelligkeitsdatum (BT-9)")
-    invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
+    invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22, erste Notiz)")
+    invoice_notes: list[str] = Field(
+        default_factory=list,
+        description="Alle Freitext-Bemerkungen (BG-1, BT-22) -- mehrere moeglich",
+    )
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
     tax_exemption_reason: str = Field(
         default="", description="Befreiungsgrund (BT-120)"

@@ -94,7 +94,7 @@ def _build_document(data: InvoiceData) -> bytes:
     # Seller global ID (BT-29) — Handelsregisternummer or GLN
     if data.seller.registration_id:
         doc.trade.agreement.seller.global_id.add(
-            ("0088", data.seller.registration_id)
+            (data.seller.registration_id_scheme, data.seller.registration_id)
         )
 
     if data.seller.tax_id:
@@ -151,7 +151,7 @@ def _build_document(data: InvoiceData) -> bytes:
     # Buyer global ID (BT-46) — GLN or other identifier
     if data.buyer.registration_id:
         doc.trade.agreement.buyer.global_id.add(
-            ("0088", data.buyer.registration_id)
+            (data.buyer.registration_id_scheme, data.buyer.registration_id)
         )
 
     if data.buyer.tax_id:

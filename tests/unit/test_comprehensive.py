@@ -8718,3 +8718,32 @@ class TestAllowancePercentageRoundtrip:
         assert not parsed.allowances_charges[0].charge
 
 
+class TestMultipleInvoiceNotes:
+    """Multiple BG-1 invoice notes support."""
+
+    def test_single_note_roundtrip(self) -> None:
+        """Single note should appear in both invoice_note and invoice_notes."""
+        data = _quick_invoice(invoice_note="Zahlbar sofort")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoice_note == "Zahlbar sofort"
+        assert parsed.invoice_notes == ["Zahlbar sofort"]
+
+    def test_no_notes_produces_empty(self) -> None:
+        """No notes -> empty string and empty list."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.invoice_note == ""
+        assert parsed.invoice_notes == []
+
+    def test_registration_id_scheme(self) -> None:
+        """Custom registration_id_scheme should appear in XML."""
+        data = _quick_invoice()
+        data.seller.registration_id = "123456789"
+        data.seller.registration_id_scheme = "0060"
+        xml_bytes = build_xml(data)
+        assert b"0060" in xml_bytes
+        assert b"123456789" in xml_bytes
+
+

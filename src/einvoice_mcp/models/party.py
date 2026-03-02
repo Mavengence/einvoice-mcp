@@ -52,6 +52,11 @@ class Party(BaseModel):
     registration_id: str | None = Field(
         default=None, max_length=50, description="Handelsregisternummer oder GLN"
     )
+    registration_id_scheme: str = Field(
+        default="0088",
+        max_length=10,
+        description="Schema der Kennung (0088=GLN, 0060=DUNS, 0204=Leitweg-ID)",
+    )
     electronic_address: str | None = Field(
         default=None,
         max_length=200,
