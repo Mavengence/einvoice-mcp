@@ -3026,6 +3026,86 @@ class TestRegistrationIdRoundtrip:
         assert parsed.buyer.registration_id == "9876543210123"
 
 
+class TestLineItemIdentifiersRoundtrip:
+    """Roundtrip tests for line-item identifiers (BT-155/156/157)."""
+
+    def test_seller_item_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Seller item ID (BT-155) roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={"seller_item_id": "ART-001"}
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].seller_item_id == "ART-001"
+
+    def test_buyer_item_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Buyer item ID (BT-156) roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={"buyer_item_id": "BUYER-X1"}
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].buyer_item_id == "BUYER-X1"
+
+    def test_standard_item_id_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Standard item ID / GTIN (BT-157) roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={
+                    "standard_item_id": "4012345000001",
+                    "standard_item_scheme": "0160",
+                }
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].standard_item_id == "4012345000001"
+        assert parsed.items[0].standard_item_scheme == "0160"
+
+    def test_no_item_ids(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No item IDs → all None in parsed output."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].seller_item_id is None
+        assert parsed.items[0].buyer_item_id is None
+        assert parsed.items[0].standard_item_id is None
+
+    def test_all_item_ids_together(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """All three item IDs set simultaneously."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={
+                    "seller_item_id": "V-001",
+                    "buyer_item_id": "K-001",
+                    "standard_item_id": "4012345000001",
+                }
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].seller_item_id == "V-001"
+        assert parsed.items[0].buyer_item_id == "K-001"
+        assert parsed.items[0].standard_item_id == "4012345000001"
+
+
 class TestSalesOrderReferenceRoundtrip:
     """Roundtrip tests for seller order reference (BT-14)."""
 

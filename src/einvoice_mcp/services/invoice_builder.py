@@ -196,6 +196,12 @@ def _build_document(data: InvoiceData) -> bytes:
         li = DHLineItem()
         li.document.line_id = str(idx)
         li.product.name = item.description
+        if item.seller_item_id:
+            li.product.seller_assigned_id = item.seller_item_id
+        if item.buyer_item_id:
+            li.product.buyer_assigned_id = item.buyer_item_id
+        if item.standard_item_id:
+            li.product.global_id = (item.standard_item_scheme, item.standard_item_id)
         li.agreement.net.amount = item.unit_price
         li.agreement.net.basis_quantity._amount = str(Decimal("1"))
         li.agreement.net.basis_quantity._unit_code = item.unit_code

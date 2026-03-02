@@ -434,6 +434,24 @@ def _extract_items(doc: Document) -> list[LineItem]:
                 if cat in TaxCategory.__members__:
                     tax_category = TaxCategory(cat)
 
+            # Product identifiers (BT-155, BT-156, BT-157)
+            seller_item_id = _str_element(
+                getattr(li.product, "seller_assigned_id", "")
+            ) or None
+            buyer_item_id = _str_element(
+                getattr(li.product, "buyer_assigned_id", "")
+            ) or None
+            standard_item_id = None
+            standard_item_scheme = "0160"
+            gid = getattr(li.product, "global_id", None)
+            if gid:
+                gid_str = _str_element(gid)
+                if gid_str:
+                    standard_item_id = gid_str
+                    gid_scheme = _extract_scheme_id(gid)
+                    if gid_scheme:
+                        standard_item_scheme = gid_scheme
+
             # Preserve magnitude for negative quantities (credit notes, TypeCode 381);
             # only fall back to 0.01 when the parsed quantity is exactly zero.
             if quantity < 0:
@@ -454,6 +472,10 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     unit_price=unit_price,
                     tax_rate=tax_rate,
                     tax_category=tax_category,
+                    seller_item_id=seller_item_id,
+                    buyer_item_id=buyer_item_id,
+                    standard_item_id=standard_item_id,
+                    standard_item_scheme=standard_item_scheme,
                 )
             )
         except Exception:

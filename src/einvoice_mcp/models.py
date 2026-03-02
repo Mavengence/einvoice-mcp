@@ -95,6 +95,18 @@ class LineItem(BaseModel):
     unit_price: Decimal = Field(..., ge=0, description="Netto-Einzelpreis in EUR")
     tax_rate: Decimal = Field(default=Decimal("19.00"), ge=0, le=100, description="Steuersatz in %")
     tax_category: TaxCategory = Field(default=TaxCategory.S, description="Steuerkategorie")
+    seller_item_id: str | None = Field(
+        default=None, max_length=100, description="Artikelnummer des Verkäufers (BT-155)"
+    )
+    buyer_item_id: str | None = Field(
+        default=None, max_length=100, description="Artikelnummer des Käufers (BT-156)"
+    )
+    standard_item_id: str | None = Field(
+        default=None, max_length=100, description="Standard-Artikelnummer GTIN/EAN (BT-157)"
+    )
+    standard_item_scheme: str = Field(
+        default="0160", max_length=10, description="Schema der Standard-Artikelnr. (0160=GTIN)"
+    )
 
 
 class AllowanceCharge(BaseModel):
