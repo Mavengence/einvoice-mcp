@@ -59,6 +59,11 @@ class Address(BaseModel):
 
 class Party(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Vollständiger Name")
+    trading_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Handelsname (BT-28/BT-45) — falls abweichend vom rechtlichen Namen",
+    )
     address: Address
     tax_id: str | None = Field(
         default=None, max_length=30, description="USt-IdNr. (BT-31, z.B. DE123456789)"
@@ -409,6 +414,11 @@ class InvoiceData(BaseModel):
         max_length=100,
         description="Lieferscheinnummer (BT-16)",
     )
+    tender_or_lot_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Vergabe- / Losnummer (BT-17) — für öffentliche Vergabeverfahren",
+    )
     invoiced_object_identifier: str | None = Field(
         default=None,
         max_length=200,
@@ -439,6 +449,22 @@ class InvoiceData(BaseModel):
         description=(
             "SEPA-Mandatsreferenz (BT-89) — "
             "Pflicht bei SEPA-Lastschrift"
+        ),
+    )
+    tax_exemption_reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Befreiungsgrund Text (BT-120) — z.B. "
+            "'Gemäß §19 UStG wird keine Umsatzsteuer berechnet.'"
+        ),
+    )
+    tax_exemption_reason_code: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Befreiungsgrund Code (BT-121) — "
+            "z.B. 'vatex-eu-132' (MwStSystRL Art. 132)"
         ),
     )
     skonto_percent: Decimal | None = Field(
@@ -610,6 +636,12 @@ class ParsedInvoice(BaseModel):
     due_date: str = Field(default="", description="Fälligkeitsdatum (BT-9)")
     invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
+    tax_exemption_reason: str = Field(
+        default="", description="Befreiungsgrund (BT-120)"
+    )
+    tax_exemption_reason_code: str = Field(
+        default="", description="Befreiungsgrund Code (BT-121)"
+    )
     skonto_percent: str = Field(default="", description="Skonto-Prozentsatz")
     skonto_days: str = Field(default="", description="Skonto-Frist in Tagen")
     purchase_order_reference: str = Field(
@@ -629,6 +661,9 @@ class ParsedInvoice(BaseModel):
     )
     despatch_advice_reference: str = Field(
         default="", description="Lieferscheinnummer (BT-16)"
+    )
+    tender_or_lot_reference: str = Field(
+        default="", description="Vergabe- / Losnummer (BT-17)"
     )
     invoiced_object_identifier: str = Field(
         default="", description="Kennung des Abrechnungsobjekts (BT-18)"

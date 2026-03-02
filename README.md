@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**409 tests | 100% coverage | 0 failures | lint clean (ruff + mypy strict)**
+**443 tests | 99% coverage (1677 stmts, 2 defensive) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -71,6 +71,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BT-23 | Business process type | `test_business_process_type_roundtrip` | PASS |
 | BT-89 | SEPA mandate reference (BG-19) | `test_sepa_direct_debit_roundtrip` | PASS |
 | BT-91 | Buyer IBAN (BG-19) | `test_sepa_direct_debit_roundtrip` | PASS |
+| BT-120 | VAT exemption reason text (BR-E-10) | `test_exemption_reason_roundtrip` | PASS |
+| BT-121 | VAT exemption reason code | `test_exemption_reason_roundtrip` | PASS |
+| BT-28 | Seller trading name | `test_trading_names_roundtrip` | PASS |
+| BT-45 | Buyer trading name | `test_trading_names_roundtrip` | PASS |
+| BT-17 | Tender or lot reference | `test_tender_reference_roundtrip` | PASS |
+| BT-133 | Buyer accounting reference | `test_bt133_roundtrip` | PASS |
 | Skonto | Payment discount terms | `test_skonto_roundtrip` | PASS |
 
 ### Calculation Rules
@@ -90,6 +96,10 @@ Every mandatory Business Term is tested in generated XML output:
 | §19 UStG | Kleinunternehmer: exemption note advisory | `test_exempt_without_note_suggests_ku` | PASS |
 | LW-FMT | Leitweg-ID format advisory | `test_invalid_leitweg_format` | PASS |
 | VAT-FMT | German USt-IdNr. format advisory (DE + 9 digits) | `test_invalid_german_vat_format` | PASS |
+| §4/1a UStG | Export (G): 0% tax rate | `test_export_g_*` | PASS |
+| §33 UStDV | Kleinbetragsrechnung advisory (≤250€) | `test_small_invoice_gets_kb_hint` | PASS |
+| BR-E-10 | Exemption reason required for TaxCategory E | `test_compliance_missing_exemption_reason` | PASS |
+| BR-DE-24 | SEPA DD: mandate (BT-89) + buyer IBAN (BT-91) | `test_dd_missing_mandate_and_iban` | PASS |
 | IBAN | IBAN format validation (ISO 13616) | `test_invalid_iban_*` | PASS |
 | BIC | BIC format validation (ISO 9362) | `test_invalid_bic_*` | PASS |
 
@@ -132,6 +142,15 @@ Every mandatory Business Term is tested in generated XML output:
 | Business process roundtrip | BT-23 generate → parse | `test_business_process_type_roundtrip` | PASS |
 | SEPA direct debit roundtrip | BG-19 generate → parse | `test_sepa_direct_debit_roundtrip` | PASS |
 | Skonto roundtrip | PaymentDiscountTerms generate → parse | `test_skonto_roundtrip` | PASS |
+| BT-133 roundtrip | Buyer accounting reference generate → parse | `test_bt133_roundtrip` | PASS |
+| Trading names roundtrip | BT-28/BT-45 generate → parse | `test_trading_names_roundtrip` | PASS |
+| Tender reference roundtrip | BT-17 generate → parse | `test_tender_reference_roundtrip` | PASS |
+| Exemption reason roundtrip | BT-120/BT-121 generate → parse | `test_exemption_reason_roundtrip` | PASS |
+| Multi-reference coexistence | BT-17 + BT-18 in same invoice | `test_tender_and_invoiced_object_coexist` | PASS |
+| Non-ASCII party names | Cyrillic/Chinese names | `test_non_ascii_party_names` | PASS |
+| All type codes | 380, 381, 384, 389, 875, 876, 877 | `test_all_type_codes` | PASS |
+| All tax categories | S, Z, E, AE, K, G, O, L, M | `test_all_tax_categories` | PASS |
+| 50 line items | Large invoice build + parse | `test_many_line_items` | PASS |
 
 ### Tax Category Coverage (All 9 EU VAT Categories)
 
@@ -185,16 +204,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 264 | 0 | **100%** |
-| `services/invoice_builder.py` | 244 | 0 | **100%** |
+| `models.py` | 272 | 0 | **100%** |
+| `services/invoice_builder.py` | 259 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
-| `services/pdf_generator.py` | 164 | 0 | **100%** |
-| `services/xml_parser.py` | 493 | 0 | **100%** |
-| `tools/compliance.py` | 150 | 0 | **100%** |
+| `services/pdf_generator.py` | 182 | 0 | **100%** |
+| `services/xml_parser.py` | 522 | 2 | **99%** |
+| `tools/compliance.py` | 188 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1569** | **0** | **100%** |
+| **TOTAL** | **1677** | **2** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -337,6 +356,12 @@ Erstelle eine Rechnung mit Lieferort: Lager Hamburg, Hafenstraße 42,
 
 Erstelle eine innergemeinschaftliche Lieferung (Kategorie K) an
 einen französischen Kunden (FR12345678901).
+
+Erstelle eine steuerbefreite Rechnung (§19 UStG, Kleinunternehmer)
+mit Befreiungsgrund und Code vatex-eu-132.
+
+Erstelle eine Rechnung für ein Vergabeverfahren mit Losnummer VERGABE-2026-42
+und Kontierungsreferenz KST-4711 pro Position.
 ```
 
 ---
@@ -389,12 +414,14 @@ make docker-up  # Start Docker stack
 | BT-13 | Purchase order reference | Yes | Yes | — |
 | BT-14 | Sales order reference | Yes | Yes | — |
 | BT-16 | Despatch advice reference | Yes | Yes | — |
+| BT-17 | Tender or lot reference | Yes | Yes | — |
 | BT-18 | Invoiced object identifier | Yes | Yes | — |
 | BT-20 | Payment terms text | Yes | Yes | — |
 | BT-22 | Invoice note | Yes | Yes | — |
 | BT-23 | Business process type | Yes | Yes | — |
 | BT-25 | Preceding invoice (credit notes) | Yes | Yes | Yes |
 | BT-27..40 | Seller party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-28 | Seller trading name | Yes | Yes | — |
 | BT-29 | Seller registration ID (GLN) | Yes | Yes | — |
 | BT-31 | Seller VAT ID (schemeID=VA) | Yes | Yes | Yes |
 | BT-32 | Seller tax number (schemeID=FC) | Yes | Yes | Yes |
@@ -403,6 +430,7 @@ make docker-up  # Start Docker stack
 | BT-42 | Seller contact phone | Yes | Yes | Yes |
 | BT-43 | Seller contact email | Yes | Yes | Yes |
 | BT-44..55 | Buyer party + address (incl. lines 2/3) | Yes | Yes | Yes |
+| BT-45 | Buyer trading name | Yes | Yes | — |
 | BT-46 | Buyer registration ID (GLN) | Yes | Yes | — |
 | BT-49 | Buyer electronic address | Yes | Yes | Yes |
 | BT-70..80 | Delivery location (name + address) | Yes | Yes | — |
@@ -412,14 +440,17 @@ make docker-up  # Start Docker stack
 | BT-83 | Remittance information | Yes | Yes | — |
 | BT-84 | Seller IBAN | Yes | Yes | Yes |
 | BT-86 | BIC | Yes | Yes | — |
-| BT-89 | SEPA mandate reference | Yes | Yes | — |
-| BT-91 | Buyer IBAN (SEPA direct debit) | Yes | Yes | — |
+| BT-89 | SEPA mandate reference | Yes | Yes | Yes |
+| BT-91 | Buyer IBAN (SEPA direct debit) | Yes | Yes | Yes |
+| BT-120 | VAT exemption reason text | Yes | Yes | Yes |
+| BT-121 | VAT exemption reason code | Yes | Yes | — |
 | BT-127 | Line item note | Yes | Yes | — |
 | BT-155 | Seller item identifier | Yes | Yes | — |
 | BT-156 | Buyer item identifier | Yes | Yes | — |
 | BT-157 | Standard item ID (GTIN/EAN) | Yes | Yes | — |
 | BG-20/21 | Document-level allowances/charges | Yes | Yes | — |
 | BG-27/28 | Line-level allowances/charges | Yes | Yes | — |
+| BT-133 | Buyer accounting reference | Yes | Yes | — |
 | Skonto | Payment discount terms (percent, days) | Yes | Yes | — |
 
 ---
@@ -471,6 +502,10 @@ Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
 - **§4 Nr. 1b UStG** — Intra-community supply: buyer VAT ID required, 0% tax rate
 - **§19 UStG** — Kleinunternehmerregelung: exemption note advisory for TaxCategory E
 - **BG-19** — SEPA direct debit (PaymentMeansCode = 59, buyer IBAN, mandate reference)
+- **BR-DE-24** — SEPA direct debit: mandate reference + buyer IBAN required
+- **BR-E-10** — VAT exemption reason (BT-120) required for TaxCategory E
+- **§4 Nr. 1a UStG** — Export outside EU (TaxCategory G): 0% tax rate required
+- **§33 UStDV** — Kleinbetragsrechnung advisory (invoices ≤250€ gross)
 - **Skonto** — Early payment discount terms (PaymentDiscountTerms in CII)
 - **ISO 13616** — IBAN format validation (seller + buyer)
 - **ISO 9362** — BIC/SWIFT format validation

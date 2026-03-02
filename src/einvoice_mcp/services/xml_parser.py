@@ -229,18 +229,20 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # Invoiced object identifier (BT-18) — AdditionalReferencedDocument TypeCode=130
+    # Tender/lot reference (BT-17) and Invoiced object identifier (BT-18)
+    # Both stored as AdditionalReferencedDocument — TypeCode=50 for BT-17, 130 for BT-18
+    tender_or_lot_reference = ""
     invoiced_object_identifier = ""
     try:
         add_refs = doc.trade.agreement.additional_references
         if hasattr(add_refs, "children"):
             for ref in add_refs.children:
                 tc = _str_element(getattr(ref, "type_code", ""))
-                if tc == "130":
-                    oid = _str_element(getattr(ref, "issuer_assigned_id", ""))
-                    if oid:
-                        invoiced_object_identifier = oid
-                        break
+                ref_id = _str_element(getattr(ref, "issuer_assigned_id", ""))
+                if tc == "50" and ref_id and not tender_or_lot_reference:
+                    tender_or_lot_reference = ref_id
+                elif tc == "130" and ref_id and not invoiced_object_identifier:
+                    invoiced_object_identifier = ref_id
     except Exception:
         pass
 
@@ -251,6 +253,24 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         val = _str_element(bp_id)
         if val:
             business_process_type = val
+    except Exception:
+        pass
+
+    # VAT exemption reason (BT-120/BT-121)
+    tax_exemption_reason = ""
+    tax_exemption_reason_code = ""
+    try:
+        trade_tax_container = doc.trade.settlement.trade_tax
+        if hasattr(trade_tax_container, "children"):
+            for tax_entry in trade_tax_container.children:
+                er = _str_element(getattr(tax_entry, "exemption_reason", ""))
+                erc = _str_element(getattr(tax_entry, "exemption_reason_code", ""))
+                if er:
+                    tax_exemption_reason = er
+                if erc:
+                    tax_exemption_reason_code = erc
+                if tax_exemption_reason or tax_exemption_reason_code:
+                    break
     except Exception:
         pass
 
@@ -385,6 +405,8 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         due_date=due_date,
         invoice_note=invoice_note,
         payment_terms=payment_terms,
+        tax_exemption_reason=tax_exemption_reason,
+        tax_exemption_reason_code=tax_exemption_reason_code,
         skonto_percent=skonto_percent,
         skonto_days=skonto_days,
         purchase_order_reference=purchase_order_reference,
@@ -393,6 +415,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
         despatch_advice_reference=despatch_advice_reference,
+        tender_or_lot_reference=tender_or_lot_reference,
         invoiced_object_identifier=invoiced_object_identifier,
         business_process_type=business_process_type,
         remittance_information=remittance_information,
@@ -441,6 +464,14 @@ def _extract_party(party_obj: object) -> Party | None:
                         # VA or unknown schemeID → treat as USt-IdNr.
                         tax_id = extracted
 
+        # Trading name (BT-28/BT-45)
+        trading_name = None
+        legal_org = getattr(party_obj, "legal_organization", None)
+        if legal_org:
+            tn = _str_element(getattr(legal_org, "trade_name", ""))
+            if tn:
+                trading_name = tn
+
         # Global ID / Registration ID (BT-29)
         registration_id = None
         global_id_container = getattr(party_obj, "global_id", None)
@@ -487,6 +518,7 @@ def _extract_party(party_obj: object) -> Party | None:
 
         return Party(
             name=name,
+            trading_name=trading_name,
             address=address,
             tax_id=tax_id,
             tax_number=tax_number,

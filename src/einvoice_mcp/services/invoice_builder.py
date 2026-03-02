@@ -81,6 +81,12 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.seller.address.city_name = data.seller.address.city
     doc.trade.agreement.seller.address.country_id = data.seller.address.country_code
 
+    # Seller trading name (BT-28)
+    if data.seller.trading_name:
+        doc.trade.agreement.seller.legal_organization.trade_name = (
+            data.seller.trading_name
+        )
+
     # Seller global ID (BT-29) — Handelsregisternummer or GLN
     if data.seller.registration_id:
         doc.trade.agreement.seller.global_id.add(
@@ -123,6 +129,12 @@ def _build_document(data: InvoiceData) -> bytes:
     doc.trade.agreement.buyer.address.postcode = data.buyer.address.postal_code
     doc.trade.agreement.buyer.address.city_name = data.buyer.address.city
     doc.trade.agreement.buyer.address.country_id = data.buyer.address.country_code
+
+    # Buyer trading name (BT-45)
+    if data.buyer.trading_name:
+        doc.trade.agreement.buyer.legal_organization.trade_name = (
+            data.buyer.trading_name
+        )
 
     # Buyer global ID (BT-46) — GLN or other identifier
     if data.buyer.registration_id:
@@ -179,6 +191,13 @@ def _build_document(data: InvoiceData) -> bytes:
             data.project_reference
         )
         doc.trade.agreement.procuring_project_type.name = ""
+
+    # Tender or lot reference (BT-17) — AdditionalReferencedDocument TypeCode=50
+    if data.tender_or_lot_reference:
+        tender_ref = AdditionalReferencedDocument()
+        tender_ref.issuer_assigned_id = data.tender_or_lot_reference
+        tender_ref.type_code = "50"
+        doc.trade.agreement.additional_references.add(tender_ref)
 
     # Invoiced object identifier (BT-18) — AdditionalReferencedDocument TypeCode=130
     if data.invoiced_object_identifier:
@@ -332,6 +351,11 @@ def _build_document(data: InvoiceData) -> bytes:
         trade_tax.rate_applicable_percent = rate
         trade_tax.basis_amount = basis
         trade_tax.calculated_amount = (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
+        # VAT exemption reason (BT-120/BT-121) — required for E, optional for AE/K/G/Z/O
+        if data.tax_exemption_reason and cat in ("E", "AE", "K", "G", "Z", "O"):
+            trade_tax.exemption_reason = data.tax_exemption_reason
+        if data.tax_exemption_reason_code and cat in ("E", "AE", "K", "G", "Z", "O"):
+            trade_tax.exemption_reason_code = data.tax_exemption_reason_code
         doc.trade.settlement.trade_tax.add(trade_tax)
 
     # Monetary summation

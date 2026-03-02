@@ -270,10 +270,50 @@ def _build_pdf(data: InvoiceData) -> bytes:
         totals_data.append(
             ["", "Steuerbemessungsgrundlage:", f"{tax_basis:.2f} {data.currency}"]
         )
-    totals_data.extend([
-        ["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"],
-        ["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"],
-    ])
+
+    # Per-category tax breakdown (group items + doc-level allowances/charges)
+    tax_groups: dict[tuple[str, Decimal], Decimal] = {}
+    for item in data.items:
+        key = (item.tax_category.value, item.tax_rate)
+        net = item.quantity * item.unit_price
+        tax_groups[key] = tax_groups.get(key, Decimal("0")) + net
+    for ac in data.allowances_charges:
+        key = (ac.tax_category.value, ac.tax_rate)
+        if ac.charge:
+            tax_groups[key] = tax_groups.get(key, Decimal("0")) + ac.amount
+        else:
+            tax_groups[key] = tax_groups.get(key, Decimal("0")) - ac.amount
+
+    cat_labels = {
+        "S": "USt", "Z": "USt 0%", "E": "Steuerbefreit",
+        "AE": "Reverse Charge", "K": "ig. Lieferung",
+        "G": "Export", "O": "Nicht steuerbar",
+        "L": "Kanarische Inseln", "M": "Ceuta/Melilla",
+    }
+    if len(tax_groups) == 1:
+        # Single rate — show simple line
+        totals_data.append(
+            ["", "Umsatzsteuer:", f"{tax_total:.2f} {data.currency}"]
+        )
+    else:
+        # Multiple rates — show per-category breakdown
+        for (cat, rate), basis in sorted(tax_groups.items()):
+            cat_label = cat_labels.get(cat, cat)
+            cat_tax = (basis * rate / Decimal("100")).quantize(Decimal("0.01"))
+            totals_data.append(
+                [
+                    "",
+                    f"{cat_label} {rate:.1f}% (Basis {basis:.2f}):",
+                    f"{cat_tax:.2f} {data.currency}",
+                ]
+            )
+        totals_data.append(
+            ["", "Steuern gesamt:", f"{tax_total:.2f} {data.currency}"]
+        )
+
+    totals_data.append(
+        ["", "Gesamtbetrag:", f"{gross_total:.2f} {data.currency}"]
+    )
     last_row = len(totals_data) - 1
     totals_table = Table(totals_data, colWidths=[100 * mm, 35 * mm, 35 * mm])
     totals_table.setStyle(

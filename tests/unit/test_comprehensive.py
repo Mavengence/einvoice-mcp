@@ -4767,3 +4767,499 @@ class TestKleinbetragsrechnungAdvisory:
         await client.close()
 
 
+# ---------------------------------------------------------------------------
+# Trading names (BT-28/BT-45) and tender reference (BT-17) roundtrip
+# ---------------------------------------------------------------------------
+class TestTradingNamesAndTenderRoundtrip:
+    """BT-28, BT-45, BT-17 roundtrip through builder → parser."""
+
+    def _base_data(self, **overrides: object) -> InvoiceData:
+        defaults: dict[str, object] = {
+            "invoice_id": "TN-001",
+            "issue_date": "2026-01-01",
+            "seller": Party(
+                name="Legal GmbH",
+                trading_name="BrandName Store",
+                address=Address(street="S 1", city="Berlin", postal_code="10115"),
+                tax_id="DE123456789",
+            ),
+            "buyer": Party(
+                name="Käufer AG",
+                trading_name="Buyer Brand",
+                address=Address(street="B 1", city="München", postal_code="80331"),
+            ),
+            "items": [
+                LineItem(description="Pos 1", quantity="1", unit_price="100"),
+            ],
+        }
+        defaults.update(overrides)
+        return InvoiceData(**defaults)
+
+    def test_trading_names_roundtrip(self) -> None:
+        data = self._base_data()
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller is not None
+        assert parsed.seller.trading_name == "BrandName Store"
+        assert parsed.buyer is not None
+        assert parsed.buyer.trading_name == "Buyer Brand"
+
+    def test_no_trading_names(self) -> None:
+        data = self._base_data(
+            seller=Party(
+                name="Plain Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="Plain Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller is not None
+        assert parsed.seller.trading_name is None
+        assert parsed.buyer is not None
+        assert parsed.buyer.trading_name is None
+
+    def test_tender_reference_roundtrip(self) -> None:
+        data = self._base_data(tender_or_lot_reference="TENDER-2026-42/LOT-3")
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tender_or_lot_reference == "TENDER-2026-42/LOT-3"
+
+    def test_tender_and_invoiced_object_coexist(self) -> None:
+        data = self._base_data(
+            tender_or_lot_reference="VERGABE-123",
+            invoiced_object_identifier="METER-456",
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tender_or_lot_reference == "VERGABE-123"
+        assert parsed.invoiced_object_identifier == "METER-456"
+
+
+# ---------------------------------------------------------------------------
+# VAT exemption reason (BT-120/BT-121) roundtrip and compliance
+# ---------------------------------------------------------------------------
+class TestVatExemptionReason:
+    """BT-120/BT-121 exemption reason roundtrip + BR-E-10 compliance."""
+
+    def _base_data(self, **overrides: object) -> InvoiceData:
+        defaults: dict[str, object] = {
+            "invoice_id": "EX-001",
+            "issue_date": "2026-01-01",
+            "seller": Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            "buyer": Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            "items": [
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.E,
+                ),
+            ],
+        }
+        defaults.update(overrides)
+        return InvoiceData(**defaults)
+
+    def test_exemption_reason_roundtrip(self) -> None:
+        data = self._base_data(
+            tax_exemption_reason="Gemäß §19 UStG wird keine Umsatzsteuer berechnet.",
+            tax_exemption_reason_code="vatex-eu-ic",
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tax_exemption_reason == "Gemäß §19 UStG wird keine Umsatzsteuer berechnet."
+        assert parsed.tax_exemption_reason_code == "vatex-eu-ic"
+
+    def test_no_exemption_reason(self) -> None:
+        data = self._base_data()
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tax_exemption_reason == ""
+        assert parsed.tax_exemption_reason_code == ""
+
+    @respx.mock
+    async def test_compliance_missing_exemption_reason(self) -> None:
+        """BR-E-10: TaxCategory=E without BT-120 → E-BT-120 missing."""
+        data = self._base_data()
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "E-BT-120" in missing
+        suggestions = result.get("suggestions", [])
+        assert any("Befreiungsgrund" in s for s in suggestions)
+        await client.close()
+
+    @respx.mock
+    async def test_compliance_with_exemption_reason(self) -> None:
+        """TaxCategory=E with BT-120 → E-BT-120 NOT missing."""
+        data = self._base_data(
+            tax_exemption_reason="Steuerbefreit gemäß §4 Nr. 11 UStG",
+            invoice_note="Steuerbefreit gemäß §4 Nr. 11 UStG",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "E-BT-120" not in missing
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# SEPA direct debit consistency compliance
+# ---------------------------------------------------------------------------
+class TestSepaDirectDebitCompliance:
+    """PaymentMeansCode=59 requires BT-89 (mandate) and BT-91 (buyer IBAN)."""
+
+    def _base_data(self, **overrides: object) -> InvoiceData:
+        defaults: dict[str, object] = {
+            "invoice_id": "DD-001",
+            "issue_date": "2026-01-01",
+            "seller": Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            "buyer": Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            "items": [
+                LineItem(description="Service", quantity="1", unit_price="100"),
+            ],
+            "payment_means_type_code": "59",
+        }
+        defaults.update(overrides)
+        return InvoiceData(**defaults)
+
+    @respx.mock
+    async def test_dd_missing_mandate_and_iban(self) -> None:
+        """Code=59 without BT-89 and BT-91 → both flagged."""
+        data = self._base_data()
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "DD-BT-89" in missing
+        assert "DD-BT-91" in missing
+        await client.close()
+
+    @respx.mock
+    async def test_dd_with_mandate_and_iban(self) -> None:
+        """Code=59 with BT-89 and BT-91 → not flagged."""
+        data = self._base_data(
+            mandate_reference_id="MANDATE-123",
+            buyer_iban="DE89370400440532013000",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "DD-BT-89" not in missing
+        assert "DD-BT-91" not in missing
+        await client.close()
+
+    @respx.mock
+    async def test_non_dd_no_checks(self) -> None:
+        """Code=58 (SEPA transfer) → no DD checks."""
+        data = InvoiceData(
+            invoice_id="NOND-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            payment_means_type_code="58",
+            seller_iban="DE89370400440532013000",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "DD-BT-89" not in missing
+        assert "DD-BT-91" not in missing
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests
+# ---------------------------------------------------------------------------
+class TestEdgeCases:
+    """Extreme inputs, non-ASCII, long strings, boundary values."""
+
+    def test_non_ascii_party_names(self) -> None:
+        """Unicode party names (Cyrillic, Chinese) roundtrip correctly."""
+        data = InvoiceData(
+            invoice_id="UNICODE-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Мария Иванова GmbH",
+                address=Address(street="Улица 1", city="Берлин", postal_code="10115"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="株式会社テスト",
+                address=Address(street="東京都1-2-3", city="Tokyo", postal_code="100-0001"),
+            ),
+            items=[LineItem(description="Товар/商品", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.seller is not None
+        assert "Мария" in parsed.seller.name
+        assert parsed.buyer is not None
+        assert "テスト" in parsed.buyer.name
+        assert parsed.items[0].description == "Товар/商品"
+
+    def test_long_invoice_note(self) -> None:
+        """Invoice note at max length (2000 chars) builds and parses."""
+        long_note = "A" * 2000
+        data = InvoiceData(
+            invoice_id="LONG-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            invoice_note=long_note,
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert len(parsed.invoice_note) == 2000
+
+    def test_many_line_items(self) -> None:
+        """50 line items build and parse correctly."""
+        items = [
+            LineItem(description=f"Pos {i}", quantity="1", unit_price=f"{i}.00")
+            for i in range(1, 51)
+        ]
+        data = InvoiceData(
+            invoice_id="MANY-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=items,
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert len(parsed.items) == 50
+        # Total should be sum of 1..50 = 1275
+        assert parsed.totals is not None
+        assert parsed.totals.net_total == Decimal("1275.00")
+
+    def test_minimum_amount(self) -> None:
+        """Minimum 0.01 unit price builds correctly."""
+        data = InvoiceData(
+            invoice_id="MIN-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="Penny item", quantity="1", unit_price="0.01"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.items[0].unit_price == Decimal("0.01")
+
+    def test_high_precision_quantity(self) -> None:
+        """Quantity with 6 decimal places."""
+        data = InvoiceData(
+            invoice_id="PREC-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="Precise",
+                    quantity="3.141593",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.items[0].quantity == Decimal("3.141593")
+
+    def test_all_tax_categories(self) -> None:
+        """All valid tax categories build without error."""
+        for cat in TaxCategory:
+            data = InvoiceData(
+                invoice_id=f"CAT-{cat.value}",
+                issue_date="2026-01-01",
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="00000"),
+                    tax_id="DE123456789",
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="C", postal_code="00000"),
+                ),
+                items=[
+                    LineItem(
+                        description=f"Cat {cat.value}",
+                        quantity="1",
+                        unit_price="100",
+                        tax_rate=Decimal("0"),
+                        tax_category=cat,
+                    ),
+                ],
+            )
+            xml = build_xml(data)
+            parsed = parse_xml(xml)
+            assert parsed.items[0].tax_category == cat
+
+    def test_all_type_codes(self) -> None:
+        """All valid type codes (380, 381, 384, 389, 875, 876, 877) build."""
+        from einvoice_mcp.models import VALID_TYPE_CODES
+        for code in sorted(VALID_TYPE_CODES):
+            data = InvoiceData(
+                invoice_id=f"TC-{code}",
+                issue_date="2026-01-01",
+                type_code=code,
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="00000"),
+                    tax_id="DE123456789",
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="C", postal_code="00000"),
+                ),
+                items=[
+                    LineItem(description="X", quantity="1", unit_price="100"),
+                ],
+            )
+            xml = build_xml(data)
+            parsed = parse_xml(xml)
+            assert parsed.type_code == code
+
+    def test_invalid_type_code_rejected(self) -> None:
+        """Invalid type code raises ValidationError."""
+        with pytest.raises(ValidationError, match="Ungültiger Rechnungsartcode"):
+            InvoiceData(
+                invoice_id="BAD-TC",
+                issue_date="2026-01-01",
+                type_code="999",
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="C", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+            )
+
+    def test_invalid_currency_rejected(self) -> None:
+        """Invalid currency code raises ValidationError."""
+        with pytest.raises(ValidationError, match="Ungültiger Währungscode"):
+            InvoiceData(
+                invoice_id="BAD-CUR",
+                issue_date="2026-01-01",
+                currency="eur",  # lowercase
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="C", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+            )
+
+    def test_exemption_reason_no_tax_entries(self) -> None:
+        """Invoice with standard tax (no E/AE) has empty exemption fields."""
+        data = InvoiceData(
+            invoice_id="EXRES-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="X", quantity="1", unit_price="100"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tax_exemption_reason == ""
+        assert parsed.tax_exemption_reason_code == ""
+
+    def test_invalid_payment_means_rejected(self) -> None:
+        """Invalid payment means code raises ValidationError."""
+        with pytest.raises(ValidationError, match="Ungültiger Zahlungsart-Code"):
+            InvoiceData(
+                invoice_id="BAD-PM",
+                issue_date="2026-01-01",
+                payment_means_type_code="99",
+                seller=Party(
+                    name="S",
+                    address=Address(street="S", city="C", postal_code="00000"),
+                ),
+                buyer=Party(
+                    name="B",
+                    address=Address(street="B", city="C", postal_code="00000"),
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+            )
+
+

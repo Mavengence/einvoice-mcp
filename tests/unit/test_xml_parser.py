@@ -3,7 +3,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
-from einvoice_mcp.models import Address, InvoiceData, LineItem, Party
+from einvoice_mcp.models import Address, InvoiceData, LineItem, Party, TaxCategory
 from einvoice_mcp.services.invoice_builder import build_xml
 from einvoice_mcp.services.xml_parser import (
     _extract_tax_total_fallback,
@@ -242,3 +242,61 @@ class TestParserEdgeCases:
             # Items and seller/buyer still work, totals might be None
             # depending on where the mock hits
             assert parsed.invoice_id == "T"
+
+
+class TestExemptionReasonExtraction:
+    """Verify exemption reason extraction from CII XML."""
+
+    def test_exemption_reason_extracted(self) -> None:
+        """BT-120/BT-121 roundtrip via parser."""
+        data = InvoiceData(
+            invoice_id="EXPATH-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(
+                    description="X",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("0"),
+                    tax_category=TaxCategory.E,
+                ),
+            ],
+            tax_exemption_reason="Steuerbefreit §4 Nr. 11 UStG",
+            tax_exemption_reason_code="vatex-eu-132",
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tax_exemption_reason == "Steuerbefreit §4 Nr. 11 UStG"
+        assert parsed.tax_exemption_reason_code == "vatex-eu-132"
+
+    def test_no_exemption_reason(self) -> None:
+        """Standard-rated invoice has empty exemption fields."""
+        data = InvoiceData(
+            invoice_id="NOEX-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="S",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="B",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[
+                LineItem(description="X", quantity="1", unit_price="100"),
+            ],
+        )
+        xml = build_xml(data)
+        parsed = parse_xml(xml)
+        assert parsed.tax_exemption_reason == ""
+        assert parsed.tax_exemption_reason_code == ""

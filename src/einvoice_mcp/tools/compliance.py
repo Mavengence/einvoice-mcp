@@ -199,6 +199,20 @@ SUGGESTIONS_MAP = {
         "Rechnungsbemerkungen gefunden. Bitte fügen Sie einen Hinweis wie "
         "'Gemäß §19 UStG wird keine Umsatzsteuer berechnet.' hinzu."
     ),
+    "E-BT-120": (
+        "Bei Steuerkategorie E (steuerbefreit) ist der Befreiungsgrund (BT-120) "
+        "gemäß BR-E-10 erforderlich. Bitte geben Sie den Grund an, z.B. "
+        "'Gemäß §19 UStG wird keine Umsatzsteuer berechnet.' oder "
+        "'Steuerbefreit gemäß §4 Nr. 11 UStG.'"
+    ),
+    "DD-BT-89": (
+        "Bei SEPA-Lastschrift (PaymentMeansCode 59) ist die Mandatsreferenz "
+        "(BT-89) gemäß BR-DE-24 erforderlich."
+    ),
+    "DD-BT-91": (
+        "Bei SEPA-Lastschrift (PaymentMeansCode 59) ist die IBAN des Käufers "
+        "(BT-91) erforderlich."
+    ),
 }
 
 
@@ -608,6 +622,68 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                     present=False,
                     value="",
                     required=False,  # recommendation, not hard requirement
+                )
+            )
+
+    # BR-E-10: When TaxCategory=E, ExemptionReason (BT-120) is required.
+    if has_e:
+        exemption_el = root.find(
+            ".//ram:ApplicableTradeTax/ram:ExemptionReason", CII_NS
+        )
+        exemption_present = exemption_el is not None and bool(
+            exemption_el.text and exemption_el.text.strip()
+        )
+        if not exemption_present:
+            checks.append(
+                FieldCheck(
+                    field="E-BT-120",
+                    name="Befreiungsgrund (TaxCategory E)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+    # SEPA direct debit (PaymentMeansCode=59) consistency checks:
+    # BT-89 (mandate reference) and BT-91 (buyer IBAN) are both required.
+    if pm_code == "59":
+        mandate_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:SpecifiedTradePaymentTerms"
+            "/ram:DirectDebitMandateID",
+            CII_NS,
+        )
+        mandate_present = mandate_el is not None and bool(
+            mandate_el.text and mandate_el.text.strip()
+        )
+        if not mandate_present:
+            checks.append(
+                FieldCheck(
+                    field="DD-BT-89",
+                    name="Mandatsreferenz (SEPA-Lastschrift)",
+                    present=False,
+                    value="",
+                    required=True,
+                )
+            )
+
+        buyer_iban_el = root.find(
+            ".//ram:ApplicableHeaderTradeSettlement"
+            "/ram:SpecifiedTradeSettlementPaymentMeans"
+            "/ram:PayerPartyDebtorFinancialAccount/ram:IBANID",
+            CII_NS,
+        )
+        buyer_iban_present = buyer_iban_el is not None and bool(
+            buyer_iban_el.text and buyer_iban_el.text.strip()
+        )
+        if not buyer_iban_present:
+            checks.append(
+                FieldCheck(
+                    field="DD-BT-91",
+                    name="IBAN des Käufers (SEPA-Lastschrift)",
+                    present=False,
+                    value="",
+                    required=True,
                 )
             )
 
