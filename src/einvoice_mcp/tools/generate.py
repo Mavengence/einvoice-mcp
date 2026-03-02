@@ -51,7 +51,7 @@ async def generate_xrechnung(data: InvoiceData, kosit: KoSITClient) -> dict[str,
     validation = None
     try:
         result = await kosit.validate(xml_bytes)
-        validation = result.model_dump()
+        validation = result.model_dump(mode="json")
     except EInvoiceError as exc:
         logger.warning("Post-generation validation failed: %s", exc)
         validation = {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
@@ -92,7 +92,7 @@ async def generate_zugferd(data: InvoiceData, kosit: KoSITClient) -> dict[str, A
     validation = None
     try:
         result = await kosit.validate(xml_bytes)
-        validation = result.model_dump()
+        validation = result.model_dump(mode="json")
     except EInvoiceError as exc:
         logger.warning("Post-generation validation failed: %s", exc)
         validation = {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}

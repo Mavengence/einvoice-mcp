@@ -196,13 +196,13 @@ async def check_compliance(
         return ComplianceResult(
             valid=False,
             suggestions=["Fehler: Ungültiges Zielprofil. Erlaubt: XRECHNUNG, ZUGFERD."],
-        ).model_dump()
+        ).model_dump(mode="json")
 
     if len(xml_content) > MAX_XML_SIZE:
         return ComplianceResult(
             valid=False,
             suggestions=["Fehler: XML-Inhalt überschreitet das Größenlimit (10 MB)."],
-        ).model_dump()
+        ).model_dump(mode="json")
 
     is_xrechnung = profile_upper == "XRECHNUNG"
     field_checks = check_fields(xml_content, xrechnung=is_xrechnung)
@@ -246,4 +246,4 @@ async def check_compliance(
         missing_fields=missing_fields,
         suggestions=suggestions,
     )
-    return compliance.model_dump()
+    return compliance.model_dump(mode="json")

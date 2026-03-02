@@ -52,7 +52,7 @@ async def _parse_xml(xml_content: str) -> dict[str, Any]:
     try:
         xml_bytes = xml_content.encode("utf-8")
         invoice = parse_xml(xml_bytes)
-        return {"success": True, "invoice": invoice.model_dump()}
+        return {"success": True, "invoice": invoice.model_dump(mode="json")}
     except EInvoiceError as exc:
         return {"success": False, "error": exc.message_de}
 
@@ -87,6 +87,6 @@ async def _parse_pdf(pdf_base64: str) -> dict[str, Any]:
     try:
         xml_bytes = extract_xml_from_pdf(pdf_bytes)
         invoice = parse_xml(xml_bytes)
-        return {"success": True, "invoice": invoice.model_dump()}
+        return {"success": True, "invoice": invoice.model_dump(mode="json")}
     except EInvoiceError as exc:
         return {"success": False, "error": exc.message_de}

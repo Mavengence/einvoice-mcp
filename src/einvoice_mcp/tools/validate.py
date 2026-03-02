@@ -58,7 +58,7 @@ async def validate_xrechnung(xml_content: str, kosit: KoSITClient) -> dict[str, 
 
     try:
         result = await kosit.validate(xml_bytes)
-        return result.model_dump()
+        return result.model_dump(mode="json")
     except EInvoiceError as exc:
         return {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
 
@@ -103,6 +103,6 @@ async def validate_zugferd(pdf_base64: str, kosit: KoSITClient) -> dict[str, Any
     try:
         xml_bytes = extract_xml_from_pdf(pdf_bytes)
         result = await kosit.validate(xml_bytes)
-        return result.model_dump()
+        return result.model_dump(mode="json")
     except EInvoiceError as exc:
         return {"valid": False, "errors": [{"message": exc.message_de}], "warnings": []}
