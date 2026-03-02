@@ -181,6 +181,32 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # IBAN / BIC / Bank name (BT-84, BT-86)
+    seller_iban = ""
+    seller_bic = ""
+    seller_bank_name = ""
+    try:
+        pm_container = doc.trade.settlement.payment_means
+        if hasattr(pm_container, "children"):
+            for pm in pm_container.children:
+                acct = getattr(pm, "payee_account", None)
+                if acct:
+                    iban_val = _str_element(getattr(acct, "iban", ""))
+                    if iban_val:
+                        seller_iban = iban_val
+                    bank_name = _str_element(getattr(acct, "account_name", ""))
+                    if bank_name:
+                        seller_bank_name = bank_name
+                inst = getattr(pm, "payee_institution", None)
+                if inst:
+                    bic_val = _str_element(getattr(inst, "bic", ""))
+                    if bic_val:
+                        seller_bic = bic_val
+                if seller_iban:
+                    break
+    except Exception:
+        pass
+
     return ParsedInvoice(
         invoice_id=_str_element(doc.header.id),
         type_code=_str_element(doc.header.type_code) or "380",
@@ -202,6 +228,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         project_reference=project_reference,
         preceding_invoice_number=preceding_invoice_number,
         remittance_information=remittance_information,
+        seller_iban=seller_iban,
+        seller_bic=seller_bic,
+        seller_bank_name=seller_bank_name,
     )
 
 
@@ -252,6 +281,26 @@ def _extract_party(party_obj: object) -> Party | None:
                     if ea_scheme:
                         electronic_address_scheme = ea_scheme
 
+        # Seller/Buyer contact (BT-41, BT-42, BT-43)
+        contact_name = None
+        contact_phone = None
+        contact_email = None
+        contact_obj = getattr(party_obj, "contact", None)
+        if contact_obj:
+            cn = _str_element(getattr(contact_obj, "person_name", ""))
+            if cn:
+                contact_name = cn
+            tel_obj = getattr(contact_obj, "telephone", None)
+            if tel_obj:
+                tel = _str_element(getattr(tel_obj, "number", ""))
+                if tel:
+                    contact_phone = tel
+            email_obj = getattr(contact_obj, "email", None)
+            if email_obj:
+                em = _str_element(getattr(email_obj, "address", ""))
+                if em:
+                    contact_email = em
+
         return Party(
             name=name,
             address=address,
@@ -259,6 +308,9 @@ def _extract_party(party_obj: object) -> Party | None:
             tax_number=tax_number,
             electronic_address=electronic_address,
             electronic_address_scheme=electronic_address_scheme,
+            contact_name=contact_name,
+            contact_phone=contact_phone,
+            contact_email=contact_email,
         )
     except Exception:
         logger.warning("Failed to extract party data", exc_info=True)

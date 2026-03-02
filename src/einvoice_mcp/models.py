@@ -59,6 +59,15 @@ class Party(BaseModel):
         max_length=10,
         description="EAS-Code für elektronische Adresse (EM=E-Mail, 9930=USt-IdNr.)",
     )
+    contact_name: str | None = Field(
+        default=None, max_length=200, description="Ansprechpartner (BT-41)"
+    )
+    contact_phone: str | None = Field(
+        default=None, max_length=50, description="Telefon des Ansprechpartners (BT-42)"
+    )
+    contact_email: str | None = Field(
+        default=None, max_length=200, description="E-Mail des Ansprechpartners (BT-43)"
+    )
 
 
 class LineItem(BaseModel):
@@ -298,6 +307,9 @@ class ParsedInvoice(BaseModel):
     remittance_information: str = Field(
         default="", description="Verwendungszweck (BT-83)"
     )
+    seller_iban: str = Field(default="", description="IBAN des Verkäufers (BT-84)")
+    seller_bic: str = Field(default="", description="BIC des Verkäufers (BT-86)")
+    seller_bank_name: str = Field(default="", description="Bankname des Verkäufers")
 
 
 class FieldCheck(BaseModel):

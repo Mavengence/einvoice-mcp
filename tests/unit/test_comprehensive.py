@@ -2495,6 +2495,7 @@ _EXCEPTION_HANDLER_PARAMS = (
     ("trade.agreement", "procuring_project_type", "project_reference"),
     ("trade.settlement", "invoice_referenced_document", "preceding_invoice_number"),
     ("trade.settlement", "payment_reference", "remittance_information"),
+    ("trade.settlement", "payment_means", "seller_iban"),
 )
 
 
@@ -2550,3 +2551,117 @@ class TestExtractInvoiceExceptionHandlers:
         assert getattr(result, field) == ""
         # Other fields should still be populated
         assert result.invoice_id is not None
+
+
+# ============================================================================
+# 38. Contact field parsing roundtrip (BT-41, BT-42, BT-43)
+# ============================================================================
+
+
+class TestContactFieldParsing:
+    def test_seller_contact_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Seller contact (name, phone, email) roundtrips through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_contact_name": "Hans Müller",
+                "seller_contact_email": "hans@techcorp.de",
+                "seller_contact_phone": "+49 30 123456",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name == "Hans Müller"
+        assert parsed.seller.contact_email == "hans@techcorp.de"
+        assert parsed.seller.contact_phone == "+49 30 123456"
+
+    def test_no_contact_returns_none(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No contact info → contact fields are None."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_contact_name": None,
+                "seller_contact_email": None,
+                "seller_contact_phone": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name is None
+        assert parsed.seller.contact_email is None
+        assert parsed.seller.contact_phone is None
+
+    def test_partial_contact(self, sample_invoice_data: InvoiceData) -> None:
+        """Only name set → phone and email are None."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_contact_name": "Hans Müller",
+                "seller_contact_email": None,
+                "seller_contact_phone": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name == "Hans Müller"
+        assert parsed.seller.contact_email is None
+        assert parsed.seller.contact_phone is None
+
+
+# ============================================================================
+# 39. IBAN/BIC/Bank name parsing roundtrip (BT-84, BT-86)
+# ============================================================================
+
+
+class TestIbanBicParsing:
+    def test_iban_bic_bank_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """IBAN, BIC, and bank name roundtrip through XML."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_iban": "DE89370400440532013000",
+                "seller_bic": "COBADEFFXXX",
+                "seller_bank_name": "Commerzbank",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_iban == "DE89370400440532013000"
+        assert parsed.seller_bic == "COBADEFFXXX"
+        assert parsed.seller_bank_name == "Commerzbank"
+
+    def test_no_bank_details_empty(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No IBAN → all bank fields empty strings."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_iban": None,
+                "seller_bic": None,
+                "seller_bank_name": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_iban == ""
+        assert parsed.seller_bic == ""
+        assert parsed.seller_bank_name == ""
+
+    def test_iban_only_no_bic(self, sample_invoice_data: InvoiceData) -> None:
+        """IBAN without BIC roundtrips correctly."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "seller_iban": "DE89370400440532013000",
+                "seller_bic": None,
+                "seller_bank_name": None,
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller_iban == "DE89370400440532013000"
+        assert parsed.seller_bic == ""
