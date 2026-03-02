@@ -1,5 +1,11 @@
 # einvoice-mcp
 
+[![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-521%20passed-brightgreen.svg)](#compliance-proof)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](#module-coverage)
+
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
 
 An MCP server that enables AI agents (Claude, Cursor, Copilot) to validate, generate, parse, and check compliance of electronic invoices per EN 16931 — without a single line of integration code.
@@ -549,6 +555,18 @@ Example: `type_code="381"`, `preceding_invoice_number="RE-2025-099"`
 | `ZUGFERD_EN16931` | B2B invoices (default for ZUGFeRD PDF) | `urn:cen.eu:en16931:2017` |
 | `ZUGFERD_BASIC` | Simplified B2B invoices | `urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic` |
 | `ZUGFERD_EXTENDED` | Extended B2B invoices with additional fields | `urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended` |
+
+---
+
+## German Compliance Guide
+
+See **[docs/GERMAN_COMPLIANCE_GUIDE.md](docs/GERMAN_COMPLIANCE_GUIDE.md)** for:
+- TypeCode decision tree (380/381/384/875/876/877)
+- Tax category decision tree (S/Z/E/AE/K/G/O/L/M)
+- Leitweg-ID format and sources
+- Reverse charge vs. intra-community supply
+- Handwerkerrechnung §35a EStG
+- Pflichtfelder-Checkliste for XRechnung 3.0
 
 ---
 
