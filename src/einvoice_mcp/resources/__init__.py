@@ -9,6 +9,7 @@ from einvoice_mcp.resources.compliance_data import (
 )
 from einvoice_mcp.resources.reference_data import (
     example_line_items,
+    leitweg_id_format,
     reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
@@ -16,6 +17,7 @@ from einvoice_mcp.resources.reference_data import (
     reference_type_codes,
     reference_unit_codes,
     reference_vatex_codes,
+    tax_category_decision_tree,
 )
 from einvoice_mcp.resources.schemas import (
     schema_allowance_charge,
@@ -30,6 +32,7 @@ __all__ = [
     "credit_note_reasons",
     "e_rechnung_pflichten",
     "example_line_items",
+    "leitweg_id_format",
     "reference_currency_codes",
     "reference_eas_codes",
     "reference_payment_means_codes",
@@ -44,4 +47,5 @@ __all__ = [
     "schema_supporting_document",
     "skr03_mapping",
     "skr04_mapping",
+    "tax_category_decision_tree",
 ]

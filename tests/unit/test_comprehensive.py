@@ -8988,6 +8988,79 @@ class TestNewPromptRegistration:
         assert "BT-31" in text
         assert "BT-32" in text
 
+    def test_schlussrechnung_prompt(self) -> None:
+        """Schlussrechnung nach Abschlag prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            schlussrechnung_nach_abschlag,
+        )
+
+        text = schlussrechnung_nach_abschlag()
+        assert "Schlussrechnung" in text
+        assert "prepaid_amount" in text
+        assert "BT-113" in text
+
+    def test_proforma_rechnung_prompt(self) -> None:
+        """Proforma-Rechnung prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            proforma_rechnung_guide,
+        )
+
+        text = proforma_rechnung_guide()
+        assert "Proforma" in text
+        assert "§14 UStG" in text
+        assert "Vorsteuerabzug" in text
+
+    def test_drittlandlieferung_prompt(self) -> None:
+        """Drittlandlieferung/Export prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            drittlandlieferung_guide,
+        )
+
+        text = drittlandlieferung_guide()
+        assert "Drittland" in text
+        assert "VATEX-EU-G" in text
+        assert "Ausfuhr" in text
+
+    def test_gutschriftverfahren_389_prompt(self) -> None:
+        """Gutschriftverfahren (389) prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            gutschriftverfahren_389_guide,
+        )
+
+        text = gutschriftverfahren_389_guide()
+        assert "389" in text
+        assert "Self-Billing" in text
+        assert "§14 Abs. 2" in text
+
+
+# ─── New Resource Tests ──────────────────────────────────────────────────
+
+class TestNewResources:
+    """New reference resources return valid JSON with expected keys."""
+
+    def test_leitweg_id_format_resource(self) -> None:
+        from einvoice_mcp.resources.reference_data import leitweg_id_format
+
+        text = leitweg_id_format()
+        data = json.loads(text)
+        assert "aufbau" in data
+        assert "grobadressat" in data["aufbau"]["teile"]
+        assert "pruefziffer" in data["aufbau"]["teile"]
+        assert "regex" in data["validierung"]
+
+    def test_tax_category_decision_tree_resource(self) -> None:
+        from einvoice_mcp.resources.reference_data import (
+            tax_category_decision_tree,
+        )
+
+        text = tax_category_decision_tree()
+        data = json.loads(text)
+        assert "kategorien" in data
+        for cat in ("S", "Z", "E", "AE", "K", "G", "O"):
+            assert cat in data["kategorien"], f"Missing category {cat}"
+        assert "entscheidungslogik" in data
+        assert len(data["entscheidungslogik"]) >= 7
+
 
 # ---------------------------------------------------------------------------
 # BR-DE-5/6/7 seller contact compliance
@@ -9242,5 +9315,696 @@ class TestPartyContactFallback:
         assert parsed.seller is not None
         assert parsed.seller.contact_name == "Override Name"
         assert parsed.seller.contact_email == "override@seller.de"
+
+
+# ─── BR-DE-20 Single Payment Instruction ───────────────────────────────
+
+class TestBRDE20SinglePaymentInstruction:
+    """BR-DE-20: Cannot mix credit transfer and direct debit codes."""
+
+    def _make_xml_with_payment_codes(self, *codes: str) -> str:
+        """Build minimal CII XML with multiple payment means codes."""
+        pm_blocks = "\n".join(
+            f"""<ram:SpecifiedTradeSettlementPaymentMeans>
+                <ram:TypeCode>{code}</ram:TypeCode>
+            </ram:SpecifiedTradeSettlementPaymentMeans>"""
+            for code in codes
+        )
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>BR-DE20-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>City</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>City</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                    {pm_blocks}
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_mixed_ct_and_dd_flagged(self) -> None:
+        """58 (SEPA CT) + 59 (SEPA DD) -> BR-DE-20 flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_payment_codes("58", "59")
+        checks = check_fields(xml, xrechnung=True)
+        br20 = next((c for c in checks if c.field == "BR-DE-20"), None)
+        assert br20 is not None
+        assert br20.present is False
+        assert br20.required is True
+        assert "58" in br20.value
+        assert "59" in br20.value
+
+    def test_single_code_58_no_flag(self) -> None:
+        """Single code 58 -> no BR-DE-20."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_payment_codes("58")
+        checks = check_fields(xml, xrechnung=True)
+        br20 = next((c for c in checks if c.field == "BR-DE-20"), None)
+        assert br20 is None
+
+    def test_single_code_59_no_flag(self) -> None:
+        """Single code 59 -> no BR-DE-20."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_payment_codes("59")
+        checks = check_fields(xml, xrechnung=True)
+        br20 = next((c for c in checks if c.field == "BR-DE-20"), None)
+        assert br20 is None
+
+    def test_multiple_ct_codes_no_flag(self) -> None:
+        """Multiple credit transfer codes (30 + 58) -> no BR-DE-20."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_payment_codes("30", "58")
+        checks = check_fields(xml, xrechnung=True)
+        br20 = next((c for c in checks if c.field == "BR-DE-20"), None)
+        assert br20 is None
+
+    def test_mixed_30_and_49_flagged(self) -> None:
+        """30 (CT) + 49 (DD) -> BR-DE-20 flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_payment_codes("30", "49")
+        checks = check_fields(xml, xrechnung=True)
+        br20 = next((c for c in checks if c.field == "BR-DE-20"), None)
+        assert br20 is not None
+
+
+# ─── Grand Total Non-Negative (BR-DE-25) ────────────────────────────────
+
+class TestBRDE25GrandTotalNonNeg:
+    """BR-DE-25: Grand total (BT-112) must be >= 0."""
+
+    def _make_xml_with_grand_total(self, amount: str) -> str:
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>GN-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                    <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                        <ram:DuePayableAmount>{amount}</ram:DuePayableAmount>
+                    </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_negative_grand_total_flagged(self) -> None:
+        """Replace GrandTotalAmount with negative value."""
+        data = InvoiceData(
+            invoice_id="GN-NEG-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Service", quantity="1", unit_price="100")],
+        )
+        xml_bytes = build_xml(data)
+        xml = xml_bytes.decode("utf-8")
+        import re
+
+        xml = re.sub(
+            r"(<ram:GrandTotalAmount[^>]*>)[^<]+(</ram:GrandTotalAmount>)",
+            r"\g<1>-119.00\2",
+            xml,
+        )
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        checks = check_fields(xml)
+        br25 = next((c for c in checks if c.field == "BR-DE-25"), None)
+        assert br25 is not None
+        assert br25.present is False
+
+    def test_positive_grand_total_passes(self) -> None:
+        data = InvoiceData(
+            invoice_id="GN-POS-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Service", quantity="1", unit_price="100")],
+        )
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        checks = check_fields(xml)
+        br25 = next((c for c in checks if c.field == "BR-DE-25"), None)
+        assert br25 is None
+
+
+# ─── Non-DE Seller Tax Representative (BR-DE-3/4) ──────────────────────
+
+class TestBRDE34NonDESellerTaxRep:
+    """BR-DE-3: Non-DE seller must have tax representative.
+    BR-DE-4: Tax rep must have VAT ID (BT-63)."""
+
+    def _make_xml(
+        self, country: str = "DE", *, tax_rep: bool = False, tax_rep_vat: str = "",
+    ) -> str:
+        tax_rep_block = ""
+        if tax_rep:
+            vat_block = ""
+            if tax_rep_vat:
+                vat_block = f"""<ram:SpecifiedTaxRegistration>
+                    <ram:ID schemeID="VA">{tax_rep_vat}</ram:ID>
+                </ram:SpecifiedTaxRegistration>"""
+            tax_rep_block = f"""<ram:SellerTaxRepresentativeTradeParty>
+                <ram:Name>Tax Rep GmbH</ram:Name>
+                {vat_block}
+            </ram:SellerTaxRepresentativeTradeParty>"""
+
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>TAXREP-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Foreign Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>Vienna</ram:CityName>
+                            <ram:CountryID>{country}</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">ATU12345678</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    {tax_rep_block}
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>Berlin</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_non_de_seller_without_tax_rep_flagged(self) -> None:
+        """Austrian seller without tax rep -> BR-DE-3 flagged (XRechnung)."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml("AT", tax_rep=False)
+        checks = check_fields(xml, xrechnung=True)
+        br3 = next((c for c in checks if c.field == "BR-DE-3"), None)
+        assert br3 is not None
+        assert br3.present is False
+
+    def test_non_de_seller_with_tax_rep_passes(self) -> None:
+        """Austrian seller with tax rep + VAT -> passes."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml("AT", tax_rep=True, tax_rep_vat="DE987654321")
+        checks = check_fields(xml, xrechnung=True)
+        br3 = next((c for c in checks if c.field == "BR-DE-3"), None)
+        assert br3 is None or br3.present is True
+
+    def test_non_de_seller_tax_rep_no_vat_flagged(self) -> None:
+        """Austrian seller with tax rep but no VAT -> REP-BT-63 flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml("AT", tax_rep=True, tax_rep_vat="")
+        checks = check_fields(xml, xrechnung=True)
+        rep63 = next((c for c in checks if c.field == "REP-BT-63"), None)
+        assert rep63 is not None
+        assert rep63.present is False
+
+    def test_de_seller_no_tax_rep_check(self) -> None:
+        """German seller -> no BR-DE-3 check."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml("DE", tax_rep=False)
+        checks = check_fields(xml, xrechnung=True)
+        br3 = next((c for c in checks if c.field == "BR-DE-3"), None)
+        assert br3 is None
+
+
+# ─── Credit Card Payment BT-87 ──────────────────────────────────────────
+
+class TestCreditCardBT87:
+    """CC-BT-87: Credit card (code 48) requires card PAN."""
+
+    def _make_xml_cc(self, code: str = "48", *, with_pan: bool = False) -> str:
+        card_block = ""
+        if with_pan:
+            card_block = """<ram:ApplicableTradeSettlementFinancialCard>
+                <ram:ID>1234</ram:ID>
+            </ram:ApplicableTradeSettlementFinancialCard>"""
+
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>CC-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                    <ram:SpecifiedTradeSettlementPaymentMeans>
+                        <ram:TypeCode>{code}</ram:TypeCode>
+                        {card_block}
+                    </ram:SpecifiedTradeSettlementPaymentMeans>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_cc_without_pan_flagged(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_cc("48", with_pan=False)
+        checks = check_fields(xml)
+        cc = next((c for c in checks if c.field == "CC-BT-87"), None)
+        assert cc is not None
+        assert cc.present is False
+
+    def test_cc_with_pan_passes(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_cc("48", with_pan=True)
+        checks = check_fields(xml)
+        cc = next((c for c in checks if c.field == "CC-BT-87"), None)
+        assert cc is None or cc.present is True
+
+    def test_non_cc_code_no_check(self) -> None:
+        """Code 58 (SEPA) -> no CC-BT-87 check."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_cc("58", with_pan=False)
+        checks = check_fields(xml)
+        cc = next((c for c in checks if c.field == "CC-BT-87"), None)
+        assert cc is None
+
+
+# ─── Date Format Compliance (BR-DE-8/9/10/11/13) ────────────────────────
+
+class TestDateFormatCompliance:
+    """BR-DE-8/9/10/11/13: Date format code must be 102 (YYYYMMDD)."""
+
+    def _make_xml_with_date_format(self, fmt: str = "102") -> str:
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>DF-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="{fmt}">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_format_102_passes(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_date_format("102")
+        checks = check_fields(xml)
+        br9 = next((c for c in checks if c.field == "BR-DE-9"), None)
+        assert br9 is None
+
+    def test_format_610_flagged(self) -> None:
+        """Format 610 (YYYYMM) -> BR-DE-9 flagged."""
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_with_date_format("610")
+        checks = check_fields(xml)
+        br9 = next((c for c in checks if c.field == "BR-DE-9"), None)
+        assert br9 is not None
+        assert br9.present is False
+        assert "610" in br9.value
+
+
+# ─── SEPA Direct Debit Mandate and Buyer IBAN ──────────────────────────
+
+class TestSepaDirectDebitDD:
+    """DD-BT-89/91: SEPA DD requires mandate reference + buyer IBAN."""
+
+    def test_dd_missing_mandate_flagged(self) -> None:
+        """Code 59 without mandate -> DD-BT-89 flagged."""
+        data = InvoiceData(
+            invoice_id="DD-MAND-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Service", quantity="1", unit_price="100")],
+            payment_means_type_code="59",
+            buyer_iban="DE89370400440532013000",
+        )
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        checks = check_fields(xml)
+        bt89 = next((c for c in checks if c.field == "DD-BT-89"), None)
+        assert bt89 is not None
+        assert bt89.present is False
+
+    def test_dd_missing_buyer_iban_flagged(self) -> None:
+        """Code 59 without buyer IBAN -> DD-BT-91 flagged."""
+        data = InvoiceData(
+            invoice_id="DD-IBAN-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Service", quantity="1", unit_price="100")],
+            payment_means_type_code="59",
+            mandate_reference_id="MANDATE-001",
+        )
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        checks = check_fields(xml)
+        bt91 = next((c for c in checks if c.field == "DD-BT-91"), None)
+        assert bt91 is not None
+        assert bt91.present is False
+
+    def test_dd_complete_passes(self) -> None:
+        """Code 59 with mandate + buyer IBAN -> DD checks pass."""
+        data = InvoiceData(
+            invoice_id="DD-OK-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(street="S", city="C", postal_code="00000"),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(street="B", city="C", postal_code="00000"),
+            ),
+            items=[LineItem(description="Service", quantity="1", unit_price="100")],
+            payment_means_type_code="59",
+            mandate_reference_id="MANDATE-001",
+            buyer_iban="DE89370400440532013000",
+            creditor_reference_id="DE98ZZZ09999999999",
+        )
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        checks = check_fields(xml)
+        dd_fields = [c for c in checks if c.field.startswith("DD-") and not c.present]
+        assert len(dd_fields) == 0
+
+
+# ─── Payment Terms Required (BR-DE-15) ──────────────────────────────────
+
+class TestPaymentTermsBRDE15:
+    """BR-DE-15: Payment terms text (BT-20) required."""
+
+    def test_missing_payment_terms_flagged(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = """<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>PT-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+        checks = check_fields(xml, xrechnung=True)
+        bt20 = next((c for c in checks if c.field == "BT-20"), None)
+        assert bt20 is not None
+        assert bt20.present is False
+        assert bt20.required is True
+
+
+# ─── EAS Scheme ID Validation (BR-DE-16/22) ─────────────────────────────
+
+class TestEASSchemeValidation:
+    """BR-DE-16/22: EAS scheme IDs must be valid."""
+
+    def _make_xml_eas(self, seller_eas: str = "0204", buyer_eas: str = "0204") -> str:
+        return f"""<?xml version="1.0"?>
+        <rsm:CrossIndustryInvoice
+            xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+            xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+            <rsm:ExchangedDocument>
+                <ram:ID>EAS-001</ram:ID>
+                <ram:TypeCode>380</ram:TypeCode>
+                <ram:IssueDateTime>
+                    <udt:DateTimeString format="102">20260101</udt:DateTimeString>
+                </ram:IssueDateTime>
+            </rsm:ExchangedDocument>
+            <rsm:SupplyChainTradeTransaction>
+                <ram:ApplicableHeaderTradeAgreement>
+                    <ram:SellerTradeParty>
+                        <ram:Name>Seller</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>S</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:URIUniversalCommunication>
+                            <ram:URIID schemeID="{seller_eas}">seller@example.de</ram:URIID>
+                        </ram:URIUniversalCommunication>
+                        <ram:SpecifiedTaxRegistration>
+                            <ram:ID schemeID="VA">DE123456789</ram:ID>
+                        </ram:SpecifiedTaxRegistration>
+                    </ram:SellerTradeParty>
+                    <ram:BuyerTradeParty>
+                        <ram:Name>Buyer</ram:Name>
+                        <ram:PostalTradeAddress>
+                            <ram:LineOne>B</ram:LineOne>
+                            <ram:PostcodeCode>00000</ram:PostcodeCode>
+                            <ram:CityName>C</ram:CityName>
+                            <ram:CountryID>DE</ram:CountryID>
+                        </ram:PostalTradeAddress>
+                        <ram:URIUniversalCommunication>
+                            <ram:URIID schemeID="{buyer_eas}">buyer@example.de</ram:URIID>
+                        </ram:URIUniversalCommunication>
+                    </ram:BuyerTradeParty>
+                </ram:ApplicableHeaderTradeAgreement>
+                <ram:ApplicableHeaderTradeSettlement>
+                    <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+                </ram:ApplicableHeaderTradeSettlement>
+            </rsm:SupplyChainTradeTransaction>
+        </rsm:CrossIndustryInvoice>"""
+
+    def test_valid_eas_passes(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_eas("0204", "0204")
+        checks = check_fields(xml)
+        eas_fails = [c for c in checks if "BR-DE-16" in c.field or "BR-DE-22" in c.field]
+        failing = [c for c in eas_fails if not c.present]
+        assert len(failing) == 0
+
+    def test_invalid_seller_eas_flagged(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_eas("9999", "0204")
+        checks = check_fields(xml)
+        br16 = next((c for c in checks if c.field == "BR-DE-16"), None)
+        assert br16 is not None
+        assert br16.present is False
+
+    def test_invalid_buyer_eas_flagged(self) -> None:
+        from einvoice_mcp.tools.compliance_checks import check_fields
+
+        xml = self._make_xml_eas("0204", "9999")
+        checks = check_fields(xml)
+        br22 = next((c for c in checks if c.field == "BR-DE-22"), None)
+        assert br22 is not None
+        assert br22.present is False
 
 

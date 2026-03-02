@@ -18,8 +18,12 @@ from einvoice_mcp.prompts.guides import (
 )
 from einvoice_mcp.prompts.guides_advanced import (
     dauerrechnung_guide,
+    drittlandlieferung_guide,
+    gutschriftverfahren_389_guide,
     innergemeinschaftliche_lieferung_guide,
+    proforma_rechnung_guide,
     reiseleistungen_25_guide,
+    schlussrechnung_nach_abschlag,
     steuernummer_vs_ustidnr_guide,
 )
 
@@ -29,14 +33,18 @@ __all__ = [
     "bauleistungen_13b_guide",
     "dauerrechnung_guide",
     "differenzbesteuerung_25a_guide",
+    "drittlandlieferung_guide",
     "gutschrift_erstellen",
+    "gutschriftverfahren_389_guide",
     "handwerkerrechnung_35a",
     "innergemeinschaftliche_lieferung_guide",
     "kleinunternehmer_guide",
     "korrekturrechnung_erstellen",
+    "proforma_rechnung_guide",
     "ratenzahlung_rechnung",
     "reiseleistungen_25_guide",
     "reverse_charge_checkliste",
+    "schlussrechnung_nach_abschlag",
     "steuernummer_vs_ustidnr_guide",
     "steuerprüfung_checkliste",
     "stornobuchung_workflow",

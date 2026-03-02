@@ -30,8 +30,12 @@ from einvoice_mcp.prompts.guides import (
 )
 from einvoice_mcp.prompts.guides_advanced import (
     dauerrechnung_guide,
+    drittlandlieferung_guide,
+    gutschriftverfahren_389_guide,
     innergemeinschaftliche_lieferung_guide,
+    proforma_rechnung_guide,
     reiseleistungen_25_guide,
+    schlussrechnung_nach_abschlag,
     steuernummer_vs_ustidnr_guide,
 )
 from einvoice_mcp.resources import (
@@ -53,7 +57,11 @@ from einvoice_mcp.resources import (
     skr03_mapping,
     skr04_mapping,
 )
-from einvoice_mcp.resources.reference_data import example_line_items
+from einvoice_mcp.resources.reference_data import (
+    example_line_items,
+    leitweg_id_format,
+    tax_category_decision_tree,
+)
 from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.tools.compliance import check_compliance
@@ -136,6 +144,10 @@ mcp.resource("einvoice://reference/skr03-mapping")(skr03_mapping)
 mcp.resource("einvoice://reference/skr04-mapping")(skr04_mapping)
 mcp.resource("einvoice://reference/vatex-codes")(reference_vatex_codes)
 mcp.resource("einvoice://reference/credit-note-reasons")(credit_note_reasons)
+mcp.resource("einvoice://reference/leitweg-id-format")(leitweg_id_format)
+mcp.resource("einvoice://reference/tax-category-decision-tree")(
+    tax_category_decision_tree,
+)
 
 
 @mcp.resource("einvoice://system/kosit-status")
@@ -185,6 +197,10 @@ mcp.prompt()(reiseleistungen_25_guide)
 mcp.prompt()(innergemeinschaftliche_lieferung_guide)
 mcp.prompt()(dauerrechnung_guide)
 mcp.prompt()(steuernummer_vs_ustidnr_guide)
+mcp.prompt()(schlussrechnung_nach_abschlag)
+mcp.prompt()(proforma_rechnung_guide)
+mcp.prompt()(drittlandlieferung_guide)
+mcp.prompt()(gutschriftverfahren_389_guide)
 
 
 # ---------------------------------------------------------------------------

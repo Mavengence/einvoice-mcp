@@ -211,6 +211,9 @@ def check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldCheck
     # BR-DE-18/19: Payment means presence and code validity
     _check_payment_means_rules(checks, root)
 
+    # BR-DE-20: Max one payment instruction type
+    _check_single_payment_instruction(checks, root)
+
     # BR-DE-16/21/22: EAS scheme ID validation
     _check_eas_scheme_ids(checks, root)
 
@@ -617,6 +620,31 @@ def _check_payment_means_rules(checks: list[FieldCheck], root: Element) -> None:
                     field="BR-DE-19", name="Zahlungsart-Code ungültig",
                     present=False, value=code, required=True,
                 ))
+
+
+def _check_single_payment_instruction(checks: list[FieldCheck], root: Element) -> None:
+    """BR-DE-20: Max one payment instruction type per invoice.
+
+    Cannot mix credit transfer (58) and direct debit (59) in the same invoice.
+    """
+    pm_elements = root.findall(
+        ".//ram:ApplicableHeaderTradeSettlement"
+        "/ram:SpecifiedTradeSettlementPaymentMeans/ram:TypeCode", CII_NS,
+    )
+    codes = {el.text.strip() for el in pm_elements if el.text and el.text.strip()}
+    # Credit transfer codes: 30, 31, 42, 58 (SEPA)
+    ct_codes = codes & {"30", "31", "42", "58"}
+    # Direct debit codes: 49, 59 (SEPA)
+    dd_codes = codes & {"49", "59"}
+    if ct_codes and dd_codes:
+        checks.append(FieldCheck(
+            field="BR-DE-20",
+            name="Widersprüchliche Zahlungsanweisungen",
+            present=False,
+            value=f"Überweisung ({', '.join(sorted(ct_codes))}) + "
+                  f"Lastschrift ({', '.join(sorted(dd_codes))})",
+            required=True,
+        ))
 
 
 def _check_eas_scheme_ids(checks: list[FieldCheck], root: Element) -> None:
