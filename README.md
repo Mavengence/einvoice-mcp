@@ -14,7 +14,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**458 tests | 99% coverage (1847 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
+**475 tests | 99% coverage (1968 stmts, 7 defensive) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -83,6 +83,12 @@ Every mandatory Business Term is tested in generated XML output:
 | BG-11 | Seller tax representative (BT-62..65) | `test_seller_tax_rep_roundtrip` | PASS |
 | BG-10 | Payee party (BT-59..61) | `test_payee_party_roundtrip` | PASS |
 | BG-18 | Payment card (BT-87/88) | `test_payment_card_roundtrip` | PASS |
+| BT-159 | Item country of origin | `test_country_of_origin_roundtrip` | PASS |
+| BG-30 | Item attributes (BT-160/161) | `test_single_attribute_roundtrip` | PASS |
+| BT-15 | Receiving advice reference | `test_receiving_advice_roundtrip` | PASS |
+| BT-71 | Delivery location identifier | `test_delivery_location_id_roundtrip` | PASS |
+| BT-82 | Payment means text | `test_payment_means_text_roundtrip` | PASS |
+| BG-24 | Supporting documents (BT-122..125) | `test_supporting_doc_with_uri` | PASS |
 | Skonto | Payment discount terms | `test_skonto_roundtrip` | PASS |
 
 ### Calculation Rules
@@ -161,6 +167,14 @@ Every mandatory Business Term is tested in generated XML output:
 | Payment card roundtrip | BT-87/88 generate → parse | `test_payment_card_roundtrip` | PASS |
 | Gross price roundtrip | BT-147/148 generate → parse | `test_gross_price_and_discount_roundtrip` | PASS |
 | Classification roundtrip | BT-158 generate → parse | `test_item_classification_roundtrip` | PASS |
+| Country of origin roundtrip | BT-159 generate → parse | `test_country_of_origin_roundtrip` | PASS |
+| Item attributes roundtrip | BT-160/161 generate → parse | `test_single_attribute_roundtrip` | PASS |
+| Receiving advice roundtrip | BT-15 generate → parse | `test_receiving_advice_roundtrip` | PASS |
+| Delivery location ID roundtrip | BT-71 generate → parse | `test_delivery_location_id_roundtrip` | PASS |
+| Payment means text roundtrip | BT-82 generate → parse | `test_payment_means_text_roundtrip` | PASS |
+| Supporting docs roundtrip | BG-24 generate → parse | `test_supporting_doc_with_uri` | PASS |
+| Supporting docs + tender ref | BG-24 + BT-17 coexistence | `test_supporting_docs_coexist_with_tender_ref` | PASS |
+| Combined item features | BT-159 + BG-30 + BT-148 together | `test_all_item_features_together` | PASS |
 | Multi-reference coexistence | BT-17 + BT-18 in same invoice | `test_tender_and_invoiced_object_coexist` | PASS |
 | Non-ASCII party names | Cyrillic/Chinese names | `test_non_ascii_party_names` | PASS |
 | All type codes | 380, 381, 384, 389, 875, 876, 877 | `test_all_type_codes` | PASS |
@@ -219,16 +233,16 @@ Every mandatory Business Term is tested in generated XML output:
 |--------|-------|------|----------|
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
-| `models.py` | 291 | 0 | **100%** |
-| `services/invoice_builder.py` | 302 | 0 | **100%** |
+| `models.py` | 311 | 0 | **100%** |
+| `services/invoice_builder.py` | 329 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
-| `services/xml_parser.py` | 615 | 7 | **99%** |
+| `services/xml_parser.py` | 689 | 7 | **99%** |
 | `tools/compliance.py` | 203 | 0 | **100%** |
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **1847** | **7** | **99%** |
+| **TOTAL** | **1968** | **7** | **99%** |
 
 *`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
 
@@ -463,8 +477,14 @@ make docker-up  # Start Docker stack
 | BT-155 | Seller item identifier | Yes | Yes | — |
 | BT-156 | Buyer item identifier | Yes | Yes | — |
 | BT-157 | Standard item ID (GTIN/EAN) | Yes | Yes | — |
+| BT-159 | Item country of origin | Yes | Yes | — |
+| BT-160/161 | Item attributes (BG-30, name/value) | Yes | Yes | — |
 | BG-20/21 | Document-level allowances/charges | Yes | Yes | — |
 | BG-27/28 | Line-level allowances/charges | Yes | Yes | — |
+| BT-15 | Receiving advice reference | Yes | Yes | — |
+| BT-71 | Delivery location identifier | Yes | Yes | — |
+| BT-82 | Payment means text | Yes | Yes | — |
+| BG-24 | Supporting documents (BT-122..125) | Yes | Yes | — |
 | BT-133 | Buyer accounting reference | Yes | Yes | — |
 | Skonto | Payment discount terms (percent, days) | Yes | Yes | — |
 

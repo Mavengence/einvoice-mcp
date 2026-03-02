@@ -97,6 +97,22 @@ class Party(BaseModel):
     )
 
 
+class ItemAttribute(BaseModel):
+    """Item attribute name/value pair (BG-30, BT-160/BT-161).
+
+    Used for product characteristics like color, size, batch codes.
+    """
+
+    name: str = Field(
+        ..., min_length=1, max_length=200,
+        description="Attributname (BT-160, z.B. 'Farbe', 'Größe')",
+    )
+    value: str = Field(
+        ..., min_length=1, max_length=500,
+        description="Attributwert (BT-161, z.B. 'Rot', 'XL')",
+    )
+
+
 class LineAllowanceCharge(BaseModel):
     """Line-level allowance or charge (BG-27/BG-28).
 
@@ -186,6 +202,17 @@ class LineItem(BaseModel):
         default=None,
         description="Abrechnungszeitraum Ende (BT-135) — für wiederkehrende Leistungen",
     )
+    item_country_of_origin: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=2,
+        description="Ursprungsland des Artikels (BT-159, ISO 3166-1 alpha-2)",
+    )
+    attributes: list["ItemAttribute"] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Artikelmerkmale (BG-30, BT-160/BT-161) — Name/Wert-Paare",
+    )
 
 
 class AllowanceCharge(BaseModel):
@@ -219,6 +246,42 @@ class AllowanceCharge(BaseModel):
     )
     percentage: Decimal | None = Field(
         default=None, ge=0, le=100, description="Prozentsatz (BT-94/BT-101)"
+    )
+
+
+class SupportingDocument(BaseModel):
+    """Additional supporting document (BG-24, BT-122..BT-125).
+
+    Attach invoices, customs documents, certificates, or other files.
+    """
+
+    id: str = Field(
+        ..., min_length=1, max_length=200,
+        description="Dokumentenreferenz (BT-122)",
+    )
+    description: str = Field(
+        default="",
+        max_length=500,
+        description="Beschreibung des Dokuments (BT-123)",
+    )
+    uri: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Externer Speicherort / URI (BT-124)",
+    )
+    mime_type: str = Field(
+        default="application/pdf",
+        max_length=100,
+        description="MIME-Typ des Anhangs (z.B. application/pdf)",
+    )
+    filename: str = Field(
+        default="",
+        max_length=200,
+        description="Dateiname des Anhangs",
+    )
+    content_base64: str | None = Field(
+        default=None,
+        description="Anhang als Base64-kodierter Inhalt (BT-125)",
     )
 
 
@@ -581,6 +644,32 @@ class InvoiceData(BaseModel):
             "SEPA-Referenz für die Zahlungszuordnung"
         ),
     )
+    receiving_advice_reference: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Wareneingangsreferenz (BT-15)",
+    )
+    delivery_location_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Kennung des Lieferorts (BT-71) — "
+            "z.B. Lagerort-ID, GLN des Lieferstandorts"
+        ),
+    )
+    payment_means_text: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Zahlungsart Freitext (BT-82, z.B. 'SEPA-Überweisung')",
+    )
+    supporting_documents: list["SupportingDocument"] = Field(
+        default_factory=list,
+        max_length=50,
+        description=(
+            "Zusätzliche Belegdokumente (BG-24, BT-122..BT-125) — "
+            "z.B. Zollpapiere, Zertifikate, Zeitnachweise"
+        ),
+    )
 
     def total_net(self) -> Decimal:
         """Sum of line item net amounts (BT-106)."""
@@ -769,6 +858,19 @@ class ParsedInvoice(BaseModel):
     seller_iban: str = Field(default="", description="IBAN des Verkäufers (BT-84)")
     seller_bic: str = Field(default="", description="BIC des Verkäufers (BT-86)")
     seller_bank_name: str = Field(default="", description="Bankname des Verkäufers")
+    receiving_advice_reference: str = Field(
+        default="", description="Wareneingangsreferenz (BT-15)"
+    )
+    delivery_location_id: str = Field(
+        default="", description="Kennung des Lieferorts (BT-71)"
+    )
+    payment_means_text: str = Field(
+        default="", description="Zahlungsart Freitext (BT-82)"
+    )
+    supporting_documents: list["SupportingDocument"] = Field(
+        default_factory=list,
+        description="Zusätzliche Belegdokumente (BG-24)",
+    )
 
 
 class FieldCheck(BaseModel):

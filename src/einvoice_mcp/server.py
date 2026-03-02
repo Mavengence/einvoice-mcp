@@ -175,6 +175,10 @@ def _build_invoice_data(
     seller_tax_rep_postal_code: str = "",
     seller_tax_rep_country_code: str = "",
     seller_tax_rep_tax_id: str = "",
+    receiving_advice_reference: str = "",
+    delivery_location_id: str = "",
+    payment_means_text: str = "",
+    supporting_documents_json: str = "",
 ) -> InvoiceData | str:
     """Build InvoiceData from flat MCP tool parameters.
 
@@ -191,6 +195,13 @@ def _build_invoice_data(
             ac_list = json.loads(allowances_charges_json)
         except json.JSONDecodeError:
             return "Fehler: 'allowances_charges' muss ein gültiges JSON-Array sein."
+
+    sd_list: list[dict[str, object]] = []
+    if supporting_documents_json:
+        try:
+            sd_list = json.loads(supporting_documents_json)
+        except json.JSONDecodeError:
+            return "Fehler: 'supporting_documents' muss ein gültiges JSON-Array sein."
 
     try:
         invoice_profile = InvoiceProfile(profile)
@@ -286,6 +297,10 @@ def _build_invoice_data(
                 "payee_legal_registration_id": payee_legal_registration_id or None,
                 "payment_card_pan": payment_card_pan or None,
                 "payment_card_holder": payment_card_holder or None,
+                "receiving_advice_reference": receiving_advice_reference or None,
+                "delivery_location_id": delivery_location_id or None,
+                "payment_means_text": payment_means_text or None,
+                "supporting_documents": sd_list,
                 **(
                     {
                         "seller_tax_representative": {
@@ -452,6 +467,10 @@ async def einvoice_generate_xrechnung(
     seller_tax_rep_postal_code: str = "",
     seller_tax_rep_country_code: str = "",
     seller_tax_rep_tax_id: str = "",
+    receiving_advice_reference: str = "",
+    delivery_location_id: str = "",
+    payment_means_text: str = "",
+    supporting_documents: str = "",
 ) -> str:
     """Erstellt eine XRechnung-konforme CII-XML-Rechnung.
 
@@ -542,6 +561,10 @@ async def einvoice_generate_xrechnung(
         seller_tax_rep_postal_code: Steuervertreter PLZ.
         seller_tax_rep_country_code: Steuervertreter Land.
         seller_tax_rep_tax_id: Steuervertreter USt-IdNr. (BT-63).
+        receiving_advice_reference: Wareneingangsreferenz (BT-15).
+        delivery_location_id: Lieferort-Kennung (BT-71).
+        payment_means_text: Zahlungsart Freitext (BT-82).
+        supporting_documents: JSON-Array Belegdokumente (BG-24).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -628,6 +651,10 @@ async def einvoice_generate_xrechnung(
         seller_tax_rep_postal_code=seller_tax_rep_postal_code,
         seller_tax_rep_country_code=seller_tax_rep_country_code,
         seller_tax_rep_tax_id=seller_tax_rep_tax_id,
+        receiving_advice_reference=receiving_advice_reference,
+        delivery_location_id=delivery_location_id,
+        payment_means_text=payment_means_text,
+        supporting_documents_json=supporting_documents,
     )
 
     if isinstance(data, str):
@@ -735,6 +762,10 @@ async def einvoice_generate_zugferd(
     seller_tax_rep_postal_code: str = "",
     seller_tax_rep_country_code: str = "",
     seller_tax_rep_tax_id: str = "",
+    receiving_advice_reference: str = "",
+    delivery_location_id: str = "",
+    payment_means_text: str = "",
+    supporting_documents: str = "",
 ) -> str:
     """Erstellt eine ZUGFeRD-Hybrid-PDF (visuelle PDF + eingebettetes CII-XML).
 
@@ -797,7 +828,6 @@ async def einvoice_generate_zugferd(
         despatch_advice_reference: Lieferscheinnummer (BT-16).
         invoiced_object_identifier: Abrechnungsobjekt (BT-18).
         business_process_type: Geschäftsprozesstyp (BT-23).
-        seller_tax_number: Steuernummer (BT-32).
         seller_registration_id: Handelsregister/GLN (BT-29).
         buyer_registration_id: GLN des Käufers (BT-46).
         buyer_iban: IBAN des Käufers (BT-91, SEPA-Lastschrift).
@@ -815,7 +845,7 @@ async def einvoice_generate_zugferd(
         buyer_trading_name: Handelsname Käufer (BT-45).
         payee_name: Zahlungsempfänger Name (BT-59).
         payee_id: Kennung des Zahlungsempfängers (BT-60).
-        payee_legal_registration_id: Handelsregister Zahlungsempfänger (BT-61).
+        payee_legal_registration_id: Handelsregister (BT-61).
         payment_card_pan: Kartennummer letzte Stellen (BT-87).
         payment_card_holder: Karteninhaber (BT-88).
         seller_tax_rep_name: Steuervertreter Name (BT-62).
@@ -824,6 +854,10 @@ async def einvoice_generate_zugferd(
         seller_tax_rep_postal_code: Steuervertreter PLZ.
         seller_tax_rep_country_code: Steuervertreter Land.
         seller_tax_rep_tax_id: Steuervertreter USt-IdNr. (BT-63).
+        receiving_advice_reference: Wareneingangsreferenz (BT-15).
+        delivery_location_id: Lieferort-Kennung (BT-71).
+        payment_means_text: Zahlungsart Freitext (BT-82).
+        supporting_documents: JSON-Array Belegdokumente (BG-24).
     """
     data = _build_invoice_data(
         invoice_id=invoice_id,
@@ -910,6 +944,10 @@ async def einvoice_generate_zugferd(
         seller_tax_rep_postal_code=seller_tax_rep_postal_code,
         seller_tax_rep_country_code=seller_tax_rep_country_code,
         seller_tax_rep_tax_id=seller_tax_rep_tax_id,
+        receiving_advice_reference=receiving_advice_reference,
+        delivery_location_id=delivery_location_id,
+        payment_means_text=payment_means_text,
+        supporting_documents_json=supporting_documents,
     )
 
     if isinstance(data, str):

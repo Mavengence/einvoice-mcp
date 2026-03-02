@@ -223,6 +223,21 @@ def _build_document(data: InvoiceData) -> bytes:
         obj_ref.type_code = "130"
         doc.trade.agreement.additional_references.add(obj_ref)
 
+    # Supporting documents (BG-24, BT-122..BT-125)
+    for sdoc in data.supporting_documents:
+        sd_ref = AdditionalReferencedDocument()
+        sd_ref.issuer_assigned_id = sdoc.id
+        sd_ref.type_code = "916"
+        if sdoc.description:
+            sd_ref.name = sdoc.description
+        if sdoc.uri:
+            sd_ref.uri_id = sdoc.uri
+        if sdoc.content_base64:
+            sd_ref.attached_object._text = sdoc.content_base64
+            sd_ref.attached_object._mime_code = sdoc.mime_type
+            sd_ref.attached_object._filename = sdoc.filename or sdoc.id
+        doc.trade.agreement.additional_references.add(sd_ref)
+
     # Preceding invoice reference (BT-25) — for credit notes (381)
     if data.preceding_invoice_number:
         doc.trade.settlement.invoice_referenced_document.issuer_assigned_id = (
@@ -242,10 +257,20 @@ def _build_document(data: InvoiceData) -> bytes:
         if data.delivery_country_code:
             doc.trade.delivery.ship_to.address.country_id = data.delivery_country_code
 
+    # Delivery location identifier (BT-71)
+    if data.delivery_location_id:
+        doc.trade.delivery.ship_to.id = data.delivery_location_id
+
     # Despatch advice reference (BT-16)
     if data.despatch_advice_reference:
         doc.trade.delivery.despatch_advice.issuer_assigned_id = (
             data.despatch_advice_reference
+        )
+
+    # Receiving advice reference (BT-15)
+    if data.receiving_advice_reference:
+        doc.trade.delivery.receiving_advice.issuer_assigned_id = (
+            data.receiving_advice_reference
         )
 
     # Delivery date (BT-71) — §14 Abs. 4 Nr. 6 UStG
@@ -289,6 +314,18 @@ def _build_document(data: InvoiceData) -> bytes:
                 price_ac = LineAC()
                 price_ac.actual_amount = item.item_price_discount
                 li.agreement.gross.charge.add(price_ac)
+
+        # Item country of origin (BT-159)
+        if item.item_country_of_origin:
+            li.product.origin.id = item.item_country_of_origin
+
+        # Item attributes (BG-30, BT-160/BT-161)
+        for attr in item.attributes:
+            from drafthorse.models.product import ProductCharacteristic
+            pc = ProductCharacteristic()
+            pc.type_code = attr.name
+            pc.value = attr.value
+            li.product.characteristics.add(pc)
 
         # Item classification (BT-158)
         if item.item_classification_id:
@@ -334,9 +371,11 @@ def _build_document(data: InvoiceData) -> bytes:
     # Settlement
     doc.trade.settlement.currency_code = data.currency
 
-    # Payment means (BT-81)
+    # Payment means (BT-81, BT-82)
     pm = PaymentMeans()
     pm.type_code = data.payment_means_type_code
+    if data.payment_means_text:
+        pm.information.add(data.payment_means_text)
     if data.seller_iban:
         pm.payee_account.iban = data.seller_iban
         if data.seller_bank_name:

@@ -1,4 +1,4 @@
-.PHONY: dev docker-up docker-down test lint fmt install
+.PHONY: dev docker-up docker-down test lint fmt install build clean type-check
 
 install:
 	pip install -e ".[dev]"
@@ -28,3 +28,14 @@ lint:
 fmt:
 	ruff check --fix src/ tests/
 	ruff format src/ tests/
+
+build:
+	python -m build
+
+clean:
+	rm -rf build/ dist/ *.egg-info src/*.egg-info
+	rm -rf .coverage htmlcov/ .pytest_cache/
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+type-check:
+	mypy src/einvoice_mcp --ignore-missing-imports

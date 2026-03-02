@@ -24,9 +24,11 @@ from einvoice_mcp.models import (
     AllowanceCharge,
     InvoiceData,
     InvoiceProfile,
+    ItemAttribute,
     LineAllowanceCharge,
     LineItem,
     Party,
+    SupportingDocument,
     TaxBreakdown,
     TaxCategory,
     Totals,
@@ -5677,5 +5679,502 @@ class TestAdditionalComplianceChecks:
         fields = {c["field"]: c for c in result["field_checks"]}
         assert "REP-BT-63" not in fields
         await client.close()
+
+
+# ============================================================================
+# BT-159 Item Country of Origin
+# ============================================================================
+
+
+class TestItemCountryOfOriginRoundtrip:
+    """BT-159: Item country of origin roundtrip."""
+
+    def _base_data(self, **item_kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="ORIGIN-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item with origin",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                    **item_kwargs,
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+        )
+
+    def test_country_of_origin_roundtrip(self) -> None:
+        data = self._base_data(item_country_of_origin="CN")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].item_country_of_origin == "CN"
+
+    def test_no_country_of_origin(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].item_country_of_origin is None
+
+
+# ============================================================================
+# BT-160/161 Item Attributes (BG-30)
+# ============================================================================
+
+
+class TestItemAttributesRoundtrip:
+    """BT-160/161: Item attributes roundtrip."""
+
+    def _base_data(self, **item_kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="ATTR-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item with attributes",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("50.00"),
+                    **item_kwargs,
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+        )
+
+    def test_single_attribute_roundtrip(self) -> None:
+        data = self._base_data(
+            attributes=[ItemAttribute(name="Farbe", value="Rot")]
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.items[0].attributes) == 1
+        assert parsed.items[0].attributes[0].name == "Farbe"
+        assert parsed.items[0].attributes[0].value == "Rot"
+
+    def test_multiple_attributes_roundtrip(self) -> None:
+        data = self._base_data(
+            attributes=[
+                ItemAttribute(name="Farbe", value="Blau"),
+                ItemAttribute(name="Groesse", value="XL"),
+                ItemAttribute(name="Material", value="Baumwolle"),
+            ]
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        attrs = parsed.items[0].attributes
+        assert len(attrs) == 3
+        names = [a.name for a in attrs]
+        assert "Farbe" in names
+        assert "Groesse" in names
+        assert "Material" in names
+
+    def test_no_attributes(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].attributes == []
+
+
+# ============================================================================
+# BT-15 Receiving Advice Reference
+# ============================================================================
+
+
+class TestReceivingAdviceRoundtrip:
+    """BT-15: Receiving advice reference roundtrip."""
+
+    def _base_data(self, **kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="RA-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+            **kwargs,
+        )
+
+    def test_receiving_advice_roundtrip(self) -> None:
+        data = self._base_data(receiving_advice_reference="WE-2026-001")
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.receiving_advice_reference == "WE-2026-001"
+
+    def test_no_receiving_advice(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.receiving_advice_reference == ""
+
+
+# ============================================================================
+# BT-71 Delivery Location ID
+# ============================================================================
+
+
+class TestDeliveryLocationIdRoundtrip:
+    """BT-71: Delivery location identifier roundtrip."""
+
+    def _base_data(self, **kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="DL-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+            **kwargs,
+        )
+
+    def test_delivery_location_id_roundtrip(self) -> None:
+        data = self._base_data(
+            delivery_location_id="LOC-HAM-001",
+            delivery_party_name="Lager Hamburg",
+            delivery_street="Hafenstr. 1",
+            delivery_city="Hamburg",
+            delivery_postal_code="20095",
+            delivery_country_code="DE",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_location_id == "LOC-HAM-001"
+        assert parsed.delivery_party_name == "Lager Hamburg"
+
+    def test_no_delivery_location_id(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.delivery_location_id == ""
+
+
+# ============================================================================
+# BT-82 Payment Means Text
+# ============================================================================
+
+
+class TestPaymentMeansTextRoundtrip:
+    """BT-82: Payment means text roundtrip."""
+
+    def _base_data(self, **kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="PMT-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+            **kwargs,
+        )
+
+    def test_payment_means_text_roundtrip(self) -> None:
+        data = self._base_data(
+            payment_means_text="SEPA-Überweisung"
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_means_text == "SEPA-Überweisung"
+
+    def test_no_payment_means_text(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.payment_means_text == ""
+
+
+# ============================================================================
+# BG-24 Supporting Documents
+# ============================================================================
+
+
+class TestSupportingDocumentsRoundtrip:
+    """BG-24: Supporting documents roundtrip."""
+
+    def _base_data(self, **kwargs: object) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="SD-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Item",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+            **kwargs,
+        )
+
+    def test_supporting_doc_with_uri(self) -> None:
+        data = self._base_data(
+            supporting_documents=[
+                SupportingDocument(
+                    id="DOC-001",
+                    description="Zeitnachweis",
+                    uri="https://example.com/timesheet.pdf",
+                )
+            ]
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.supporting_documents) == 1
+        doc = parsed.supporting_documents[0]
+        assert doc.id == "DOC-001"
+        assert doc.description == "Zeitnachweis"
+        assert doc.uri == "https://example.com/timesheet.pdf"
+
+    def test_supporting_doc_with_embedded_content(self) -> None:
+        content = base64.b64encode(b"test content").decode()
+        data = self._base_data(
+            supporting_documents=[
+                SupportingDocument(
+                    id="DOC-002",
+                    description="Zertifikat",
+                    content_base64=content,
+                    mime_type="application/pdf",
+                    filename="cert.pdf",
+                )
+            ]
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.supporting_documents) == 1
+        doc = parsed.supporting_documents[0]
+        assert doc.id == "DOC-002"
+        assert doc.content_base64 == content
+        assert doc.mime_type == "application/pdf"
+        assert doc.filename == "cert.pdf"
+
+    def test_multiple_supporting_docs(self) -> None:
+        data = self._base_data(
+            supporting_documents=[
+                SupportingDocument(
+                    id="DOC-A",
+                    description="Anlage A",
+                ),
+                SupportingDocument(
+                    id="DOC-B",
+                    description="Anlage B",
+                    uri="https://example.com/b.pdf",
+                ),
+            ]
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert len(parsed.supporting_documents) == 2
+        ids = [d.id for d in parsed.supporting_documents]
+        assert "DOC-A" in ids
+        assert "DOC-B" in ids
+
+    def test_no_supporting_documents(self) -> None:
+        data = self._base_data()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.supporting_documents == []
+
+    def test_supporting_docs_coexist_with_tender_ref(self) -> None:
+        """BG-24 docs (TypeCode=916) should not interfere with BT-17 (TypeCode=50)."""
+        data = self._base_data(
+            tender_or_lot_reference="TENDER-2026",
+            supporting_documents=[
+                SupportingDocument(id="DOC-X", description="Extra")
+            ],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.tender_or_lot_reference == "TENDER-2026"
+        assert len(parsed.supporting_documents) == 1
+        assert parsed.supporting_documents[0].id == "DOC-X"
+
+
+# ============================================================================
+# Combined features: attributes + country of origin
+# ============================================================================
+
+
+class TestCombinedItemFeatures:
+    """Combined BT-159, BT-160/161 on a single line item."""
+
+    def test_all_item_features_together(self) -> None:
+        data = InvoiceData(
+            invoice_id="COMBO-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S1", city="Berlin",
+                    postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="seller@test.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B1", city="Munich",
+                    postal_code="80331",
+                ),
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Premium Widget",
+                    quantity=Decimal("5"),
+                    unit_price=Decimal("25.00"),
+                    item_country_of_origin="JP",
+                    attributes=[
+                        ItemAttribute(name="Color", value="Silver"),
+                        ItemAttribute(name="Weight", value="150g"),
+                    ],
+                    item_gross_price=Decimal("30.00"),
+                    item_price_discount=Decimal("5.00"),
+                    item_classification_id="72000000",
+                    item_classification_scheme="CPV",
+                    seller_item_id="ART-999",
+                )
+            ],
+            buyer_reference="BT10-REF",
+            seller_contact_name="Contact",
+            seller_contact_email="c@test.de",
+            seller_contact_phone="+49123",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        item = parsed.items[0]
+        assert item.item_country_of_origin == "JP"
+        assert len(item.attributes) == 2
+        assert item.item_gross_price == Decimal("30.00")
+        assert item.item_price_discount == Decimal("5.00")
+        assert item.seller_item_id == "ART-999"
 
 

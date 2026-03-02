@@ -10,11 +10,13 @@ from drafthorse.models.document import Document
 from einvoice_mcp.errors import InvoiceParsingError
 from einvoice_mcp.models import (
     Address,
+    ItemAttribute,
     LineAllowanceCharge,
     LineItem,
     ParsedAllowanceCharge,
     ParsedInvoice,
     Party,
+    SupportingDocument,
     TaxBreakdown,
     TaxCategory,
     Totals,
@@ -229,6 +231,44 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
+    # Receiving advice reference (BT-15)
+    receiving_advice_reference = ""
+    try:
+        ra_id = doc.trade.delivery.receiving_advice.issuer_assigned_id
+        val = _str_element(ra_id)
+        if val:
+            receiving_advice_reference = val
+    except Exception:
+        pass
+
+    # Delivery location identifier (BT-71)
+    delivery_location_id = ""
+    try:
+        loc_id = doc.trade.delivery.ship_to.id
+        val = _str_element(loc_id)
+        if val:
+            delivery_location_id = val
+    except Exception:
+        pass
+
+    # Payment means text (BT-82) — MultiStringField → StringContainer
+    payment_means_text = ""
+    try:
+        pm_container = doc.trade.settlement.payment_means
+        if hasattr(pm_container, "children"):
+            for pm in pm_container.children:
+                info_container = getattr(pm, "information", None)
+                if info_container and hasattr(info_container, "children"):
+                    for info_val in info_container.children:
+                        text = str(info_val).strip() if info_val else ""
+                        if text:
+                            payment_means_text = text
+                            break
+                if payment_means_text:
+                    break
+    except Exception:
+        pass
+
     # Tender/lot reference (BT-17) and Invoiced object identifier (BT-18)
     # Both stored as AdditionalReferencedDocument — TypeCode=50 for BT-17, 130 for BT-18
     tender_or_lot_reference = ""
@@ -243,6 +283,49 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                     tender_or_lot_reference = ref_id
                 elif tc == "130" and ref_id and not invoiced_object_identifier:
                     invoiced_object_identifier = ref_id
+    except Exception:
+        pass
+
+    # Supporting documents (BG-24, BT-122..BT-125) — TypeCode=916
+    supporting_documents: list[SupportingDocument] = []
+    try:
+        add_refs = doc.trade.agreement.additional_references
+        if hasattr(add_refs, "children"):
+            for ref in add_refs.children:
+                tc = _str_element(getattr(ref, "type_code", ""))
+                if tc == "916":
+                    ref_id = _str_element(
+                        getattr(ref, "issuer_assigned_id", "")
+                    )
+                    if ref_id:
+                        desc = _str_element(getattr(ref, "name", ""))
+                        uri = _str_element(
+                            getattr(ref, "uri_id", "")
+                        ) or None
+                        content_b64 = None
+                        mime = "application/pdf"
+                        fname = ""
+                        ao = getattr(ref, "attached_object", None)
+                        if ao:
+                            txt = getattr(ao, "_text", None)
+                            if txt:
+                                content_b64 = str(txt)
+                            mc = getattr(ao, "_mime_code", "")
+                            if mc:
+                                mime = str(mc)
+                            fn = getattr(ao, "_filename", "")
+                            if fn:
+                                fname = str(fn)
+                        supporting_documents.append(
+                            SupportingDocument(
+                                id=ref_id,
+                                description=desc,
+                                uri=uri,
+                                mime_type=mime,
+                                filename=fname,
+                                content_base64=content_b64,
+                            )
+                        )
     except Exception:
         pass
 
@@ -486,6 +569,10 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         seller_iban=seller_iban,
         seller_bic=seller_bic,
         seller_bank_name=seller_bank_name,
+        receiving_advice_reference=receiving_advice_reference,
+        delivery_location_id=delivery_location_id,
+        payment_means_text=payment_means_text,
+        supporting_documents=supporting_documents,
     )
 
 
@@ -723,6 +810,30 @@ def _extract_items(doc: Document) -> list[LineItem]:
                                 item_classification_version = str(cc_version).strip()
                             break
 
+            # Item country of origin (BT-159)
+            item_country_of_origin = None
+            origin_obj = getattr(li.product, "origin", None)
+            if origin_obj:
+                origin_id = _str_element(getattr(origin_obj, "id", ""))
+                if origin_id and len(origin_id) == 2:
+                    item_country_of_origin = origin_id
+
+            # Item attributes (BG-30, BT-160/BT-161)
+            item_attributes: list[ItemAttribute] = []
+            char_container = getattr(li.product, "characteristics", None)
+            if char_container and hasattr(char_container, "children"):
+                for char_item in char_container.children:
+                    attr_name = _str_element(
+                        getattr(char_item, "type_code", "")
+                    )
+                    attr_value = _str_element(
+                        getattr(char_item, "value", "")
+                    )
+                    if attr_name and attr_value:
+                        item_attributes.append(
+                            ItemAttribute(name=attr_name, value=attr_value)
+                        )
+
             # Line-level billing period (BT-134/BT-135)
             line_period_start = None
             line_period_end = None
@@ -781,6 +892,8 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     buyer_accounting_reference=buyer_accounting_reference,
                     line_period_start=line_period_start,
                     line_period_end=line_period_end,
+                    item_country_of_origin=item_country_of_origin,
+                    attributes=item_attributes,
                 )
             )
         except Exception:
