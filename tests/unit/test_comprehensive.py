@@ -8747,3 +8747,421 @@ class TestMultipleInvoiceNotes:
         assert b"123456789" in xml_bytes
 
 
+# ---------------------------------------------------------------------------
+# SEPA direct debit BT-90 creditor reference compliance
+# ---------------------------------------------------------------------------
+class TestSepaDirectDebitBT90Compliance:
+    """BT-90 creditor reference ID check in SEPA direct debit."""
+
+    @respx.mock
+    async def test_dd_missing_creditor_ref(self) -> None:
+        """Code=59 without BT-90 -> DD-BT-90 flagged."""
+        data = InvoiceData(
+            invoice_id="DD-BT90-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+            payment_means_type_code="59",
+            mandate_reference_id="MANDATE-001",
+            buyer_iban="DE89370400440532013000",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "DD-BT-90" in missing
+        await client.close()
+
+    @respx.mock
+    async def test_dd_with_creditor_ref(self) -> None:
+        """Code=59 with BT-90 -> DD-BT-90 not flagged."""
+        data = InvoiceData(
+            invoice_id="DD-BT90-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+            payment_means_type_code="59",
+            mandate_reference_id="MANDATE-001",
+            buyer_iban="DE89370400440532013000",
+            creditor_reference_id="DE98ZZZ09999999999",
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "DD-BT-90" not in missing
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# BR-CO-14 tax total integrity check
+# ---------------------------------------------------------------------------
+class TestBRCO14TaxTotalIntegrity:
+    """BR-CO-14: BT-110 = sum of tax breakdown amounts."""
+
+    @respx.mock
+    async def test_consistent_tax_total_passes(self) -> None:
+        """Normal invoice with correct tax total -> no BR-CO-14 flag."""
+        data = _quick_invoice()
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-CO-14" not in missing
+        await client.close()
+
+    @respx.mock
+    async def test_multi_tax_consistent(self) -> None:
+        """Multi-tax invoice with correct totals -> no BR-CO-14."""
+        data = _quick_invoice(
+            items=[
+                LineItem(
+                    description="A",
+                    quantity="1",
+                    unit_price="100",
+                    tax_rate=Decimal("19.00"),
+                ),
+                LineItem(
+                    description="B",
+                    quantity="1",
+                    unit_price="50",
+                    tax_rate=Decimal("7.00"),
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-CO-14" not in missing
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Line-level BT-126/128/132 parsing roundtrip
+# ---------------------------------------------------------------------------
+class TestLineLevelFieldsParsing:
+    """BT-126/128/132 should roundtrip through build -> parse."""
+
+    def test_bt126_line_id_parsed(self) -> None:
+        """BT-126: Custom line_id should be parsed back."""
+        data = _quick_invoice()
+        data.items[0].line_id = "CUSTOM-LINE-1"
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].line_id == "CUSTOM-LINE-1"
+
+    def test_bt126_auto_line_id_parsed(self) -> None:
+        """BT-126: Auto-assigned line_id (1,2,...) parsed back."""
+        data = _quick_invoice(
+            items=[
+                LineItem(
+                    description="First",
+                    quantity="1",
+                    unit_price="10",
+                ),
+                LineItem(
+                    description="Second",
+                    quantity="2",
+                    unit_price="20",
+                ),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].line_id == "1"
+        assert parsed.items[1].line_id == "2"
+
+    def test_bt128_line_object_identifier_parsed(self) -> None:
+        """BT-128: Line object identifier roundtrips."""
+        data = _quick_invoice()
+        data.items[0].line_object_identifier = "CONTRACT-42"
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].line_object_identifier == "CONTRACT-42"
+
+    def test_bt132_line_purchase_order_reference_parsed(self) -> None:
+        """BT-132: Line purchase order reference roundtrips."""
+        data = _quick_invoice()
+        data.items[0].line_purchase_order_reference = "PO-LINE-99"
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert (
+            parsed.items[0].line_purchase_order_reference == "PO-LINE-99"
+        )
+
+    def test_line_fields_absent_by_default(self) -> None:
+        """Without setting line fields, they should be None."""
+        data = _quick_invoice()
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].line_object_identifier is None
+        assert parsed.items[0].line_purchase_order_reference is None
+
+
+# ---------------------------------------------------------------------------
+# Prompt registration tests for new guides
+# ---------------------------------------------------------------------------
+class TestNewPromptRegistration:
+    """New prompts return non-empty German content."""
+
+    def test_reiseleistungen_prompt(self) -> None:
+        """Reiseleistungen §25 prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            reiseleistungen_25_guide,
+        )
+
+        text = reiseleistungen_25_guide()
+        assert "§25 UStG" in text
+        assert "Marge" in text
+        assert "Reiseleistung" in text
+
+    def test_innergemeinschaftlich_prompt(self) -> None:
+        """Innergemeinschaftliche Lieferung prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            innergemeinschaftliche_lieferung_guide,
+        )
+
+        text = innergemeinschaftliche_lieferung_guide()
+        assert "§4 Nr. 1b" in text
+        assert "VATEX-EU-IC" in text
+        assert "Gelangensbestaetigung" in text
+
+    def test_dauerrechnung_prompt(self) -> None:
+        """Dauerrechnung/Monatsrechnung prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            dauerrechnung_guide,
+        )
+
+        text = dauerrechnung_guide()
+        assert "Dauerrechnung" in text
+        assert "service_period" in text
+
+    def test_steuernummer_vs_ustidnr_prompt(self) -> None:
+        """Steuernummer vs USt-IdNr prompt returns content."""
+        from einvoice_mcp.prompts.guides_advanced import (
+            steuernummer_vs_ustidnr_guide,
+        )
+
+        text = steuernummer_vs_ustidnr_guide()
+        assert "BR-DE-26" in text
+        assert "BT-31" in text
+        assert "BT-32" in text
+
+
+# ---------------------------------------------------------------------------
+# BR-DE-5/6/7 seller contact compliance
+# ---------------------------------------------------------------------------
+class TestBRDE567SellerContact:
+    """BR-DE-5/6/7: Seller contact name, phone, email required."""
+
+    @respx.mock
+    async def test_missing_contact_flagged(self) -> None:
+        """XRechnung without seller contact -> BR-DE-5/6/7 flagged."""
+        data = InvoiceData(
+            invoice_id="CONTACT-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-DE-5" in missing
+        assert "BR-DE-6" in missing
+        assert "BR-DE-7" in missing
+        await client.close()
+
+    @respx.mock
+    async def test_with_contact_passes(self) -> None:
+        """XRechnung with seller contact -> BR-DE-5/6/7 not flagged."""
+        data = InvoiceData(
+            invoice_id="CONTACT-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+                contact_name="Max Mustermann",
+                contact_phone="+49 30 12345",
+                contact_email="max@seller.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-DE-5" not in missing
+        assert "BR-DE-6" not in missing
+        assert "BR-DE-7" not in missing
+        await client.close()
+
+    @respx.mock
+    async def test_zugferd_no_contact_check(self) -> None:
+        """ZUGFeRD (non-XRechnung) -> BR-DE-5/6/7 not checked."""
+        data = InvoiceData(
+            invoice_id="ZF-CONTACT-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "ZUGFERD")
+        missing = result.get("missing_fields", [])
+        assert "BR-DE-5" not in missing
+        assert "BR-DE-6" not in missing
+        assert "BR-DE-7" not in missing
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# BR-DE-26 dual tax ID compliance
+# ---------------------------------------------------------------------------
+class TestBRDE26DualTaxId:
+    """BR-DE-26: Not both USt-IdNr and Steuernummer allowed."""
+
+    @respx.mock
+    async def test_both_tax_ids_flagged(self) -> None:
+        """Seller with both tax_id AND tax_number -> BR-DE-26."""
+        data = InvoiceData(
+            invoice_id="DUAL-TAX-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+                tax_number="123/456/78901",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-DE-26" in missing
+        await client.close()
+
+    @respx.mock
+    async def test_single_tax_id_passes(self) -> None:
+        """Seller with only tax_id -> no BR-DE-26."""
+        data = _quick_invoice()
+        xml = build_xml(data).decode("utf-8")
+        respx.post(f"{KOSIT_URL}/").respond(200, text=MOCK_VALID_REPORT)
+        client = KoSITClient(base_url=KOSIT_URL)
+        result = await check_compliance(xml, client, "XRECHNUNG")
+        missing = result.get("missing_fields", [])
+        assert "BR-DE-26" not in missing
+        await client.close()
+
+

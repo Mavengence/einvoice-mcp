@@ -28,6 +28,12 @@ from einvoice_mcp.prompts.guides import (
     kleinunternehmer_guide,
     stornobuchung_workflow,
 )
+from einvoice_mcp.prompts.guides_advanced import (
+    dauerrechnung_guide,
+    innergemeinschaftliche_lieferung_guide,
+    reiseleistungen_25_guide,
+    steuernummer_vs_ustidnr_guide,
+)
 from einvoice_mcp.resources import (
     br_de_rules,
     credit_note_reasons,
@@ -76,6 +82,11 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
             "validation tools will return errors until it is available.",
             settings.kosit_url,
         )
+    logger.info(
+        "einvoice-mcp ready: 6 tools, %d resources, %d prompts",
+        len(mcp._resource_manager._resources),
+        len(mcp._prompt_manager._prompts),
+    )
     try:
         yield {"kosit": kosit}
     finally:
@@ -170,6 +181,10 @@ mcp.prompt()(kleinunternehmer_guide)
 mcp.prompt()(bauleistungen_13b_guide)
 mcp.prompt()(differenzbesteuerung_25a_guide)
 mcp.prompt()(stornobuchung_workflow)
+mcp.prompt()(reiseleistungen_25_guide)
+mcp.prompt()(innergemeinschaftliche_lieferung_guide)
+mcp.prompt()(dauerrechnung_guide)
+mcp.prompt()(steuernummer_vs_ustidnr_guide)
 
 
 # ---------------------------------------------------------------------------

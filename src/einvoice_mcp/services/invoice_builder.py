@@ -119,13 +119,16 @@ def _build_document(data: InvoiceData) -> bytes:
             data.seller.electronic_address,
         )
 
-    # Seller contact (BR-DE-5, BR-DE-7)
-    if data.seller_contact_name:
-        doc.trade.agreement.seller.contact.person_name = data.seller_contact_name
-    if data.seller_contact_email:
-        doc.trade.agreement.seller.contact.email.address = data.seller_contact_email
-    if data.seller_contact_phone:
-        doc.trade.agreement.seller.contact.telephone.number = data.seller_contact_phone
+    # Seller contact (BR-DE-5/6/7) — top-level overrides Party fields
+    contact_name = data.seller_contact_name or data.seller.contact_name
+    contact_email = data.seller_contact_email or data.seller.contact_email
+    contact_phone = data.seller_contact_phone or data.seller.contact_phone
+    if contact_name:
+        doc.trade.agreement.seller.contact.person_name = contact_name
+    if contact_email:
+        doc.trade.agreement.seller.contact.email.address = contact_email
+    if contact_phone:
+        doc.trade.agreement.seller.contact.telephone.number = contact_phone
 
     # Buyer
     doc.trade.agreement.buyer.name = data.buyer.name
@@ -166,13 +169,16 @@ def _build_document(data: InvoiceData) -> bytes:
             data.buyer.electronic_address,
         )
 
-    # Buyer contact (BT-44, BT-46, BT-47)
-    if data.buyer_contact_name:
-        doc.trade.agreement.buyer.contact.person_name = data.buyer_contact_name
-    if data.buyer_contact_email:
-        doc.trade.agreement.buyer.contact.email.address = data.buyer_contact_email
-    if data.buyer_contact_phone:
-        doc.trade.agreement.buyer.contact.telephone.number = data.buyer_contact_phone
+    # Buyer contact (BT-44/46/47) — top-level overrides Party fields
+    buyer_cn = data.buyer_contact_name or data.buyer.contact_name
+    buyer_ce = data.buyer_contact_email or data.buyer.contact_email
+    buyer_cp = data.buyer_contact_phone or data.buyer.contact_phone
+    if buyer_cn:
+        doc.trade.agreement.buyer.contact.person_name = buyer_cn
+    if buyer_ce:
+        doc.trade.agreement.buyer.contact.email.address = buyer_ce
+    if buyer_cp:
+        doc.trade.agreement.buyer.contact.telephone.number = buyer_cp
 
     # Seller tax representative (BG-11, BT-62..BT-65)
     if data.seller_tax_representative:

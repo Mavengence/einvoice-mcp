@@ -1,13 +1,13 @@
 """XML field scanning for compliance checks (BR-DE rules, EN 16931)."""
 
 import re
-from decimal import Decimal, InvalidOperation
 from xml.etree.ElementTree import Element
 
 from defusedxml import ElementTree
 from defusedxml.common import DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden
 
 from einvoice_mcp.models import FieldCheck
+from einvoice_mcp.tools.arithmetic_checks import check_arithmetic
 
 CII_NS = {
     "rsm": "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100",
@@ -200,6 +200,14 @@ def check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldCheck
     if xrechnung:
         _check_non_de_seller_tax_rep(checks, root)
 
+    # BR-DE-5/6/7: Seller contact (XRechnung only)
+    if xrechnung:
+        _check_seller_contact(checks, root)
+
+    # BR-DE-26: Not both BT-31 and BT-32 (XRechnung)
+    if xrechnung:
+        _check_no_dual_tax_id(checks, root, has_va, has_fc)
+
     # BR-DE-18/19: Payment means presence and code validity
     _check_payment_means_rules(checks, root)
 
@@ -213,7 +221,7 @@ def check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldCheck
     _check_date_formats(checks, root)
 
     # BR-CO: Mathematical integrity checks (advisory)
-    _check_arithmetic(checks, root)
+    check_arithmetic(checks, root)
 
     # Format validations (advisory)
     _check_leitweg_format(checks, root, xrechnung)
@@ -461,6 +469,17 @@ def _check_sepa_direct_debit(
             field="DD-BT-91", name="IBAN des Käufers (SEPA-Lastschrift)",
             present=False, value="", required=True,
         ))
+    # BT-90: Creditor reference ID (Gläubigeridentifikationsnummer)
+    cred_ref_el = root.find(
+        ".//ram:ApplicableHeaderTradeSettlement"
+        "/ram:CreditorReferenceID", CII_NS,
+    )
+    if not (cred_ref_el is not None and bool(cred_ref_el.text and cred_ref_el.text.strip())):
+        checks.append(FieldCheck(
+            field="DD-BT-90",
+            name="Gläubiger-ID (SEPA-Lastschrift)",
+            present=False, value="", required=True,
+        ))
 
 
 def _check_payment_terms(
@@ -532,6 +551,50 @@ def _check_non_de_seller_tax_rep(checks: list[FieldCheck], root: Element) -> Non
         checks.append(FieldCheck(
             field="BR-DE-3", name="Steuervertreter bei nicht-DE Verkäufer",
             present=False, value=seller_country, required=True,
+        ))
+
+
+def _check_seller_contact(checks: list[FieldCheck], root: Element) -> None:
+    """BR-DE-5/6/7: Seller contact name, phone, email (XRechnung)."""
+    contact_base = ".//ram:SellerTradeParty/ram:DefinedTradeContact"
+    name_el = root.find(f"{contact_base}/ram:PersonName", CII_NS)
+    phone_el = root.find(
+        f"{contact_base}/ram:TelephoneUniversalCommunication"
+        "/ram:CompleteNumber", CII_NS,
+    )
+    email_el = root.find(
+        f"{contact_base}/ram:EmailURIUniversalCommunication"
+        "/ram:URIID", CII_NS,
+    )
+    if not (name_el is not None and name_el.text and name_el.text.strip()):
+        checks.append(FieldCheck(
+            field="BR-DE-5", name="Ansprechpartner (BT-41)",
+            present=False, value="", required=True,
+        ))
+    if not (phone_el is not None and phone_el.text and phone_el.text.strip()):
+        checks.append(FieldCheck(
+            field="BR-DE-6", name="Telefon Ansprechpartner (BT-42)",
+            present=False, value="", required=True,
+        ))
+    if not (email_el is not None and email_el.text and email_el.text.strip()):
+        checks.append(FieldCheck(
+            field="BR-DE-7", name="E-Mail Ansprechpartner (BT-43)",
+            present=False, value="", required=True,
+        ))
+
+
+def _check_no_dual_tax_id(
+    checks: list[FieldCheck], root: Element,
+    has_va: bool, has_fc: bool,
+) -> None:
+    """BR-DE-26: Seller must NOT have both USt-IdNr and Steuernummer."""
+    if has_va and has_fc:
+        checks.append(FieldCheck(
+            field="BR-DE-26",
+            name="Nur USt-IdNr. ODER Steuernummer",
+            present=False,
+            value="Beide vorhanden (VA + FC)",
+            required=True,
         ))
 
 
@@ -702,83 +765,3 @@ def _check_date_formats(checks: list[FieldCheck], root: Element) -> None:
             ))
 
 
-def _safe_amount(el: Element | None) -> Decimal | None:
-    """Extract a decimal amount from an XML element, or None."""
-    if el is None or not el.text:
-        return None
-    try:
-        return Decimal(el.text.strip())
-    except (InvalidOperation, ValueError):
-        return None
-
-
-def _check_arithmetic(checks: list[FieldCheck], root: Element) -> None:
-    """BR-CO-10..BR-CO-16: Mathematical integrity checks (advisory).
-
-    Verifies that the monetary summation fields are arithmetically consistent.
-    Tolerance: 0.02 EUR per rounding.
-    """
-    ms_prefix = ".//ram:SpecifiedTradeSettlementHeaderMonetarySummation"
-
-    line_total = _safe_amount(root.find(f"{ms_prefix}/ram:LineTotalAmount", CII_NS))
-    allowance_total = _safe_amount(
-        root.find(f"{ms_prefix}/ram:AllowanceTotalAmount", CII_NS)
-    )
-    charge_total = _safe_amount(
-        root.find(f"{ms_prefix}/ram:ChargeTotalAmount", CII_NS)
-    )
-    tax_basis = _safe_amount(
-        root.find(f"{ms_prefix}/ram:TaxBasisTotalAmount", CII_NS)
-    )
-    tax_total = _safe_amount(
-        root.find(f"{ms_prefix}/ram:TaxTotalAmount", CII_NS)
-    )
-    grand_total = _safe_amount(
-        root.find(f"{ms_prefix}/ram:GrandTotalAmount", CII_NS)
-    )
-    prepaid = _safe_amount(
-        root.find(f"{ms_prefix}/ram:TotalPrepaidAmount", CII_NS)
-    )
-    due_payable = _safe_amount(
-        root.find(f"{ms_prefix}/ram:DuePayableAmount", CII_NS)
-    )
-
-    tolerance = Decimal("0.05")
-
-    # BR-CO-10: BT-109 = BT-106 - BT-107 + BT-108
-    if line_total is not None and tax_basis is not None:
-        expected_basis = line_total - (allowance_total or Decimal("0")) + (
-            charge_total or Decimal("0")
-        )
-        if abs(tax_basis - expected_basis) > tolerance:
-            checks.append(FieldCheck(
-                field="BR-CO-10",
-                name="Steuerbasis = Positionen - Abschläge + Zuschläge",
-                present=False,
-                value=f"BT-109={tax_basis}, erwartet={expected_basis}",
-                required=False,
-            ))
-
-    # BR-CO-15: BT-112 = BT-109 + BT-110
-    if tax_basis is not None and grand_total is not None:
-        expected_grand = tax_basis + (tax_total or Decimal("0"))
-        if abs(grand_total - expected_grand) > tolerance:
-            checks.append(FieldCheck(
-                field="BR-CO-15",
-                name="Brutto = Steuerbasis + Steuer",
-                present=False,
-                value=f"BT-112={grand_total}, erwartet={expected_grand}",
-                required=False,
-            ))
-
-    # BR-CO-16: BT-115 = BT-112 - BT-113
-    if grand_total is not None and due_payable is not None:
-        expected_due = grand_total - (prepaid or Decimal("0"))
-        if abs(due_payable - expected_due) > tolerance:
-            checks.append(FieldCheck(
-                field="BR-CO-16",
-                name="Zahlbetrag = Brutto - Vorauszahlung",
-                present=False,
-                value=f"BT-115={due_payable}, erwartet={expected_due}",
-                required=False,
-            ))

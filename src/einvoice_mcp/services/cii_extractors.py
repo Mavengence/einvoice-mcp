@@ -211,6 +211,37 @@ def extract_items(doc: Document) -> list[LineItem]:
                 if acct_id:
                     buyer_accounting_reference = acct_id
 
+            # Line ID (BT-126)
+            line_id = str_element(getattr(li.document, "line_id", "")) or None
+
+            # Line object identifier (BT-128) — AdditionalReferencedDocument
+            line_object_identifier = None
+            line_object_identifier_scheme = "AWV"
+            line_add_ref = getattr(
+                li.settlement, "additional_referenced_document", None
+            )
+            if line_add_ref:
+                ltc = str_element(getattr(line_add_ref, "type_code", ""))
+                lref_id = str_element(
+                    getattr(line_add_ref, "issuer_assigned_id", "")
+                )
+                if ltc == "130" and lref_id:
+                    line_object_identifier = lref_id
+
+            # Line purchase order reference (BT-132)
+            line_purchase_order_reference = None
+            line_inv_refs = getattr(
+                li.settlement, "invoice_referenced_document", None
+            )
+            if line_inv_refs and hasattr(line_inv_refs, "children"):
+                for liref in line_inv_refs.children:
+                    liref_id = str_element(
+                        getattr(liref, "issuer_assigned_id", "")
+                    )
+                    if liref_id:
+                        line_purchase_order_reference = liref_id
+                        break
+
             # Preserve magnitude for negative quantities (credit notes)
             if quantity < 0:
                 logger.warning(
@@ -223,6 +254,7 @@ def extract_items(doc: Document) -> list[LineItem]:
 
             items.append(
                 LineItem(
+                    line_id=line_id,
                     description=description,
                     quantity=quantity,
                     unit_code=unit_code,
@@ -245,6 +277,9 @@ def extract_items(doc: Document) -> list[LineItem]:
                     line_period_end=line_period_end,
                     item_country_of_origin=item_country_of_origin,
                     attributes=item_attributes,
+                    line_object_identifier=line_object_identifier,
+                    line_object_identifier_scheme=line_object_identifier_scheme,
+                    line_purchase_order_reference=line_purchase_order_reference,
                 )
             )
         except Exception:
