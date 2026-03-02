@@ -6985,6 +6985,53 @@ class TestNewMCPResources:
             assert "fix" in rule
 
 
+    def test_skr04_mapping_resource(self) -> None:
+        from einvoice_mcp.server import skr04_mapping
+
+        text = skr04_mapping()
+        data = json.loads(text)
+        assert data["chart"] == "SKR04 (DATEV)"
+        assert "mappings" in data
+        assert len(data["mappings"]) >= 10
+        categories = {m["category"] for m in data["mappings"]}
+        assert "Büromaterial / Bürobedarf" in categories
+        assert "IT-Dienstleistung / Software" in categories
+        for m in data["mappings"]:
+            assert "account" in m
+            assert "description" in m
+            assert "tax_rate" in m
+
+    def test_credit_note_reasons_resource(self) -> None:
+        from einvoice_mcp.server import credit_note_reasons
+
+        text = credit_note_reasons()
+        data = json.loads(text)
+        assert "reasons" in data
+        assert len(data["reasons"]) >= 8
+        assert "381" in data["type_codes"]
+        assert "384" in data["type_codes"]
+        assert "wichtig" in data
+        for r in data["reasons"]:
+            assert "code" in r
+            assert "reason_de" in r
+            assert "type_code" in r
+
+
+class TestSteuerprüfungPrompt:
+    """Test the audit readiness prompt."""
+
+    def test_steuerprüfung_checkliste(self) -> None:
+        from einvoice_mcp.server import steuerprüfung_checkliste
+
+        text = steuerprüfung_checkliste()
+        assert "GoBD" in text
+        assert "§147 AO" in text or "§14b UStG" in text
+        assert "10 Jahre" in text
+        assert "Reverse Charge" in text
+        assert "BT-25" in text
+        assert "KoSIT" in text
+
+
 class TestB2BPflichtPrompt:
     """Test the B2B mandate prompt."""
 

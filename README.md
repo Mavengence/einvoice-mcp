@@ -3,7 +3,7 @@
 [![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-534%20passed-brightgreen.svg)](#compliance-proof)
+[![Tests](https://img.shields.io/badge/tests-537%20passed-brightgreen.svg)](#compliance-proof)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#module-coverage)
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
@@ -20,7 +20,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**534 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
+**537 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -301,6 +301,8 @@ Every mandatory Business Term is tested in generated XML output:
 | `einvoice://system/kosit-status` | On-demand KoSIT-Validator Statusabfrage |
 | `einvoice://reference/e-rechnung-pflichten` | Zeitplan E-Rechnungspflichten 2020–2028 mit Rechtsgrundlagen |
 | `einvoice://reference/br-de-rules` | Deutsche Geschäftsregeln (BR-DE-1..24) mit Lösungshinweisen |
+| `einvoice://reference/skr04-mapping` | SKR04-Kontenzuordnung für häufige Rechnungsarten (DATEV) |
+| `einvoice://reference/credit-note-reasons` | Gutschrift-Gründe und Korrektur-Codes mit Empfehlungen |
 
 ### MCP Prompts
 
@@ -315,6 +317,7 @@ Every mandatory Business Term is tested in generated XML output:
 | `handwerkerrechnung_35a` | Handwerkerrechnung nach §35a EStG |
 | `typecode_entscheidungshilfe` | Entscheidungshilfe: Welcher TypeCode für welchen Anlass? |
 | `b2b_pflicht_2027` | Checkliste: B2B E-Rechnungspflicht ab 2027 vorbereiten |
+| `steuerprüfung_checkliste` | E-Rechnungen für Betriebsprüfung vorbereiten (GoBD, §147 AO) |
 
 ---
 

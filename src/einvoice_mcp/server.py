@@ -437,6 +437,247 @@ def br_de_rules() -> str:
     )
 
 
+@mcp.resource("einvoice://reference/skr04-mapping")
+def skr04_mapping() -> str:
+    """SKR04-Kontenzuordnung für häufige Rechnungsarten.
+
+    Mapping von typischen Eingangsrechnungs-Kategorien zu
+    SKR04-Konten (Standardkontenrahmen 04, DATEV).
+    """
+    return json.dumps(
+        {
+            "title": "SKR04 — Typische Kontenzuordnung für Eingangsrechnungen",
+            "chart": "SKR04 (DATEV)",
+            "note": "Nur als Orientierung — die exakte Zuordnung hängt vom "
+            "individuellen Kontenplan des Unternehmens ab.",
+            "mappings": [
+                {
+                    "category": "Büromaterial / Bürobedarf",
+                    "account": "6815",
+                    "description": "Bürobedarf",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "IT-Dienstleistung / Software",
+                    "account": "6570",
+                    "description": "Fremdleistungen / IT-Dienstleistungen",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Beratung / Consulting",
+                    "account": "6825",
+                    "description": "Rechts- und Beratungskosten",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Miete / Büromiete",
+                    "account": "6310",
+                    "description": "Miete (unbewegliche Wirtschaftsgüter)",
+                    "tax_rate": "19% oder 0%",
+                },
+                {
+                    "category": "Telefon / Internet",
+                    "account": "6805",
+                    "description": "Telefon",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Reisekosten",
+                    "account": "6670",
+                    "description": "Reisekosten Arbeitnehmer",
+                    "tax_rate": "19% / 7% / 0%",
+                },
+                {
+                    "category": "Werbung / Marketing",
+                    "account": "6600",
+                    "description": "Werbekosten",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Porto / Versand",
+                    "account": "6810",
+                    "description": "Porto",
+                    "tax_rate": "19% oder 0%",
+                },
+                {
+                    "category": "Reparatur / Instandhaltung",
+                    "account": "6470",
+                    "description": "Reparaturen und Instandhaltung",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Versicherung",
+                    "account": "6400",
+                    "description": "Versicherungen",
+                    "tax_rate": "0% (steuerbefreit)",
+                },
+                {
+                    "category": "Strom / Gas / Wasser",
+                    "account": "6325",
+                    "description": "Gas, Strom, Wasser",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Wareneinkauf",
+                    "account": "5000",
+                    "description": "Einkauf Roh-, Hilfs- und Betriebsstoffe",
+                    "tax_rate": "19% oder 7%",
+                },
+                {
+                    "category": "Kfz-Kosten",
+                    "account": "6520",
+                    "description": "Kfz-Kosten",
+                    "tax_rate": "19%",
+                },
+                {
+                    "category": "Fortbildung / Schulung",
+                    "account": "6830",
+                    "description": "Fortbildungskosten",
+                    "tax_rate": "19% oder 0%",
+                },
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/credit-note-reasons")
+def credit_note_reasons() -> str:
+    """Gutschrift-Gründe (Credit Note Reason Codes) nach EN 16931.
+
+    Standardisierte Gründe für Gutschriften und Korrekturrechnungen
+    mit deutschen Beschreibungen und Empfehlungen.
+    """
+    return json.dumps(
+        {
+            "title": "Gutschrift- und Korrektur-Gründe",
+            "type_codes": {
+                "381": "Gutschrift (Credit Note)",
+                "384": "Korrekturrechnung (Corrected Invoice)",
+            },
+            "reasons": [
+                {
+                    "code": "1",
+                    "reason_de": "Retoure / Rückgabe",
+                    "reason_en": "Return of goods",
+                    "type_code": "381",
+                    "note": "Gesamte oder teilweise Rückgabe der Ware",
+                },
+                {
+                    "code": "2",
+                    "reason_de": "Preisänderung / Rabatt nachträglich",
+                    "reason_en": "Price correction",
+                    "type_code": "381",
+                    "note": "Nachträglicher Rabatt oder Preisanpassung",
+                },
+                {
+                    "code": "3",
+                    "reason_de": "Mengenabweichung",
+                    "reason_en": "Quantity difference",
+                    "type_code": "381",
+                    "note": "Liefermenge weicht von Rechnungsmenge ab",
+                },
+                {
+                    "code": "4",
+                    "reason_de": "Fehlerhafte Rechnungsdaten",
+                    "reason_en": "Invoice data error",
+                    "type_code": "384",
+                    "note": "Falsche Adresse, USt-IdNr., oder andere Stammdaten",
+                },
+                {
+                    "code": "5",
+                    "reason_de": "Umsatzsteuer-Korrektur",
+                    "reason_en": "Tax correction",
+                    "type_code": "384",
+                    "note": "Falscher Steuersatz oder -kategorie auf Originalrechnung",
+                },
+                {
+                    "code": "6",
+                    "reason_de": "Mängelrüge / Qualitätsmangel",
+                    "reason_en": "Quality deficiency",
+                    "type_code": "381",
+                    "note": "Minderung wegen mangelhafter Leistung (§437 BGB)",
+                },
+                {
+                    "code": "7",
+                    "reason_de": "Doppelte Rechnungsstellung",
+                    "reason_en": "Duplicate invoice",
+                    "type_code": "381",
+                    "note": "Vollständige Gutschrift der doppelt gestellten Rechnung",
+                },
+                {
+                    "code": "8",
+                    "reason_de": "Kulanz / Goodwill",
+                    "reason_en": "Goodwill gesture",
+                    "type_code": "381",
+                    "note": "Freiwillige Gutschrift ohne rechtliche Verpflichtung",
+                },
+            ],
+            "wichtig": [
+                "Gutschrift (381) muss IMMER die Originalrechnungsnummer referenzieren (BT-25)",
+                "Korrekturrechnung (384) ersetzt die fehlerhafte Rechnung vollständig",
+                "Teilkorrekturen: Gutschrift (381) + neue Rechnung (380) ausstellen",
+                "§14 Abs. 2 Satz 3 UStG: Berichtigung nur durch neues Dokument möglich",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.prompt()
+def steuerprüfung_checkliste() -> str:
+    """Checkliste: E-Rechnungen für die Steuerprüfung vorbereiten.
+
+    Leitfaden zur Vorbereitung auf eine Betriebsprüfung mit
+    Fokus auf E-Rechnungs-Compliance und GoBD-Archivierung.
+    """
+    return (
+        "# Steuerprüfung — E-Rechnungs-Checkliste\n\n"
+        "## 1. Archivierung (GoBD-konform)\n"
+        "- [ ] E-Rechnungen im **Originalformat** archiviert (XML, nicht nur PDF)\n"
+        "- [ ] **10 Jahre** Aufbewahrungsfrist (§147 AO, §14b UStG)\n"
+        "- [ ] **Unveränderbarkeit** sichergestellt (kein nachträgliches Editieren)\n"
+        "- [ ] **Maschinelle Auswertbarkeit** gewährleistet (GoBD Tz. 128)\n"
+        "- [ ] Verfahrensdokumentation vorhanden\n\n"
+        "## 2. Pflichtangaben prüfen (§14 UStG)\n"
+        "- [ ] BT-1: Rechnungsnummer (fortlaufend, eindeutig)\n"
+        "- [ ] BT-2: Rechnungsdatum\n"
+        "- [ ] BT-27..40: Vollständige Verkäufer-Angaben (Name, Anschrift, USt-IdNr.)\n"
+        "- [ ] BT-44..55: Vollständige Käufer-Angaben\n"
+        "- [ ] Positionen: Menge, Art, Entgelt, Steuersatz, Steuerbetrag\n"
+        "- [ ] BT-81: Zahlungsart angegeben\n"
+        "- [ ] BT-20: Zahlungsbedingungen\n\n"
+        "## 3. Umsatzsteuer-Prüfung\n"
+        "- [ ] Steuersätze korrekt (19%, 7%, 0% mit Begründung)\n"
+        "- [ ] Reverse Charge (§13b): Hinweis vorhanden, 0% Steuer\n"
+        "- [ ] Innergemeinschaftliche Lieferungen: USt-IdNr. beider Parteien\n"
+        "- [ ] Steuerbefreiungen: Befreiungsgrund (BT-120) und Code (BT-121)\n"
+        "- [ ] Vorsteuerabzug: Alle Voraussetzungen erfüllt?\n\n"
+        "## 4. Gutschriften und Korrekturen\n"
+        "- [ ] Gutschriften (381) referenzieren Originalrechnung (BT-25)\n"
+        "- [ ] Korrekturrechnungen (384) referenzieren Originalrechnung (BT-25)\n"
+        "- [ ] Keine 'informellen' Korrekturen per E-Mail oder PDF\n"
+        "- [ ] Stornierungen vollständig dokumentiert\n\n"
+        "## 5. Validierung\n"
+        "- [ ] Alle E-Rechnungen gegen **KoSIT-Validator** geprüft\n"
+        "- [ ] XRechnung: BR-DE-Regeln erfüllt\n"
+        "- [ ] ZUGFeRD: PDF/A-3 Konformität sichergestellt\n"
+        "- [ ] IBAN/BIC-Formate korrekt\n\n"
+        "## 6. B2B-Pflicht (ab 2025/2027/2028)\n"
+        "- [ ] Empfang von E-Rechnungen sichergestellt (seit 01.01.2025)\n"
+        "- [ ] Versand vorbereitet (ab 2027 für Umsatz > 800K€, ab 2028 für alle)\n"
+        "- [ ] Format: EN 16931 (XRechnung oder ZUGFeRD)\n\n"
+        "## Typische Prüfungsschwerpunkte:\n"
+        "1. **Rechnungsnummern-Lücken** — fehlende Nummern im Kreis\n"
+        "2. **Vorsteuerabzug** — alle formellen Voraussetzungen erfüllt?\n"
+        "3. **Reverse Charge** — §13b korrekt angewendet?\n"
+        "4. **Innergemeinschaftliche Lieferungen** — ZM abgegeben?\n"
+        "5. **Archivierung** — GoBD-Konformität nachweisbar?"
+    )
+
+
 @mcp.prompt()
 def b2b_pflicht_2027() -> str:
     """Checkliste: B2B E-Rechnungspflicht ab 2027 vorbereiten.
