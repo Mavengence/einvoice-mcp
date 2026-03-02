@@ -643,3 +643,78 @@ def uncl_5189_allowance_reason_codes() -> str:
         ensure_ascii=False,
         indent=2,
     )
+
+
+def payment_terms_templates() -> str:
+    """Deutsche Zahlungsbedingungen-Vorlagen fuer BT-20.
+
+    Standardisierte Texte und XRechnung-Kodierung fuer
+    gaengige Zahlungsbedingungen im deutschen B2B-Geschaeft.
+    """
+    return json.dumps(
+        {
+            "titel": "Zahlungsbedingungen-Vorlagen (BT-20)",
+            "standard_bedingungen": {
+                "netto_sofort": {
+                    "text": "Zahlbar sofort ohne Abzug.",
+                    "tage": 0,
+                },
+                "netto_14": {
+                    "text": "Zahlbar innerhalb 14 Tagen ohne Abzug.",
+                    "tage": 14,
+                },
+                "netto_30": {
+                    "text": "Zahlbar innerhalb 30 Tagen ohne Abzug.",
+                    "tage": 30,
+                },
+                "netto_60": {
+                    "text": "Zahlbar innerhalb 60 Tagen ohne Abzug.",
+                    "tage": 60,
+                },
+            },
+            "skonto_bedingungen": {
+                "2_prozent_10_tage": {
+                    "text": (
+                        "2% Skonto bei Zahlung innerhalb 10 Tagen, "
+                        "netto zahlbar innerhalb 30 Tagen."
+                    ),
+                    "bt_20_kodierung": (
+                        "#SKONTO#TAGE=10#PROZENT=2.00#\n"
+                        "#SKONTO#TAGE=30#PROZENT=0.00#"
+                    ),
+                },
+                "3_prozent_7_tage": {
+                    "text": (
+                        "3% Skonto bei Zahlung innerhalb 7 Tagen, "
+                        "2% bei Zahlung innerhalb 14 Tagen, "
+                        "netto 30 Tage."
+                    ),
+                    "bt_20_kodierung": (
+                        "#SKONTO#TAGE=7#PROZENT=3.00#\n"
+                        "#SKONTO#TAGE=14#PROZENT=2.00#\n"
+                        "#SKONTO#TAGE=30#PROZENT=0.00#"
+                    ),
+                },
+            },
+            "xrechnung_kodierung": {
+                "format": "#SKONTO#TAGE=<n>#PROZENT=<p.pp>#",
+                "mehrere_staffeln": (
+                    "Mehrere Zeilen, jeweils mit "
+                    "#SKONTO#...#, letzte Zeile mit PROZENT=0.00"
+                ),
+                "basis": (
+                    "Optional: #SKONTO#TAGE=10#PROZENT=2.00"
+                    "#BASISBETRAG=1190.00# (wenn abweichend)"
+                ),
+            },
+            "hinweise": [
+                "BT-20 ist Freitext, aber XRechnung empfiehlt #SKONTO#-Kodierung",
+                "Skontofrist beginnt ab Rechnungsdatum (BT-2), nicht Lieferdatum",
+                "Bei Abschlagsrechnungen: Skonto pro Teilrechnung separat",
+                "PROZENT immer mit 2 Dezimalstellen (2.00, nicht 2)",
+                "Zahlungsfrist (payment_terms_days) separat als BT-9 angeben",
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )

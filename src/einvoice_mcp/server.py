@@ -47,6 +47,7 @@ from einvoice_mcp.resources import (
     e_rechnung_pflichten,
     example_line_items,
     leitweg_id_format,
+    payment_terms_templates,
     reference_currency_codes,
     reference_eas_codes,
     reference_payment_means_codes,
@@ -149,6 +150,9 @@ mcp.resource("einvoice://reference/vat-exemption-reason-texts")(
 )
 mcp.resource("einvoice://reference/uncl-5189-allowance-reason-codes")(
     uncl_5189_allowance_reason_codes,
+)
+mcp.resource("einvoice://reference/payment-terms-templates")(
+    payment_terms_templates,
 )
 
 

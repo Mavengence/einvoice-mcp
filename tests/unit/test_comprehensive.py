@@ -10500,3 +10500,1214 @@ class TestKoSITClientErrorPaths:
             await client.validate(b"<xml/>")
 
 
+# ---------------------------------------------------------------------------
+# Payment terms templates resource test
+# ---------------------------------------------------------------------------
+
+
+class TestPaymentTermsTemplatesResource:
+    """Test payment_terms_templates resource structure."""
+
+    def test_structure(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import payment_terms_templates
+
+        data = json.loads(payment_terms_templates())
+        assert "standard_bedingungen" in data
+        assert "skonto_bedingungen" in data
+        assert "xrechnung_kodierung" in data
+        assert "netto_30" in data["standard_bedingungen"]
+        assert data["standard_bedingungen"]["netto_30"]["tage"] == 30
+
+    def test_skonto_kodierung(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import payment_terms_templates
+
+        data = json.loads(payment_terms_templates())
+        skonto = data["skonto_bedingungen"]["2_prozent_10_tage"]
+        assert "#SKONTO#TAGE=10#PROZENT=2.00#" in skonto["bt_20_kodierung"]
+
+    def test_hinweise_present(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import payment_terms_templates
+
+        data = json.loads(payment_terms_templates())
+        assert "hinweise" in data
+        assert len(data["hinweise"]) >= 3
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests: Unicode, boundary values, multi-tax, credit notes
+# ---------------------------------------------------------------------------
+
+
+class TestEdgeCaseUnicode:
+    """Test Unicode handling in models and builder."""
+
+    def test_unicode_party_names(self) -> None:
+        from einvoice_mcp.models import Address, Party
+
+        p = Party(
+            name="Müller & Söhne GmbH — Spezialitäten",
+            address=Address(
+                street="Straße der Einheit 42",
+                city="Nürnberg",
+                postal_code="90402",
+                country_code="DE",
+            ),
+            tax_id="DE123456789",
+        )
+        assert "Müller" in p.name
+        assert "Straße" in p.address.street
+
+    def test_unicode_line_item_description(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem, TaxCategory
+
+        item = LineItem(
+            description="Büromöbel — Schreibtischstühle (ergonomisch, größenverstellbar)",
+            quantity=Decimal("5"),
+            unit_price=Decimal("249.99"),
+            tax_rate=Decimal("19.00"),
+            tax_category=TaxCategory.S,
+        )
+        assert "Büromöbel" in item.description
+        assert "größen" in item.description
+
+    def test_unicode_invoice_note(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        seller = Party(
+            name="Bäckerei Größenwahn",
+            address=Address(street="Bäckerstr. 1", city="München", postal_code="80331"),
+            tax_id="DE111111111",
+        )
+        buyer = Party(
+            name="Café Überraschung",
+            address=Address(street="Hauptstr. 2", city="Köln", postal_code="50667"),
+            tax_id="DE222222222",
+        )
+        inv = InvoiceData(
+            invoice_id="ÄÖÜ-001",
+            issue_date="2026-01-15",
+            seller=seller,
+            buyer=buyer,
+            items=[
+                LineItem(
+                    description="Brötchen (Mischsortiment)",
+                    quantity=Decimal("100"),
+                    unit_price=Decimal("0.35"),
+                    tax_rate=Decimal("7.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            invoice_note="Lieferung gemäß Vertrag §3 Abs. 2 — Fußnote: Rückgabe ausgeschlossen.",
+        )
+        assert "gemäß" in inv.invoice_note
+        assert inv.invoice_id == "ÄÖÜ-001"
+
+
+class TestEdgeCaseBoundaryValues:
+    """Test boundary values for quantities, prices, tax rates."""
+
+    def test_zero_tax_rate_category_z(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem, TaxCategory
+
+        item = LineItem(
+            description="Steuerfreier Export",
+            quantity=Decimal("1"),
+            unit_price=Decimal("1000.00"),
+            tax_rate=Decimal("0.00"),
+            tax_category=TaxCategory.Z,
+        )
+        assert item.tax_rate == Decimal("0.00")
+
+    def test_zero_tax_rate_category_e(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem, TaxCategory
+
+        item = LineItem(
+            description="Steuerbefreit gem. §4 UStG",
+            quantity=Decimal("1"),
+            unit_price=Decimal("500.00"),
+            tax_rate=Decimal("0.00"),
+            tax_category=TaxCategory.E,
+        )
+        assert item.tax_category == TaxCategory.E
+
+    def test_reduced_tax_7_percent(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem, TaxCategory
+
+        item = LineItem(
+            description="Lebensmittel",
+            quantity=Decimal("50"),
+            unit_price=Decimal("2.50"),
+            tax_rate=Decimal("7.00"),
+            tax_category=TaxCategory.S,
+        )
+        assert item.tax_rate == Decimal("7.00")
+
+    def test_very_small_quantity(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem
+
+        item = LineItem(
+            description="Einzelstück Probelieferung",
+            quantity=Decimal("0.001"),
+            unit_price=Decimal("10000.00"),
+        )
+        assert item.quantity == Decimal("0.001")
+
+    def test_very_large_quantity(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem
+
+        item = LineItem(
+            description="Massengut",
+            quantity=Decimal("999999"),
+            unit_price=Decimal("0.01"),
+        )
+        assert item.quantity == Decimal("999999")
+
+    def test_max_decimal_precision_price(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem
+
+        item = LineItem(
+            description="Präzisionspreis",
+            quantity=Decimal("1"),
+            unit_price=Decimal("99.9999"),
+        )
+        assert item.unit_price == Decimal("99.9999")
+
+    def test_zero_price_valid(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import LineItem
+
+        item = LineItem(
+            description="Gratisartikel",
+            quantity=Decimal("1"),
+            unit_price=Decimal("0.00"),
+        )
+        assert item.unit_price == Decimal("0.00")
+
+
+class TestEdgeCaseMultiTaxRates:
+    """Test invoice with multiple tax rates."""
+
+    def test_multi_rate_totals(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        seller = Party(
+            name="Multi-Tax GmbH",
+            address=Address(street="Str 1", city="Berlin", postal_code="10115"),
+            tax_id="DE111111111",
+        )
+        buyer = Party(
+            name="Käufer AG",
+            address=Address(street="Str 2", city="Hamburg", postal_code="20095"),
+            tax_id="DE222222222",
+        )
+        inv = InvoiceData(
+            invoice_id="MT-001",
+            issue_date="2026-03-01",
+            seller=seller,
+            buyer=buyer,
+            items=[
+                LineItem(
+                    description="Beratung 19%",
+                    quantity=Decimal("10"),
+                    unit_price=Decimal("100.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+                LineItem(
+                    description="Lebensmittel 7%",
+                    quantity=Decimal("20"),
+                    unit_price=Decimal("5.00"),
+                    tax_rate=Decimal("7.00"),
+                    tax_category=TaxCategory.S,
+                ),
+                LineItem(
+                    description="Export 0%",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("500.00"),
+                    tax_rate=Decimal("0.00"),
+                    tax_category=TaxCategory.G,
+                ),
+            ],
+        )
+        # 10*100 = 1000, 20*5 = 100, 1*500 = 500
+        assert inv.total_net() == Decimal("1600")
+        # Tax: 1000*0.19=190, 100*0.07=7, 500*0=0
+        assert inv.total_tax() == Decimal("197.00")
+        assert inv.total_gross() == Decimal("1797.00")
+
+    def test_reverse_charge_category_ae(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        seller = Party(
+            name="EU Seller BV",
+            address=Address(street="Str 1", city="Amsterdam", postal_code="1012"),
+            tax_id="NL123456789B01",
+        )
+        buyer = Party(
+            name="DE Buyer GmbH",
+            address=Address(street="Str 2", city="Berlin", postal_code="10115"),
+            tax_id="DE987654321",
+        )
+        inv = InvoiceData(
+            invoice_id="RC-001",
+            issue_date="2026-02-01",
+            seller=seller,
+            buyer=buyer,
+            items=[
+                LineItem(
+                    description="Beratungsleistung (Reverse Charge)",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("5000.00"),
+                    tax_rate=Decimal("0.00"),
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+            tax_exemption_reason="Steuerschuldnerschaft des Leistungsempfängers gem. §13b UStG",
+            tax_exemption_reason_code="vatex-eu-ae",
+        )
+        assert inv.total_net() == Decimal("5000")
+        assert inv.total_tax() == Decimal("0.00")
+        assert inv.total_gross() == Decimal("5000.00")
+
+
+class TestEdgeCaseCreditNote:
+    """Test credit note (Gutschrift) model creation."""
+
+    def test_credit_note_type_381(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="GS-001",
+            issue_date="2026-03-01",
+            type_code="381",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="Buyer AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Rückerstattung defekte Ware",
+                    quantity=Decimal("2"),
+                    unit_price=Decimal("50.00"),
+                ),
+            ],
+            preceding_invoice_number="RE-2025-999",
+            preceding_invoice_date="2025-12-15",
+        )
+        assert inv.type_code == "381"
+        assert inv.preceding_invoice_number == "RE-2025-999"
+
+    def test_corrective_invoice_type_384(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="KR-001",
+            issue_date="2026-03-01",
+            type_code="384",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Korrektur Rechnungsposition",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("100.00"),
+                ),
+            ],
+            preceding_invoice_number="RE-2025-888",
+        )
+        assert inv.type_code == "384"
+
+    def test_partial_invoice_type_875(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="TR-001",
+            issue_date="2026-03-01",
+            type_code="875",
+            seller=Party(
+                name="Bau GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="Auftraggeber AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="1. Abschlagsrechnung Rohbau",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("25000.00"),
+                ),
+            ],
+            project_reference="PROJ-2026-001",
+        )
+        assert inv.type_code == "875"
+
+
+class TestEdgeCasePrepaidAmount:
+    """Test prepaid amount (Abschlagszahlungen)."""
+
+    def test_prepaid_reduces_due(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="PP-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Schlussrechnung",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("1000.00"),
+                ),
+            ],
+            prepaid_amount=Decimal("500.00"),
+        )
+        gross = inv.total_gross()
+        due = gross - inv.prepaid_amount
+        assert due == Decimal("690.00")  # 1190 - 500
+
+
+class TestEdgeCaseDocumentAllowances:
+    """Test document-level allowances and charges."""
+
+    def test_allowance_reduces_tax_basis(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            AllowanceCharge,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        inv = InvoiceData(
+            invoice_id="AC-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("1000.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            allowances_charges=[
+                AllowanceCharge(
+                    charge=False,
+                    amount=Decimal("100.00"),
+                    reason="Mengenrabatt",
+                    reason_code="95",
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+        )
+        # Line total 1000, allowance 100 -> tax basis 900
+        assert inv.total_net() == Decimal("1000")
+        assert inv.total_allowances() == Decimal("100")
+        assert inv.tax_basis() == Decimal("900.00")
+        # Tax on 900 at 19% = 171
+        assert inv.total_tax() == Decimal("171.00")
+        assert inv.total_gross() == Decimal("1071.00")
+
+    def test_charge_increases_tax_basis(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            AllowanceCharge,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        inv = InvoiceData(
+            invoice_id="CH-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Ware",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("500.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            allowances_charges=[
+                AllowanceCharge(
+                    charge=True,
+                    amount=Decimal("50.00"),
+                    reason="Frachtkosten",
+                    reason_code="FC",
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+        )
+        # Line total 500, charge 50 -> tax basis 550
+        assert inv.tax_basis() == Decimal("550.00")
+        assert inv.total_tax() == Decimal("104.50")
+        assert inv.total_gross() == Decimal("654.50")
+
+
+class TestEdgeCaseLineAllowances:
+    """Test line-level allowances/charges."""
+
+    def test_line_discount(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineAllowanceCharge,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="LD-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Ware mit Rabatt",
+                    quantity=Decimal("10"),
+                    unit_price=Decimal("100.00"),
+                    allowances_charges=[
+                        LineAllowanceCharge(
+                            charge=False,
+                            amount=Decimal("50.00"),
+                            reason="Mengenrabatt",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        # Line net = 10*100 - 50 = 950
+        assert inv.total_net() == Decimal("950")
+
+
+class TestEdgeCaseModelValidation:
+    """Test model validation edge cases."""
+
+    def test_invalid_type_code_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="Ungültiger Rechnungsartcode"):
+            InvoiceData(
+                invoice_id="INV-001",
+                issue_date="2026-01-01",
+                type_code="999",
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+    def test_invalid_currency_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="Ungültiger Währungscode"):
+            InvoiceData(
+                invoice_id="INV-002",
+                issue_date="2026-01-01",
+                currency="eur",  # lowercase
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+    def test_invalid_iban_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="IBAN"):
+            InvoiceData(
+                invoice_id="INV-003",
+                issue_date="2026-01-01",
+                seller_iban="INVALID",
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+    def test_valid_iban_accepted(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="INV-004",
+            issue_date="2026-01-01",
+            seller_iban="DE89 3704 0044 0532 0130 00",
+            seller=Party(
+                name="S", address=Address(street="S", city="C", postal_code="1"),
+                tax_id="DE111",
+            ),
+            buyer=Party(
+                name="B", address=Address(street="S", city="C", postal_code="1"),
+                tax_id="DE222",
+            ),
+            items=[LineItem(
+                description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+            )],
+        )
+        assert inv.seller_iban == "DE89370400440532013000"
+
+    def test_service_period_end_before_start_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="Leistungszeitraum"):
+            InvoiceData(
+                invoice_id="INV-005",
+                issue_date="2026-01-01",
+                service_period_start="2026-03-01",
+                service_period_end="2026-02-01",
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+    def test_due_date_before_issue_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="Fälligkeitsdatum"):
+            InvoiceData(
+                invoice_id="INV-006",
+                issue_date="2026-03-01",
+                due_date="2026-02-01",
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+
+class TestEdgeCaseSkonto:
+    """Test Skonto fields on InvoiceData."""
+
+    def test_skonto_fields(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="SK-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("1000.00"),
+                ),
+            ],
+            skonto_percent=Decimal("2.00"),
+            skonto_days=10,
+            payment_terms_text=(
+                "#SKONTO#TAGE=10#PROZENT=2.00#\n"
+                "#SKONTO#TAGE=30#PROZENT=0.00#"
+            ),
+        )
+        assert inv.skonto_percent == Decimal("2.00")
+        assert inv.skonto_days == 10
+        assert "#SKONTO#" in inv.payment_terms_text
+
+
+class TestEdgeCaseSupportingDocuments:
+    """Test supporting document attachment on InvoiceData."""
+
+    def test_supporting_document(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            SupportingDocument,
+        )
+
+        inv = InvoiceData(
+            invoice_id="SD-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("1000.00"),
+                ),
+            ],
+            supporting_documents=[
+                SupportingDocument(
+                    id="ATT-001",
+                    description="Zollpapiere",
+                    mime_type="application/pdf",
+                    filename="zoll_2026.pdf",
+                ),
+            ],
+        )
+        assert len(inv.supporting_documents) == 1
+        assert inv.supporting_documents[0].id == "ATT-001"
+
+
+class TestEdgeCaseItemAttributes:
+    """Test item attributes (BG-30) on LineItem."""
+
+    def test_item_attributes(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import ItemAttribute, LineItem
+
+        item = LineItem(
+            description="Laptop",
+            quantity=Decimal("1"),
+            unit_price=Decimal("1499.00"),
+            seller_item_id="ART-12345",
+            standard_item_id="4012345678901",
+            attributes=[
+                ItemAttribute(name="Farbe", value="Silber"),
+                ItemAttribute(name="Speicher", value="16 GB"),
+                ItemAttribute(name="Herkunftsland", value="DE"),
+            ],
+        )
+        assert len(item.attributes) == 3
+        assert item.attributes[0].name == "Farbe"
+        assert item.seller_item_id == "ART-12345"
+
+
+class TestEdgeCaseTaxRepresentative:
+    """Test Steuervertreter (tax representative) on InvoiceData."""
+
+    def test_tax_representative(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+
+        inv = InvoiceData(
+            invoice_id="TR-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="US Corp Inc.",
+                address=Address(
+                    street="123 Main St", city="New York",
+                    postal_code="10001", country_code="US",
+                ),
+                tax_id="EIN12345",
+            ),
+            buyer=Party(
+                name="DE Buyer GmbH",
+                address=Address(street="Str. 1", city="Berlin", postal_code="10115"),
+                tax_id="DE987654321",
+            ),
+            seller_tax_representative=Party(
+                name="DE Steuerberater GmbH",
+                address=Address(street="Kanzleistr. 5", city="München", postal_code="80331"),
+                tax_id="DE555555555",
+            ),
+            items=[
+                LineItem(
+                    description="Consulting",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("10000.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+        )
+        assert inv.seller_tax_representative is not None
+        assert inv.seller_tax_representative.name == "DE Steuerberater GmbH"
+        assert inv.seller_tax_representative.tax_id == "DE555555555"
+
+
+class TestEdgeCasePaymentMeans:
+    """Test various payment means codes."""
+
+    def test_sepa_lastschrift(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="DD-001",
+            issue_date="2026-03-01",
+            payment_means_type_code="59",
+            buyer_iban="DE89370400440532013000",
+            mandate_reference_id="MAND-2026-001",
+            creditor_reference_id="DE98ZZZ09999999999",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Abo",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("29.99"),
+                ),
+            ],
+        )
+        assert inv.payment_means_type_code == "59"
+        assert inv.mandate_reference_id == "MAND-2026-001"
+        assert inv.creditor_reference_id == "DE98ZZZ09999999999"
+
+    def test_credit_card_payment(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        inv = InvoiceData(
+            invoice_id="CC-001",
+            issue_date="2026-03-01",
+            payment_means_type_code="48",
+            payment_card_pan="1234",
+            payment_card_holder="Max Mustermann",
+            seller=Party(
+                name="S GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+            ),
+            buyer=Party(
+                name="B AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+            ),
+            items=[
+                LineItem(
+                    description="Kauf",
+                    quantity=Decimal("1"),
+                    unit_price=Decimal("199.00"),
+                ),
+            ],
+        )
+        assert inv.payment_means_type_code == "48"
+        assert inv.payment_card_pan == "1234"
+
+    def test_invalid_payment_means_rejected(self) -> None:
+        from decimal import Decimal
+
+        import pytest
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+        )
+
+        with pytest.raises(Exception, match="Zahlungsart"):
+            InvoiceData(
+                invoice_id="PM-001",
+                issue_date="2026-01-01",
+                payment_means_type_code="99",
+                seller=Party(
+                    name="S", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE111",
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="S", city="C", postal_code="1"),
+                    tax_id="DE222",
+                ),
+                items=[LineItem(
+                    description="X", quantity=Decimal("1"), unit_price=Decimal("1"),
+                )],
+            )
+
+
+class TestEdgeCaseBuildXMLRoundtrip:
+    """Test building XML and verifying it parses back."""
+
+    def test_basic_roundtrip(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+        from einvoice_mcp.services.invoice_builder import build_xml
+        from einvoice_mcp.services.xml_parser import parse_xml
+
+        inv = InvoiceData(
+            invoice_id="RT-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Roundtrip GmbH",
+                address=Address(
+                    street="Teststr. 1", city="Berlin", postal_code="10115",
+                ),
+                tax_id="DE111111111",
+                electronic_address="test@roundtrip.de",
+            ),
+            buyer=Party(
+                name="Käufer AG",
+                address=Address(
+                    street="Empfängerstr. 2", city="München", postal_code="80331",
+                ),
+                tax_id="DE222222222",
+                electronic_address="buyer@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Beratungsleistung",
+                    quantity=Decimal("10"),
+                    unit_price=Decimal("150.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            buyer_reference="BR-2026-001",
+            seller_contact_name="Max Mustermann",
+            seller_contact_email="max@roundtrip.de",
+            seller_contact_phone="+49 30 12345678",
+        )
+        xml_bytes = build_xml(inv)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "RT-001"
+        assert parsed.seller.name == "Roundtrip GmbH"
+        assert parsed.buyer.name == "Käufer AG"
+        assert len(parsed.items) == 1
+        assert parsed.items[0].description == "Beratungsleistung"
+        assert parsed.buyer_reference == "BR-2026-001"
+
+    def test_multi_item_roundtrip(self) -> None:
+        from decimal import Decimal
+
+        from einvoice_mcp.models import (
+            Address,
+            InvoiceData,
+            LineItem,
+            Party,
+            TaxCategory,
+        )
+        from einvoice_mcp.services.invoice_builder import build_xml
+        from einvoice_mcp.services.xml_parser import parse_xml
+
+        inv = InvoiceData(
+            invoice_id="RT-002",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="Multi GmbH",
+                address=Address(street="S1", city="Berlin", postal_code="10115"),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer AG",
+                address=Address(street="S2", city="Hamburg", postal_code="20095"),
+                tax_id="DE222222222",
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Position A",
+                    quantity=Decimal("5"),
+                    unit_price=Decimal("200.00"),
+                    tax_rate=Decimal("19.00"),
+                    tax_category=TaxCategory.S,
+                ),
+                LineItem(
+                    description="Position B",
+                    quantity=Decimal("3"),
+                    unit_price=Decimal("50.00"),
+                    tax_rate=Decimal("7.00"),
+                    tax_category=TaxCategory.S,
+                ),
+            ],
+            buyer_reference="BR-002",
+        )
+        xml_bytes = build_xml(inv)
+        parsed = parse_xml(xml_bytes)
+
+        assert parsed.invoice_id == "RT-002"
+        assert len(parsed.items) == 2
+        # Totals should be consistent
+        assert parsed.totals is not None
+        assert parsed.totals.net_total is not None
+        assert parsed.totals.net_total >= Decimal("1000")  # 5*200 + 3*50 = 1150
+
+
+class TestTaxDecisionTreeResource:
+    """Test tax_category_decision_tree resource structure."""
+
+    def test_decision_tree_structure(self) -> None:
+        import json
+
+        from einvoice_mcp.resources import tax_category_decision_tree
+
+        data = json.loads(tax_category_decision_tree())
+        assert "kategorien" in data
+        tree = data["kategorien"]
+        assert "S" in tree
+        assert "AE" in tree
+        assert "K" in tree
+
+
