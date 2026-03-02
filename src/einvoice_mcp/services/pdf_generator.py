@@ -145,16 +145,45 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elements.append(party_table)
     elements.append(Spacer(1, 10 * mm))
 
+    # Delivery location (BT-70..BT-80)
+    if data.delivery_party_name or data.delivery_street:
+        delivery_data: list[list[str]] = [["Lieferort:"]]
+        if data.delivery_party_name:
+            delivery_data.append([data.delivery_party_name])
+        if data.delivery_street:
+            delivery_data.append([data.delivery_street])
+        parts: list[str] = []
+        if data.delivery_postal_code:
+            parts.append(data.delivery_postal_code)
+        if data.delivery_city:
+            parts.append(data.delivery_city)
+        if parts:
+            delivery_data.append([" ".join(parts)])
+        delivery_table = Table(delivery_data, colWidths=[170 * mm])
+        delivery_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        elements.append(delivery_table)
+        elements.append(Spacer(1, 6 * mm))
+
     # Line items table
     items_header = ["Pos.", "Beschreibung", "Menge", "Einheit", "Einzelpreis", "USt %", "Netto"]
     items_data = [items_header]
 
     for idx, item in enumerate(data.items, 1):
         net = (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+        desc = item.description
+        if item.seller_item_id:
+            desc = f"[{item.seller_item_id}] {desc}"
         items_data.append(
             [
                 str(idx),
-                item.description,
+                desc,
                 str(item.quantity),
                 item.unit_code,
                 f"{item.unit_price:.2f} {data.currency}",

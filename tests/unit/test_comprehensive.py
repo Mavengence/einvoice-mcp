@@ -3134,6 +3134,25 @@ class TestDeliveryLocationRoundtrip:
         parsed = parse_xml(xml_bytes)
         assert parsed.delivery_party_name == "Zentrale"
 
+    def test_delivery_location_in_pdf(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """PDF generation includes delivery location section."""
+        data = sample_invoice_data.model_copy(
+            update={
+                "delivery_party_name": "Lager Nord",
+                "delivery_street": "Industriestr. 5",
+                "delivery_city": "Bremen",
+                "delivery_postal_code": "28195",
+                "delivery_country_code": "DE",
+            }
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
+        # PDF with delivery should be larger than without
+        pdf_no_delivery = generate_invoice_pdf(sample_invoice_data)
+        assert len(pdf_bytes) > len(pdf_no_delivery)
+
 
 class TestLineItemNoteRoundtrip:
     """Roundtrip tests for line-item note (BT-127)."""
@@ -3219,6 +3238,19 @@ class TestLineItemIdentifiersRoundtrip:
         assert parsed.items[0].seller_item_id is None
         assert parsed.items[0].buyer_item_id is None
         assert parsed.items[0].standard_item_id is None
+
+    def test_seller_item_id_in_pdf(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Seller item ID shown in PDF line items."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={"seller_item_id": "ART-999"}
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        pdf_bytes = generate_invoice_pdf(data)
+        assert len(pdf_bytes) > 0
 
     def test_all_item_ids_together(
         self, sample_invoice_data: InvoiceData
