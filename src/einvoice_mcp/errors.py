@@ -62,10 +62,12 @@ class InvoiceGenerationError(EInvoiceError):
 class InvoiceParsingError(EInvoiceError):
     """Error parsing invoice XML or PDF."""
 
-    def __init__(self, detail: str = "") -> None:
+    def __init__(self, detail: str = "", *, controlled: bool = False) -> None:
         msg = f"Invoice parsing failed: {detail}" if detail else "Invoice parsing failed"
-        # Generic user message — never embed raw exception detail
-        msg_de = "Fehler: Rechnung konnte nicht gelesen werden."
-        if detail:
-            logger.warning("Invoice parsing error: %s", detail)
+        if detail and controlled:
+            msg_de = f"Fehler: {detail}"
+        else:
+            msg_de = "Fehler: Rechnung konnte nicht gelesen werden."
+            if detail:
+                logger.warning("Invoice parsing error: %s", detail)
         super().__init__(msg, msg_de)

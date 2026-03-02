@@ -3855,8 +3855,9 @@ class TestAllowancesChargesRoundtrip:
         xml_bytes = build_xml(data)
         parsed = parse_xml(xml_bytes)
         assert parsed.totals is not None
-        # Parsed net_total is tax_basis (BT-109), not line total
-        assert parsed.totals.net_total == tax_basis
+        # net_total is BT-106 (line sum), tax_basis_total is BT-109
+        assert parsed.totals.net_total == net
+        assert parsed.totals.tax_basis_total == tax_basis
 
     def test_charge_with_percentage_and_base_amount(
         self, sample_invoice_data: InvoiceData
@@ -8191,6 +8192,17 @@ class TestUBLFormatDetection:
         )
         with pytest.raises(InvoiceParsingError, match="UBL-Format erkannt"):
             parse_xml(ubl_xml)
+
+    def test_ubl_message_de_contains_detail(self) -> None:
+        """UBL detection error must surface in message_de (controlled=True)."""
+        ubl_xml = (
+            b'<?xml version="1.0" encoding="UTF-8"?>'
+            b'<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">'
+            b"</Invoice>"
+        )
+        with pytest.raises(InvoiceParsingError) as exc_info:
+            parse_xml(ubl_xml)
+        assert "UBL-Format erkannt" in exc_info.value.message_de
 
     def test_ubl_credit_note_rejected(self) -> None:
         """UBL CreditNote namespace should be detected and rejected."""

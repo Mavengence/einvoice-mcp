@@ -784,7 +784,11 @@ class TaxBreakdown(BaseModel):
 
 
 class Totals(BaseModel):
-    net_total: Decimal
+    net_total: Decimal = Field(description="Summe der Nettopositionen (BT-106)")
+    tax_basis_total: Decimal = Field(
+        default=Decimal("0"),
+        description="Steuerbemessungsgrundlage (BT-109) = BT-106 - Abschläge + Zuschläge",
+    )
     tax_total: Decimal
     gross_total: Decimal
     prepaid_amount: Decimal = Field(default=Decimal("0"), description="Bereits gezahlt (BT-113)")

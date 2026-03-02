@@ -52,7 +52,8 @@ def parse_xml(xml_bytes: bytes) -> ParsedInvoice:
         raise InvoiceParsingError(
             "UBL-Format erkannt. Dieses Tool unterstützt nur CII "
             "(Cross Industry Invoice / ZUGFeRD / XRechnung CII). "
-            "UBL-Rechnungen müssen zunächst in CII konvertiert werden."
+            "UBL-Rechnungen müssen zunächst in CII konvertiert werden.",
+            controlled=True,
         )
 
     try:
@@ -648,7 +649,8 @@ def _extract_totals(doc: Document) -> Totals | None:
             tax_total = _extract_tax_total_fallback(ms)
 
         return Totals(
-            net_total=safe_decimal(getattr(ms, "tax_basis_total", "0")),
+            net_total=safe_decimal(getattr(ms, "line_total", "0")),
+            tax_basis_total=safe_decimal(getattr(ms, "tax_basis_total", "0")),
             tax_total=tax_total,
             gross_total=safe_decimal(getattr(ms, "grand_total", "0")),
             prepaid_amount=safe_decimal(getattr(ms, "prepaid_total", "0")),
