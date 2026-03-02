@@ -116,8 +116,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     except Exception:
         pass
 
-    # Payment terms (BT-20)
+    # Payment terms (BT-20) and due date (BT-9)
     payment_terms = ""
+    due_date = ""
     try:
         terms = doc.trade.settlement.terms
         if hasattr(terms, "children"):
@@ -125,6 +126,12 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
                 desc = _str_element(getattr(term, "description", ""))
                 if desc:
                     payment_terms = desc
+                due_obj = getattr(term, "due", None)
+                if due_obj:
+                    due_val = str(due_obj).strip()
+                    if due_val and due_val != "None":
+                        due_date = due_val
+                if payment_terms or due_date:
                     break
     except Exception:
         pass
@@ -221,6 +228,7 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        due_date=due_date,
         invoice_note=invoice_note,
         payment_terms=payment_terms,
         purchase_order_reference=purchase_order_reference,

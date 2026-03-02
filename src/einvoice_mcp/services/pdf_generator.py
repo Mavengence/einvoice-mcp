@@ -84,6 +84,8 @@ def _build_pdf(data: InvoiceData) -> bytes:
     elif data.service_period_start and data.service_period_end:
         period = f"{data.service_period_start.isoformat()} — {data.service_period_end.isoformat()}"
         header_data.append(["", "", f"Leistungszeitraum: {period}"])
+    if data.due_date:
+        header_data.append(["", "", f"Fällig: {data.due_date.isoformat()}"])
     header_table = Table(header_data, colWidths=[60 * mm, 50 * mm, 60 * mm])
     header_table.setStyle(
         TableStyle(

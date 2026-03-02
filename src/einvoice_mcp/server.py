@@ -92,6 +92,7 @@ def _build_invoice_data(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    due_date: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
@@ -161,6 +162,7 @@ def _build_invoice_data(
                 "delivery_date": delivery_date or None,
                 "service_period_start": service_period_start or None,
                 "service_period_end": service_period_end or None,
+                "due_date": due_date or None,
                 "invoice_note": invoice_note or None,
                 "payment_terms_text": payment_terms_text or None,
                 "purchase_order_reference": purchase_order_reference or None,
@@ -270,6 +272,7 @@ async def einvoice_generate_xrechnung(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    due_date: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
@@ -319,6 +322,7 @@ async def einvoice_generate_xrechnung(
         delivery_date: Lieferdatum (BT-71, YYYY-MM-DD).
         service_period_start: Leistungszeitraum Beginn (BT-73).
         service_period_end: Leistungszeitraum Ende (BT-74).
+        due_date: Fälligkeitsdatum (BT-9, YYYY-MM-DD).
         invoice_note: Freitext-Bemerkung (BT-22).
         payment_terms_text: Zahlungsbedingungen (BT-20).
         purchase_order_reference: Bestellnummer (BT-13).
@@ -364,6 +368,7 @@ async def einvoice_generate_xrechnung(
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        due_date=due_date,
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
         purchase_order_reference=purchase_order_reference,
@@ -430,6 +435,7 @@ async def einvoice_generate_zugferd(
     delivery_date: str = "",
     service_period_start: str = "",
     service_period_end: str = "",
+    due_date: str = "",
     invoice_note: str = "",
     payment_terms_text: str = "",
     purchase_order_reference: str = "",
@@ -477,6 +483,7 @@ async def einvoice_generate_zugferd(
         delivery_date: Lieferdatum (BT-71).
         service_period_start: Leistungszeitraum Beginn (BT-73).
         service_period_end: Leistungszeitraum Ende (BT-74).
+        due_date: Fälligkeitsdatum (BT-9, YYYY-MM-DD).
         invoice_note: Freitext-Bemerkung (BT-22).
         payment_terms_text: Zahlungsbedingungen (BT-20).
         purchase_order_reference: Bestellnummer (BT-13).
@@ -522,6 +529,7 @@ async def einvoice_generate_zugferd(
         delivery_date=delivery_date,
         service_period_start=service_period_start,
         service_period_end=service_period_end,
+        due_date=due_date,
         invoice_note=invoice_note,
         payment_terms_text=payment_terms_text,
         purchase_order_reference=purchase_order_reference,

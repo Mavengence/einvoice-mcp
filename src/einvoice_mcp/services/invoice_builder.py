@@ -230,13 +230,16 @@ def _build_document(data: InvoiceData) -> bytes:
     ms.grand_total = (gross_total, data.currency)
     ms.due_amount = gross_total
 
-    # Payment terms (BT-20)
+    # Payment terms (BT-20) and due date (BT-9)
     payment_text = data.payment_terms_text
     if not payment_text and data.payment_terms_days is not None:
         payment_text = f"Zahlbar innerhalb von {data.payment_terms_days} Tagen netto."
-    if payment_text:
+    if payment_text or data.due_date:
         pt = PaymentTerms()
-        pt.description = payment_text
+        if payment_text:
+            pt.description = payment_text
+        if data.due_date:
+            pt.due = data.due_date
         doc.trade.settlement.terms.add(pt)
 
     # Serialize without local XSD validation — KoSIT validates the full document.

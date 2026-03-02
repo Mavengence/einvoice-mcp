@@ -197,6 +197,10 @@ class InvoiceData(BaseModel):
         default=None,
         description="Ende des Leistungszeitraums (BT-74)",
     )
+    due_date: date | None = Field(
+        default=None,
+        description="Fälligkeitsdatum (BT-9, z.B. 2026-02-15)",
+    )
     invoice_note: str | None = Field(
         default=None,
         max_length=2000,
@@ -326,6 +330,7 @@ class ParsedInvoice(BaseModel):
     delivery_date: str = Field(default="", description="Lieferdatum (BT-71)")
     service_period_start: str = Field(default="", description="Leistungszeitraum Beginn (BT-73)")
     service_period_end: str = Field(default="", description="Leistungszeitraum Ende (BT-74)")
+    due_date: str = Field(default="", description="Fälligkeitsdatum (BT-9)")
     invoice_note: str = Field(default="", description="Freitext-Bemerkung (BT-22)")
     payment_terms: str = Field(default="", description="Zahlungsbedingungen (BT-20)")
     purchase_order_reference: str = Field(

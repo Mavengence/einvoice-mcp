@@ -2779,3 +2779,63 @@ class TestISOCodeValidation:
                 items=[LineItem(description="X", quantity="1", unit_price="100")],
                 payment_means_type_code="99",
             )
+
+
+# ============================================================================
+# 41. Due date (BT-9) roundtrip
+# ============================================================================
+
+
+class TestDueDateRoundtrip:
+    def test_due_date_roundtrip(self, sample_invoice_data: InvoiceData) -> None:
+        """Due date (BT-9) roundtrips through XML build/parse."""
+        from datetime import date
+
+        data = sample_invoice_data.model_copy(
+            update={"due_date": date(2026, 3, 15)}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.due_date == "2026-03-15"
+
+    def test_no_due_date(self, sample_invoice_data: InvoiceData) -> None:
+        """No due date → parsed due_date is empty string."""
+        data = sample_invoice_data.model_copy(
+            update={"due_date": None, "payment_terms_days": None, "payment_terms_text": None}
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.due_date == ""
+
+    def test_due_date_with_payment_terms(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Due date combined with payment terms text."""
+        from datetime import date
+
+        data = sample_invoice_data.model_copy(
+            update={
+                "due_date": date(2026, 4, 1),
+                "payment_terms_text": "2% Skonto bei Zahlung innerhalb 10 Tagen",
+            }
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.due_date == "2026-04-01"
+        assert "Skonto" in parsed.payment_terms
+
+    def test_due_date_in_pdf(self, sample_invoice_data: InvoiceData) -> None:
+        """Due date produces a valid PDF (content is compressed)."""
+        from datetime import date
+
+        data = sample_invoice_data.model_copy(
+            update={"due_date": date(2026, 5, 20)}
+        )
+        pdf_bytes = generate_invoice_pdf(data)
+        assert pdf_bytes.startswith(b"%PDF")
+        # PDF with due date should be larger than without
+        data_no_due = sample_invoice_data.model_copy(
+            update={"due_date": None}
+        )
+        pdf_no_due = generate_invoice_pdf(data_no_due)
+        assert len(pdf_bytes) > len(pdf_no_due)
