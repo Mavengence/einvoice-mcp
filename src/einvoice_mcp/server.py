@@ -114,6 +114,318 @@ def schema_invoice_data() -> str:
     return json.dumps(InvoiceData.model_json_schema(), ensure_ascii=False, indent=2)
 
 
+# --- Reference resources (code tables for AI agents) ---
+
+
+@mcp.resource("einvoice://reference/type-codes")
+def reference_type_codes() -> str:
+    """Rechnungsart-Codes (BT-3) gemäß UNTDID 1001 / EN 16931.
+
+    Zeigt alle gültigen Codes mit deutscher Beschreibung.
+    """
+    return json.dumps(
+        {
+            "380": "Handelsrechnung (Standard)",
+            "381": "Gutschrift / Credit Note",
+            "384": "Korrekturrechnung",
+            "389": "Selbstfakturierte Rechnung (Self-billed)",
+            "875": "Teilrechnung (Partial invoice)",
+            "876": "Teilschlussrechnung (Partial final invoice)",
+            "877": "Schlussrechnung (Final invoice)",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/payment-means-codes")
+def reference_payment_means_codes() -> str:
+    """Zahlungsart-Codes (BT-81) gemäß UNTDID 4461 / EN 16931.
+
+    Die häufigsten Codes für den deutschen Markt.
+    """
+    return json.dumps(
+        {
+            "1": "Nicht definiert (Instrument not defined)",
+            "10": "Bar (Cash)",
+            "20": "Scheck (Cheque)",
+            "30": "Überweisung (Credit transfer)",
+            "31": "Lastschrift (Debit transfer)",
+            "42": "Zahlung an Bankkonto (Payment to bank account)",
+            "48": "Kreditkarte (Bank card / credit card)",
+            "49": "Lastschrift (Direct debit)",
+            "57": "Dauerauftrag (Standing agreement)",
+            "58": "SEPA-Überweisung (SEPA credit transfer) — STANDARD",
+            "59": "SEPA-Lastschrift (SEPA direct debit)",
+            "97": "Clearing zwischen Partnern (Clearing between partners)",
+            "ZZZ": "Vereinbarte Zahlungsart (Mutually defined)",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/tax-categories")
+def reference_tax_categories() -> str:
+    """Steuerkategorie-Codes (BT-151) gemäß UNTDID 5305 / EN 16931.
+
+    Alle 9 gültigen Kategorien mit deutschen Erklärungen und typischen Steuersätzen.
+    """
+    return json.dumps(
+        {
+            "S": {
+                "name": "Normaler Steuersatz (Standard rate)",
+                "typical_rates": ["19.00", "7.00"],
+                "usage": "Standardfall für B2B-Rechnungen in Deutschland",
+            },
+            "Z": {
+                "name": "Nullsatz (Zero rated)",
+                "typical_rates": ["0.00"],
+                "usage": "Selten in DE — für spezielle EU-Regelungen",
+            },
+            "E": {
+                "name": "Steuerbefreit (Exempt)",
+                "typical_rates": ["0.00"],
+                "usage": "§19 UStG (Kleinunternehmer), §4 UStG (steuerbefreite Umsätze)",
+                "note": "BT-120 (ExemptionReason) ist Pflicht",
+            },
+            "AE": {
+                "name": "Reverse Charge (§13b UStG)",
+                "typical_rates": ["0.00"],
+                "usage": "Steuerschuldnerschaft des Leistungsempfängers",
+                "note": "BT-31 und BT-48 (USt-IdNr.) sind Pflicht",
+            },
+            "K": {
+                "name": "Innergemeinschaftliche Lieferung (§4 Nr. 1b UStG)",
+                "typical_rates": ["0.00"],
+                "usage": "Lieferung an Unternehmer in anderen EU-Ländern",
+                "note": "BT-48 (Käufer-USt-IdNr.) ist Pflicht",
+            },
+            "G": {
+                "name": "Ausfuhrlieferung / Export (§4 Nr. 1a UStG)",
+                "typical_rates": ["0.00"],
+                "usage": "Lieferung in Drittländer (außerhalb EU)",
+            },
+            "O": {
+                "name": "Nicht steuerbar (Not subject to VAT)",
+                "typical_rates": ["0.00"],
+                "usage": "Umsätze außerhalb des Steuergebiets",
+            },
+            "L": {
+                "name": "IGIC (Kanarische Inseln)",
+                "typical_rates": ["7.00"],
+                "usage": "Kanarische Inseln Steuer",
+            },
+            "M": {
+                "name": "IPSI (Ceuta und Melilla)",
+                "typical_rates": ["4.00"],
+                "usage": "Ceuta und Melilla Steuer",
+            },
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/unit-codes")
+def reference_unit_codes() -> str:
+    """Häufige Mengeneinheiten-Codes (BT-130) gemäß UN/ECE Recommendation 20.
+
+    Die in deutschen Rechnungen am häufigsten verwendeten Einheiten.
+    """
+    return json.dumps(
+        {
+            "H87": "Stück (Piece)",
+            "HUR": "Stunde (Hour)",
+            "DAY": "Tag (Day)",
+            "MON": "Monat (Month)",
+            "ANN": "Jahr (Year)",
+            "KGM": "Kilogramm",
+            "GRM": "Gramm",
+            "TNE": "Tonne",
+            "MTR": "Meter",
+            "KTM": "Kilometer",
+            "MTK": "Quadratmeter",
+            "LTR": "Liter",
+            "MTQ": "Kubikmeter",
+            "SET": "Satz / Set",
+            "PR": "Paar (Pair)",
+            "BX": "Karton / Box",
+            "C62": "Einheit / one (generic unit)",
+            "XPK": "Paket (Package)",
+            "MIN": "Minute",
+            "SEC": "Sekunde",
+            "WEE": "Woche (Week)",
+            "KWH": "Kilowattstunde",
+            "MWH": "Megawattstunde",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.resource("einvoice://reference/eas-codes")
+def reference_eas_codes() -> str:
+    """Electronic Address Scheme Codes (BT-34-1/BT-49-1).
+
+    Identifizierungsschema für elektronische Adressen in XRechnung.
+    """
+    return json.dumps(
+        {
+            "EM": "E-Mail-Adresse — STANDARD für deutsche Unternehmen",
+            "9930": "USt-IdNr. als elektronische Adresse (DE + Nummer)",
+            "0088": "EAN Location Number (GLN)",
+            "0204": "Leitweg-ID (deutsche öffentliche Verwaltung)",
+            "9906": "IT Codice Fiscale",
+            "9925": "IT Partita IVA",
+            "0007": "Organisationskennung (DUNS)",
+            "0060": "DUNS+4 Nummer",
+            "0190": "Dutch Originator's Identification Number",
+            "0191": "Centre of Registers and Information Systems, Estonia",
+            "0192": "Finnish OVT code",
+            "0195": "Singapore UEN",
+            "0196": "Icelandic kennitala",
+            "0198": "Danish CVR number",
+            "0199": "LEI (Legal Entity Identifier)",
+            "0200": "Lithuanian juridinio asmens kodas",
+            "0201": "LT KPV number for natural persons",
+            "0208": "Belgian enterprise number (KBO/BCE)",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.prompt()
+def gutschrift_erstellen() -> str:
+    """Anleitung: Gutschrift / Credit Note (TypeCode 381) erstellen.
+
+    Schritt-für-Schritt-Anleitung für die korrekte Erstellung einer Gutschrift
+    nach deutschem Steuerrecht (§14 Abs. 4 UStG).
+    """
+    return (
+        "# Gutschrift (Credit Note) erstellen — Checkliste\n\n"
+        "Eine Gutschrift korrigiert eine bereits gestellte Rechnung.\n\n"
+        "## Pflichtparameter:\n"
+        "- `type_code`: **381** (Gutschrift)\n"
+        "- `preceding_invoice_number`: Nummer der Originalrechnung (BT-25, PFLICHT)\n"
+        "- Alle Standardfelder wie bei einer normalen Rechnung\n\n"
+        "## Beträge:\n"
+        "- Positionen mit **positiven** Beträgen eintragen\n"
+        "- Die Gutschrift reduziert die offene Forderung\n\n"
+        "## Beispiel:\n"
+        "```\n"
+        "type_code: '381'\n"
+        "preceding_invoice_number: 'RE-2026-001'\n"
+        "invoice_note: 'Gutschrift zu Rechnung RE-2026-001 wegen Retoure'\n"
+        "```\n\n"
+        "## Häufige Fehler:\n"
+        "- BT-25 vergessen → KoSIT-Validierung schlägt fehl\n"
+        "- Falscher TypeCode (380 statt 381)\n"
+        "- Negative Beträge (nicht nötig — Gutschrift-Semantik ist implizit)"
+    )
+
+
+@mcp.prompt()
+def reverse_charge_checkliste() -> str:
+    """Checkliste für Reverse Charge (§13b UStG) — Kategorie AE.
+
+    Alle Pflichtangaben und Prüfschritte für Rechnungen mit
+    Steuerschuldnerschaft des Leistungsempfängers.
+    """
+    return (
+        "# Reverse Charge (§13b UStG) — Checkliste\n\n"
+        "## Voraussetzungen:\n"
+        "- Leistender Unternehmer im Ausland ODER\n"
+        "- Bauleistungen (§13b Abs. 2 Nr. 4 UStG) ODER\n"
+        "- Andere §13b-Tatbestände\n\n"
+        "## Pflichtangaben:\n"
+        "1. **tax_category**: `AE` für alle Positionen\n"
+        "2. **tax_rate**: `0.00` (muss 0% sein)\n"
+        "3. **seller_tax_id**: USt-IdNr. des Verkäufers (BT-31, PFLICHT)\n"
+        "4. **buyer_tax_id**: USt-IdNr. des Käufers (BT-48, PFLICHT)\n"
+        "5. **tax_exemption_reason**: z.B. 'Reverse Charge — "
+        "Steuerschuldnerschaft des Leistungsempfängers gemäß §13b UStG'\n"
+        "6. **tax_exemption_reason_code**: `vatex-eu-ae`\n\n"
+        "## Hinweis auf der Rechnung:\n"
+        "Pflichthinweis nach §14a Abs. 5 UStG: "
+        "'Steuerschuldnerschaft des Leistungsempfängers'\n\n"
+        "## Beispiel:\n"
+        "```json\n"
+        '{"description": "IT-Beratung", "quantity": 10, "unit_code": "HUR",\n'
+        ' "unit_price": 150.00, "tax_rate": 0.00, "tax_category": "AE"}\n'
+        "```"
+    )
+
+
+@mcp.prompt()
+def xrechnung_schnellstart() -> str:
+    """Schnellstart: XRechnung für öffentliche Auftraggeber erstellen.
+
+    Minimale Pflichtangaben für eine gültige XRechnung 3.0.
+    """
+    return (
+        "# XRechnung — Schnellstart\n\n"
+        "## Mindestangaben für eine gültige XRechnung:\n\n"
+        "### Pflicht:\n"
+        "- `invoice_id`: Eindeutige Rechnungsnummer\n"
+        "- `issue_date`: Rechnungsdatum (YYYY-MM-DD)\n"
+        "- `seller_name`, `seller_street`, `seller_city`, `seller_postal_code`, "
+        "`seller_country_code`\n"
+        "- `seller_tax_id`: USt-IdNr. (DE...)\n"
+        "- `buyer_name`, `buyer_street`, `buyer_city`, `buyer_postal_code`, "
+        "`buyer_country_code`\n"
+        "- `items`: Mindestens eine Position\n"
+        "- `leitweg_id` ODER `buyer_reference`: Leitweg-ID des Auftraggebers\n\n"
+        "### XRechnung-spezifisch (BR-DE-Regeln):\n"
+        "- `seller_electronic_address`: E-Mail des Verkäufers (BT-34)\n"
+        "- `buyer_electronic_address`: E-Mail des Käufers (BT-49)\n"
+        "- `seller_contact_name`: Ansprechpartner (BT-41, BR-DE-5)\n"
+        "- `seller_contact_phone`: Telefon (BT-42, BR-DE-6)\n"
+        "- `seller_contact_email`: E-Mail (BT-43, BR-DE-7)\n"
+        "- `payment_terms_text`: Zahlungsbedingungen (BT-20, BR-DE-15)\n"
+        "- `delivery_date` ODER `service_period_start`/`service_period_end`\n\n"
+        "### Leitweg-ID Format:\n"
+        "Typisch: `04011000-12345-67` (Grobadresse-Feinadresse-Prüfziffer)\n"
+        "Fragen Sie den Auftraggeber nach seiner Leitweg-ID.\n\n"
+        "### Empfohlene Zahlungsart:\n"
+        "- `payment_means_type_code`: `58` (SEPA-Überweisung)\n"
+        "- `seller_iban`: IBAN des Verkäufers"
+    )
+
+
+@mcp.prompt()
+def korrekturrechnung_erstellen() -> str:
+    """Anleitung: Korrekturrechnung (TypeCode 384) erstellen.
+
+    Unterschiede zur Gutschrift und korrekte Vorgehensweise
+    nach §14 Abs. 4 UStG.
+    """
+    return (
+        "# Korrekturrechnung (TypeCode 384) erstellen\n\n"
+        "## Unterschied zur Gutschrift (381):\n"
+        "- **381 Gutschrift**: Reduziert eine Forderung (z.B. Retoure, Rabatt)\n"
+        "- **384 Korrekturrechnung**: Ersetzt/korrigiert eine fehlerhafte Rechnung\n\n"
+        "## Pflichtparameter:\n"
+        "- `type_code`: **384**\n"
+        "- `preceding_invoice_number`: Nummer der fehlerhaften Originalrechnung (BT-25)\n"
+        "- `invoice_note`: Grund der Korrektur angeben\n"
+        "- Alle korrekten Daten der neuen Rechnung\n\n"
+        "## Beispiel:\n"
+        "```\n"
+        "type_code: '384'\n"
+        "preceding_invoice_number: 'RE-2026-001'\n"
+        "invoice_note: 'Korrektur der Rechnung RE-2026-001 — "
+        "falscher Steuersatz korrigiert'\n"
+        "```\n\n"
+        "## Steuerliche Wirkung:\n"
+        "- Die Korrekturrechnung ERSETZT die Originalrechnung\n"
+        "- Der Käufer muss den Vorsteuerabzug der Originalrechnung korrigieren\n"
+        "- Zeitpunkt: Die Korrektur wirkt für den Besteuerungszeitraum "
+        "der Originalrechnung"
+    )
+
+
 def _build_invoice_data(
     *,
     invoice_id: str,

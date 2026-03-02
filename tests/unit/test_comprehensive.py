@@ -6178,3 +6178,369 @@ class TestCombinedItemFeatures:
         assert item.seller_item_id == "ART-999"
 
 
+# ─── Corrective Invoice (384) Compliance ──────────────────────────────
+
+
+class TestCorrectiveInvoiceCompliance:
+    """Test corrective invoice (TypeCode=384) compliance rules."""
+
+    def _make_invoice(
+        self,
+        *,
+        type_code: str = "384",
+        preceding_invoice_number: str | None = None,
+    ) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="KORR-2026-001",
+            issue_date="2026-03-01",
+            type_code=type_code,
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code="DE",
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="München",
+                    postal_code="80999", country_code="DE",
+                ),
+                electronic_address="b@test.de",
+            ),
+            items=[
+                LineItem(
+                    description="Korrekturposition",
+                    quantity="1", unit_price="100.00",
+                ),
+            ],
+            buyer_reference="LW-12345",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+            preceding_invoice_number=preceding_invoice_number,
+        )
+
+    def test_384_with_preceding_reference_passes(self) -> None:
+        data = self._make_invoice(preceding_invoice_number="RE-2026-001")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        bt25_check = next(
+            (c for c in checks if c.field == "384-BT-25"), None
+        )
+        assert bt25_check is not None
+        assert bt25_check.present is True
+        assert bt25_check.value == "RE-2026-001"
+
+    def test_384_without_preceding_reference_fails(self) -> None:
+        data = self._make_invoice(preceding_invoice_number=None)
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        bt25_check = next(
+            (c for c in checks if c.field == "384-BT-25"), None
+        )
+        assert bt25_check is not None
+        assert bt25_check.present is False
+        assert bt25_check.required is True
+
+    def test_384_suggestion_message(self) -> None:
+        from einvoice_mcp.tools.compliance import SUGGESTIONS_MAP
+
+        assert "384-BT-25" in SUGGESTIONS_MAP
+        assert "Korrekturrechnung" in SUGGESTIONS_MAP["384-BT-25"]
+
+    def test_381_still_uses_bt25_key(self) -> None:
+        data = self._make_invoice(type_code="381")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        bt25_check = next(
+            (c for c in checks if c.field == "BT-25"), None
+        )
+        assert bt25_check is not None
+        assert bt25_check.present is False  # no preceding ref
+
+    def test_380_no_bt25_check(self) -> None:
+        """Standard invoices (380) should not have BT-25/384-BT-25 checks."""
+        data = self._make_invoice(type_code="380")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        bt25_fields = [c for c in checks if "BT-25" in c.field]
+        assert len(bt25_fields) == 0
+
+
+# ─── Reverse Charge Country Validation ────────────────────────────────
+
+
+class TestReverseChargeCountryValidation:
+    """Test reverse charge (AE) country checks."""
+
+    def _make_ae_invoice(
+        self,
+        seller_country: str = "DE",
+        buyer_country: str = "AT",
+    ) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="RC-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="DE Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code=seller_country,
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="AT Buyer GmbH",
+                address=Address(
+                    street="Str. 2", city="Wien",
+                    postal_code="1010", country_code=buyer_country,
+                ),
+                tax_id="ATU12345678",
+                electronic_address="b@test.at",
+            ),
+            items=[
+                LineItem(
+                    description="Beratung",
+                    quantity="10", unit_code="HUR",
+                    unit_price="100.00",
+                    tax_rate="0.00",
+                    tax_category=TaxCategory.AE,
+                ),
+            ],
+            buyer_reference="REF-RC",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+            tax_exemption_reason="Reverse Charge §13b UStG",
+            tax_exemption_reason_code="vatex-eu-ae",
+        )
+
+    def test_ae_different_countries_no_warning(self) -> None:
+        data = self._make_ae_invoice(seller_country="DE", buyer_country="AT")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        rc_country = next(
+            (c for c in checks if c.field == "RC-COUNTRY"), None
+        )
+        assert rc_country is None  # no warning when countries differ
+
+    def test_ae_same_country_advisory_warning(self) -> None:
+        data = self._make_ae_invoice(seller_country="DE", buyer_country="DE")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        rc_country = next(
+            (c for c in checks if c.field == "RC-COUNTRY"), None
+        )
+        assert rc_country is not None
+        assert rc_country.required is False  # advisory only
+        assert "DE=DE" in rc_country.value
+
+    def test_ae_same_country_suggestion_exists(self) -> None:
+        from einvoice_mcp.tools.compliance import SUGGESTIONS_MAP
+
+        assert "RC-COUNTRY" in SUGGESTIONS_MAP
+        assert "Reverse Charge" in SUGGESTIONS_MAP["RC-COUNTRY"]
+
+
+# ─── Intra-Community Country Validation ────────────────────────────────
+
+
+class TestIntraCommunityCountryValidation:
+    """Test intra-community (K) country checks."""
+
+    def _make_k_invoice(
+        self,
+        seller_country: str = "DE",
+        buyer_country: str = "FR",
+    ) -> InvoiceData:
+        return InvoiceData(
+            invoice_id="IC-2026-001",
+            issue_date="2026-03-01",
+            seller=Party(
+                name="DE Seller GmbH",
+                address=Address(
+                    street="Str. 1", city="Berlin",
+                    postal_code="10115", country_code=seller_country,
+                ),
+                tax_id="DE111111111",
+                electronic_address="s@test.de",
+            ),
+            buyer=Party(
+                name="FR Buyer SARL",
+                address=Address(
+                    street="Rue 2", city="Paris",
+                    postal_code="75001", country_code=buyer_country,
+                ),
+                tax_id="FR12345678901",
+                electronic_address="b@test.fr",
+            ),
+            items=[
+                LineItem(
+                    description="Maschine",
+                    quantity="1", unit_code="H87",
+                    unit_price="5000.00",
+                    tax_rate="0.00",
+                    tax_category=TaxCategory.K,
+                ),
+            ],
+            buyer_reference="REF-IC",
+            seller_contact_name="K. Kontakt",
+            seller_contact_email="k@test.de",
+            seller_contact_phone="+49123",
+            delivery_date="2026-03-01",
+            tax_exemption_reason="Innergemeinschaftliche Lieferung §4 Nr. 1b UStG",
+        )
+
+    def test_k_different_countries_no_error(self) -> None:
+        data = self._make_k_invoice(seller_country="DE", buyer_country="FR")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        ic_country = next(
+            (c for c in checks if c.field == "IC-COUNTRY"), None
+        )
+        assert ic_country is None
+
+    def test_k_same_country_hard_error(self) -> None:
+        data = self._make_k_invoice(seller_country="DE", buyer_country="DE")
+        xml = build_xml(data).decode("utf-8")
+        from einvoice_mcp.tools.compliance import _check_fields
+
+        checks = _check_fields(xml)
+        ic_country = next(
+            (c for c in checks if c.field == "IC-COUNTRY"), None
+        )
+        assert ic_country is not None
+        assert ic_country.required is True  # hard error for K
+        assert "DE=DE" in ic_country.value
+
+    def test_k_same_country_suggestion_exists(self) -> None:
+        from einvoice_mcp.tools.compliance import SUGGESTIONS_MAP
+
+        assert "IC-COUNTRY" in SUGGESTIONS_MAP
+        assert "innergemeinschaftlich" in SUGGESTIONS_MAP["IC-COUNTRY"].lower()
+
+
+# ─── MCP Reference Resources ──────────────────────────────────────────
+
+
+class TestMCPReferenceResources:
+    """Test MCP reference resources are valid JSON and contain expected data."""
+
+    def test_type_codes_resource(self) -> None:
+        import json
+
+        from einvoice_mcp.server import reference_type_codes
+
+        data = json.loads(reference_type_codes())
+        assert "380" in data
+        assert "381" in data
+        assert "384" in data
+        assert "rechnung" in data["380"].lower()
+
+    def test_payment_means_codes_resource(self) -> None:
+        import json
+
+        from einvoice_mcp.server import reference_payment_means_codes
+
+        data = json.loads(reference_payment_means_codes())
+        assert "58" in data
+        assert "59" in data
+        assert "48" in data
+        assert "SEPA" in data["58"]
+
+    def test_tax_categories_resource(self) -> None:
+        import json
+
+        from einvoice_mcp.server import reference_tax_categories
+
+        data = json.loads(reference_tax_categories())
+        assert "S" in data
+        assert "AE" in data
+        assert "K" in data
+        assert "E" in data
+        assert "G" in data
+        assert "typical_rates" in data["S"]
+
+    def test_unit_codes_resource(self) -> None:
+        import json
+
+        from einvoice_mcp.server import reference_unit_codes
+
+        data = json.loads(reference_unit_codes())
+        assert "H87" in data
+        assert "HUR" in data
+        assert "KGM" in data
+        assert "Stück" in data["H87"]
+
+    def test_eas_codes_resource(self) -> None:
+        import json
+
+        from einvoice_mcp.server import reference_eas_codes
+
+        data = json.loads(reference_eas_codes())
+        assert "EM" in data
+        assert "9930" in data
+        assert "0204" in data
+        assert "Leitweg" in data["0204"]
+
+
+# ─── MCP Prompts ──────────────────────────────────────────────────────
+
+
+class TestMCPPrompts:
+    """Test MCP prompts return valid content."""
+
+    def test_gutschrift_prompt(self) -> None:
+        from einvoice_mcp.server import gutschrift_erstellen
+
+        content = gutschrift_erstellen()
+        assert "381" in content
+        assert "Gutschrift" in content
+        assert "BT-25" in content
+
+    def test_reverse_charge_prompt(self) -> None:
+        from einvoice_mcp.server import reverse_charge_checkliste
+
+        content = reverse_charge_checkliste()
+        assert "§13b" in content
+        assert "AE" in content
+        assert "BT-31" in content
+
+    def test_xrechnung_schnellstart_prompt(self) -> None:
+        from einvoice_mcp.server import xrechnung_schnellstart
+
+        content = xrechnung_schnellstart()
+        assert "Leitweg" in content
+        assert "BT-34" in content
+        assert "BR-DE" in content
+
+    def test_korrekturrechnung_prompt(self) -> None:
+        from einvoice_mcp.server import korrekturrechnung_erstellen
+
+        content = korrekturrechnung_erstellen()
+        assert "384" in content
+        assert "BT-25" in content
+        assert "Korrektur" in content
+
+

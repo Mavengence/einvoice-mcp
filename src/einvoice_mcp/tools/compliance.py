@@ -153,8 +153,8 @@ SUGGESTIONS_MAP = {
     ),
     "BT-25": (
         "BT-25 (Vorherige Rechnungsnummer) fehlt — "
-        "bei Gutschriften (TypeCode 381) muss die Originalrechnung "
-        "referenziert werden."
+        "bei Gutschriften (TypeCode 381) und Korrekturrechnungen (TypeCode 384) "
+        "muss die Originalrechnung referenziert werden."
     ),
     "RC-BT-31": (
         "Bei Steuerkategorie AE (Reverse Charge / §13b UStG) "
@@ -224,6 +224,21 @@ SUGGESTIONS_MAP = {
     "REP-BT-63": (
         "Der steuerliche Vertreter (BG-11) wurde angegeben, aber die "
         "USt-IdNr. des Vertreters (BT-63) fehlt — diese ist Pflicht."
+    ),
+    "RC-COUNTRY": (
+        "Bei Reverse Charge (§13b UStG / Kategorie AE) sollten "
+        "Verkäufer und Käufer in unterschiedlichen Ländern ansässig sein. "
+        "Beide Parteien haben denselben Ländercode — bitte prüfen."
+    ),
+    "IC-COUNTRY": (
+        "Bei innergemeinschaftlicher Lieferung (Kategorie K / §4 Nr. 1b UStG) "
+        "müssen Verkäufer und Käufer in verschiedenen EU-Ländern ansässig sein. "
+        "Beide Parteien haben denselben Ländercode."
+    ),
+    "384-BT-25": (
+        "BT-25 (Vorherige Rechnungsnummer) fehlt — "
+        "bei Korrekturrechnungen (TypeCode 384) muss die zu korrigierende "
+        "Originalrechnung gemäß §14 Abs. 4 UStG referenziert werden."
     ),
 }
 
@@ -436,7 +451,7 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
     type_code_val = ""
     if type_code_el is not None and type_code_el.text:
         type_code_val = type_code_el.text.strip()
-    if type_code_val == "381":
+    if type_code_val in ("381", "384"):
         inv_ref_el = root.find(
             ".//ram:ApplicableHeaderTradeSettlement"
             "/ram:InvoiceReferencedDocument/ram:IssuerAssignedID",
@@ -448,10 +463,16 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
         bt25_value = ""
         if bt25_present and inv_ref_el is not None and inv_ref_el.text:
             bt25_value = inv_ref_el.text.strip()
+        label = (
+            "Vorherige Rechnungsnummer (Gutschrift)"
+            if type_code_val == "381"
+            else "Vorherige Rechnungsnummer (Korrekturrechnung)"
+        )
+        field_key = "BT-25" if type_code_val == "381" else "384-BT-25"
         checks.append(
             FieldCheck(
-                field="BT-25",
-                name="Vorherige Rechnungsnummer (Gutschrift)",
+                field=field_key,
+                name=label,
                 present=bt25_present,
                 value=bt25_value,
                 required=True,
@@ -525,6 +546,37 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                 except ValueError:
                     pass
 
+        # Country check: for reverse charge, seller and buyer should be in
+        # different countries (advisory — some domestic RC cases exist under §13b).
+        seller_country_el = root.find(
+            ".//ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID",
+            CII_NS,
+        )
+        buyer_country_el = root.find(
+            ".//ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID",
+            CII_NS,
+        )
+        seller_cc = (
+            seller_country_el.text.strip()
+            if seller_country_el is not None and seller_country_el.text
+            else ""
+        )
+        buyer_cc = (
+            buyer_country_el.text.strip()
+            if buyer_country_el is not None and buyer_country_el.text
+            else ""
+        )
+        if seller_cc and buyer_cc and seller_cc == buyer_cc:
+            checks.append(
+                FieldCheck(
+                    field="RC-COUNTRY",
+                    name="Länderprüfung Reverse Charge",
+                    present=False,
+                    value=f"{seller_cc}={buyer_cc}",
+                    required=False,  # advisory — domestic §13b exists
+                )
+            )
+
     # Intra-community supply (§4 Nr. 1b UStG / TaxCategory K) checks:
     # When TaxCategory K is used, buyer VAT ID (BT-48) must be present
     # for intra-community verification.
@@ -576,6 +628,37 @@ def _check_fields(xml_content: str, *, xrechnung: bool = True) -> list[FieldChec
                         )
                 except ValueError:
                     pass
+
+        # Country check: for intra-community, seller and buyer MUST be in
+        # different EU countries.
+        seller_country_el_k = root.find(
+            ".//ram:SellerTradeParty/ram:PostalTradeAddress/ram:CountryID",
+            CII_NS,
+        )
+        buyer_country_el_k = root.find(
+            ".//ram:BuyerTradeParty/ram:PostalTradeAddress/ram:CountryID",
+            CII_NS,
+        )
+        seller_cc_k = (
+            seller_country_el_k.text.strip()
+            if seller_country_el_k is not None and seller_country_el_k.text
+            else ""
+        )
+        buyer_cc_k = (
+            buyer_country_el_k.text.strip()
+            if buyer_country_el_k is not None and buyer_country_el_k.text
+            else ""
+        )
+        if seller_cc_k and buyer_cc_k and seller_cc_k == buyer_cc_k:
+            checks.append(
+                FieldCheck(
+                    field="IC-COUNTRY",
+                    name="Länderprüfung ig. Lieferung",
+                    present=False,
+                    value=f"{seller_cc_k}={buyer_cc_k}",
+                    required=True,  # hard requirement for K
+                )
+            )
 
     # Export outside EU (TaxCategory G) checks:
     # Tax rate must be 0% for exports.

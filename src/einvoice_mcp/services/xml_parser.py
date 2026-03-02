@@ -1,6 +1,8 @@
 """Parse CII XML and extract from ZUGFeRD PDFs."""
 
+import contextlib
 import logging
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from defusedxml import ElementTree
@@ -371,9 +373,9 @@ def _extract_invoice(doc: Document) -> ParsedInvoice:
     preceding_invoice_number = ""
     try:
         inv_ref = doc.trade.settlement.invoice_referenced_document
-        ref_id = getattr(inv_ref, "issuer_assigned_id", None)
-        if ref_id:
-            val = _str_element(ref_id)
+        prec_ref_id: object = getattr(inv_ref, "issuer_assigned_id", None)
+        if prec_ref_id:
+            val = _str_element(prec_ref_id)
             if val:
                 preceding_invoice_number = val
     except Exception:
@@ -835,20 +837,22 @@ def _extract_items(doc: Document) -> list[LineItem]:
                         )
 
             # Line-level billing period (BT-134/BT-135)
-            line_period_start = None
-            line_period_end = None
+            line_period_start: date | None = None
+            line_period_end: date | None = None
             line_period = getattr(li.settlement, "period", None)
             if line_period:
                 lps = getattr(line_period, "start", None)
                 if lps:
                     lps_val = str(lps).strip()
                     if lps_val and lps_val != "None":
-                        line_period_start = lps_val
+                        with contextlib.suppress(ValueError):
+                            line_period_start = date.fromisoformat(lps_val[:10])
                 lpe = getattr(line_period, "end", None)
                 if lpe:
                     lpe_val = str(lpe).strip()
                     if lpe_val and lpe_val != "None":
-                        line_period_end = lpe_val
+                        with contextlib.suppress(ValueError):
+                            line_period_end = date.fromisoformat(lpe_val[:10])
 
             # Buyer accounting reference (BT-133)
             buyer_accounting_reference = None
