@@ -9165,3 +9165,82 @@ class TestBRDE26DualTaxId:
         await client.close()
 
 
+# ---------------------------------------------------------------------------
+# Party contact fallback in builder
+# ---------------------------------------------------------------------------
+class TestPartyContactFallback:
+    """Builder uses Party.contact_* as fallback for top-level fields."""
+
+    def test_party_contact_in_xml(self) -> None:
+        """Party contact fields should appear in XML when top-level empty."""
+        data = InvoiceData(
+            invoice_id="PF-001",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+                contact_name="Anna Schmidt",
+                contact_phone="+49 89 9999",
+                contact_email="anna@seller.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name == "Anna Schmidt"
+        assert parsed.seller.contact_phone == "+49 89 9999"
+        assert parsed.seller.contact_email == "anna@seller.de"
+
+    def test_toplevel_overrides_party(self) -> None:
+        """Top-level seller_contact_* overrides Party fields."""
+        data = InvoiceData(
+            invoice_id="PF-002",
+            issue_date="2026-01-01",
+            seller=Party(
+                name="Seller GmbH",
+                address=Address(
+                    street="S", city="C", postal_code="00000"
+                ),
+                tax_id="DE123456789",
+                contact_name="Party Name",
+                contact_email="party@seller.de",
+            ),
+            buyer=Party(
+                name="Buyer",
+                address=Address(
+                    street="B", city="C", postal_code="00000"
+                ),
+            ),
+            items=[
+                LineItem(
+                    description="Service",
+                    quantity="1",
+                    unit_price="100",
+                ),
+            ],
+            seller_contact_name="Override Name",
+            seller_contact_email="override@seller.de",
+        )
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.seller is not None
+        assert parsed.seller.contact_name == "Override Name"
+        assert parsed.seller.contact_email == "override@seller.de"
+
+
