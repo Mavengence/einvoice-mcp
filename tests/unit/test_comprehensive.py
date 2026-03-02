@@ -2665,3 +2665,117 @@ class TestIbanBicParsing:
         parsed = parse_xml(xml_bytes)
         assert parsed.seller_iban == "DE89370400440532013000"
         assert parsed.seller_bic == ""
+
+
+# ============================================================================
+# 40. Input validation for ISO codes
+# ============================================================================
+
+
+class TestISOCodeValidation:
+    """Validate currency, country code, and payment means type code."""
+
+    def test_valid_currency_eur(self) -> None:
+        data = InvoiceData(
+            invoice_id="V1",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            currency="EUR",
+        )
+        assert data.currency == "EUR"
+
+    def test_valid_currency_usd(self) -> None:
+        data = InvoiceData(
+            invoice_id="V2",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            currency="USD",
+        )
+        assert data.currency == "USD"
+
+    def test_invalid_currency_lowercase(self) -> None:
+        with pytest.raises(ValidationError, match="Währungscode"):
+            InvoiceData(
+                invoice_id="V3",
+                issue_date="2026-01-01",
+                seller=Party(
+                    name="S", address=Address(street="S", city="S", postal_code="00000")
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="B", city="B", postal_code="00000")
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+                currency="eur",
+            )
+
+    def test_invalid_currency_numeric(self) -> None:
+        with pytest.raises(ValidationError, match="Währungscode"):
+            InvoiceData(
+                invoice_id="V4",
+                issue_date="2026-01-01",
+                seller=Party(
+                    name="S", address=Address(street="S", city="S", postal_code="00000")
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="B", city="B", postal_code="00000")
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+                currency="123",
+            )
+
+    def test_valid_country_code_de(self) -> None:
+        addr = Address(street="S", city="S", postal_code="00000", country_code="DE")
+        assert addr.country_code == "DE"
+
+    def test_valid_country_code_at(self) -> None:
+        addr = Address(street="S", city="S", postal_code="00000", country_code="AT")
+        assert addr.country_code == "AT"
+
+    def test_invalid_country_code_lowercase(self) -> None:
+        with pytest.raises(ValidationError, match="Ländercode"):
+            Address(street="S", city="S", postal_code="00000", country_code="de")
+
+    def test_invalid_country_code_numeric(self) -> None:
+        with pytest.raises(ValidationError, match="Ländercode"):
+            Address(street="S", city="S", postal_code="00000", country_code="12")
+
+    def test_valid_payment_means_sepa(self) -> None:
+        data = InvoiceData(
+            invoice_id="PM1",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            payment_means_type_code="58",
+        )
+        assert data.payment_means_type_code == "58"
+
+    def test_valid_payment_means_transfer(self) -> None:
+        data = InvoiceData(
+            invoice_id="PM2",
+            issue_date="2026-01-01",
+            seller=Party(name="S", address=Address(street="S", city="S", postal_code="00000")),
+            buyer=Party(name="B", address=Address(street="B", city="B", postal_code="00000")),
+            items=[LineItem(description="X", quantity="1", unit_price="100")],
+            payment_means_type_code="30",
+        )
+        assert data.payment_means_type_code == "30"
+
+    def test_invalid_payment_means_code(self) -> None:
+        with pytest.raises(ValidationError, match="Zahlungsart"):
+            InvoiceData(
+                invoice_id="PM3",
+                issue_date="2026-01-01",
+                seller=Party(
+                    name="S", address=Address(street="S", city="S", postal_code="00000")
+                ),
+                buyer=Party(
+                    name="B", address=Address(street="B", city="B", postal_code="00000")
+                ),
+                items=[LineItem(description="X", quantity="1", unit_price="100")],
+                payment_means_type_code="99",
+            )

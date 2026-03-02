@@ -34,6 +34,16 @@ class Address(BaseModel):
         default="DE", min_length=2, max_length=2, description="ISO 3166-1 alpha-2 Ländercode"
     )
 
+    @field_validator("country_code")
+    @classmethod
+    def validate_country_code(cls, v: str) -> str:
+        if not v.isalpha() or not v.isupper():
+            raise ValueError(
+                f"Ungültiger Ländercode '{v}'. "
+                "ISO 3166-1 alpha-2 erwartet (z.B. DE, AT, CH)."
+            )
+        return v
+
 
 class Party(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Vollständiger Name")
@@ -84,6 +94,12 @@ class LineItem(BaseModel):
 # Valid EN 16931 invoice type codes
 VALID_TYPE_CODES = frozenset({"380", "381", "384", "389", "875", "876", "877"})
 
+# UN/CEFACT UNTDID 4461 payment means codes used in EN 16931
+VALID_PAYMENT_MEANS_CODES = frozenset({
+    "1", "10", "20", "30", "31", "42", "48", "49", "57", "58", "59", "97",
+    "ZZZ",  # Mutually defined
+})
+
 
 class InvoiceData(BaseModel):
     invoice_id: str = Field(..., min_length=1, max_length=100, description="Rechnungsnummer")
@@ -99,6 +115,26 @@ class InvoiceData(BaseModel):
         if v not in VALID_TYPE_CODES:
             allowed = ", ".join(sorted(VALID_TYPE_CODES))
             raise ValueError(f"Ungültiger Rechnungsartcode '{v}'. Erlaubt: {allowed}")
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v: str) -> str:
+        if not v.isalpha() or not v.isupper():
+            raise ValueError(
+                f"Ungültiger Währungscode '{v}'. "
+                "ISO 4217 in Großbuchstaben erwartet (z.B. EUR, USD, CHF)."
+            )
+        return v
+
+    @field_validator("payment_means_type_code")
+    @classmethod
+    def validate_payment_means(cls, v: str) -> str:
+        if v not in VALID_PAYMENT_MEANS_CODES:
+            allowed = ", ".join(sorted(VALID_PAYMENT_MEANS_CODES))
+            raise ValueError(
+                f"Ungültiger Zahlungsart-Code '{v}'. Erlaubt: {allowed}"
+            )
         return v
 
     seller: Party = Field(..., description="Verkäufer / Rechnungssteller")
