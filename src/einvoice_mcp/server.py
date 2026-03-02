@@ -8,17 +8,37 @@ from typing import Any
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.types import ToolAnnotations
-from pydantic import ValidationError as PydanticValidationError
 
 from einvoice_mcp.config import settings
-from einvoice_mcp.models import (
-    AllowanceCharge,
-    InvoiceData,
-    InvoiceProfile,
-    ItemAttribute,
-    LineItem,
-    SupportingDocument,
+from einvoice_mcp.prompts import (
+    abschlagsrechnung_guide,
+    b2b_pflicht_2027,
+    gutschrift_erstellen,
+    handwerkerrechnung_35a,
+    korrekturrechnung_erstellen,
+    ratenzahlung_rechnung,
+    reverse_charge_checkliste,
+    steuerprüfung_checkliste,
+    typecode_entscheidungshilfe,
+    xrechnung_schnellstart,
 )
+from einvoice_mcp.resources import (
+    br_de_rules,
+    credit_note_reasons,
+    e_rechnung_pflichten,
+    reference_eas_codes,
+    reference_payment_means_codes,
+    reference_tax_categories,
+    reference_type_codes,
+    reference_unit_codes,
+    schema_allowance_charge,
+    schema_invoice_data,
+    schema_item_attribute,
+    schema_line_item,
+    schema_supporting_document,
+    skr04_mapping,
+)
+from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 from einvoice_mcp.services.kosit import KoSITClient
 from einvoice_mcp.tools.compliance import check_compliance
 from einvoice_mcp.tools.generate import generate_xrechnung, generate_zugferd
@@ -31,9 +51,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-# Valid profile values for user-facing error messages
-_VALID_PROFILES = ", ".join(p.value for p in InvoiceProfile)
 
 
 @asynccontextmanager
@@ -66,234 +83,34 @@ mcp = FastMCP(
 )
 
 
-@mcp.resource("einvoice://schemas/line-item")
-def schema_line_item() -> str:
-    """JSON-Schema für eine Rechnungsposition (items-Array-Element).
+# ---------------------------------------------------------------------------
+# Resources — schemas
+# ---------------------------------------------------------------------------
 
-    Verwenden Sie dieses Schema um korrekte JSON-Objekte für den
-    'items' Parameter der generate-Tools zu erstellen.
-    """
-    return json.dumps(LineItem.model_json_schema(), ensure_ascii=False, indent=2)
+mcp.resource("einvoice://schemas/line-item")(schema_line_item)
+mcp.resource("einvoice://schemas/allowance-charge")(schema_allowance_charge)
+mcp.resource("einvoice://schemas/item-attribute")(schema_item_attribute)
+mcp.resource("einvoice://schemas/supporting-document")(schema_supporting_document)
+mcp.resource("einvoice://schemas/invoice-data")(schema_invoice_data)
 
+# ---------------------------------------------------------------------------
+# Resources — reference code tables
+# ---------------------------------------------------------------------------
 
-@mcp.resource("einvoice://schemas/allowance-charge")
-def schema_allowance_charge() -> str:
-    """JSON-Schema für Zu-/Abschläge (allowances_charges-Array-Element).
+mcp.resource("einvoice://reference/type-codes")(reference_type_codes)
+mcp.resource("einvoice://reference/payment-means-codes")(reference_payment_means_codes)
+mcp.resource("einvoice://reference/tax-categories")(reference_tax_categories)
+mcp.resource("einvoice://reference/unit-codes")(reference_unit_codes)
+mcp.resource("einvoice://reference/eas-codes")(reference_eas_codes)
 
-    Verwenden Sie dieses Schema um korrekte JSON-Objekte für den
-    'allowances_charges' Parameter der generate-Tools zu erstellen.
-    """
-    return json.dumps(AllowanceCharge.model_json_schema(), ensure_ascii=False, indent=2)
+# ---------------------------------------------------------------------------
+# Resources — compliance & regulation
+# ---------------------------------------------------------------------------
 
-
-@mcp.resource("einvoice://schemas/item-attribute")
-def schema_item_attribute() -> str:
-    """JSON-Schema für Artikelmerkmale (BG-30, BT-160/BT-161).
-
-    Name/Wert-Paare für Produkteigenschaften wie Farbe, Größe, Material.
-    """
-    return json.dumps(ItemAttribute.model_json_schema(), ensure_ascii=False, indent=2)
-
-
-@mcp.resource("einvoice://schemas/supporting-document")
-def schema_supporting_document() -> str:
-    """JSON-Schema für zusätzliche Belegdokumente (BG-24, BT-122..BT-125).
-
-    Anhänge wie Zollpapiere, Zertifikate, Zeitnachweise.
-    """
-    return json.dumps(SupportingDocument.model_json_schema(), ensure_ascii=False, indent=2)
-
-
-@mcp.resource("einvoice://schemas/invoice-data")
-def schema_invoice_data() -> str:
-    """Vollständiges JSON-Schema für InvoiceData.
-
-    Zeigt alle verfügbaren Felder mit Typen, Beschreibungen und
-    Validierungsregeln für die Rechnungserstellung.
-    """
-    return json.dumps(InvoiceData.model_json_schema(), ensure_ascii=False, indent=2)
-
-
-# --- Reference resources (code tables for AI agents) ---
-
-
-@mcp.resource("einvoice://reference/type-codes")
-def reference_type_codes() -> str:
-    """Rechnungsart-Codes (BT-3) gemäß UNTDID 1001 / EN 16931.
-
-    Zeigt alle gültigen Codes mit deutscher Beschreibung.
-    """
-    return json.dumps(
-        {
-            "380": "Handelsrechnung (Standard)",
-            "381": "Gutschrift / Credit Note",
-            "384": "Korrekturrechnung",
-            "389": "Selbstfakturierte Rechnung (Self-billed)",
-            "875": "Teilrechnung (Partial invoice)",
-            "876": "Teilschlussrechnung (Partial final invoice)",
-            "877": "Schlussrechnung (Final invoice)",
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
-
-@mcp.resource("einvoice://reference/payment-means-codes")
-def reference_payment_means_codes() -> str:
-    """Zahlungsart-Codes (BT-81) gemäß UNTDID 4461 / EN 16931.
-
-    Die häufigsten Codes für den deutschen Markt.
-    """
-    return json.dumps(
-        {
-            "1": "Nicht definiert (Instrument not defined)",
-            "10": "Bar (Cash)",
-            "20": "Scheck (Cheque)",
-            "30": "Überweisung (Credit transfer)",
-            "31": "Lastschrift (Debit transfer)",
-            "42": "Zahlung an Bankkonto (Payment to bank account)",
-            "48": "Kreditkarte (Bank card / credit card)",
-            "49": "Lastschrift (Direct debit)",
-            "57": "Dauerauftrag (Standing agreement)",
-            "58": "SEPA-Überweisung (SEPA credit transfer) — STANDARD",
-            "59": "SEPA-Lastschrift (SEPA direct debit)",
-            "97": "Clearing zwischen Partnern (Clearing between partners)",
-            "ZZZ": "Vereinbarte Zahlungsart (Mutually defined)",
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
-
-@mcp.resource("einvoice://reference/tax-categories")
-def reference_tax_categories() -> str:
-    """Steuerkategorie-Codes (BT-151) gemäß UNTDID 5305 / EN 16931.
-
-    Alle 9 gültigen Kategorien mit deutschen Erklärungen und typischen Steuersätzen.
-    """
-    return json.dumps(
-        {
-            "S": {
-                "name": "Normaler Steuersatz (Standard rate)",
-                "typical_rates": ["19.00", "7.00"],
-                "usage": "Standardfall für B2B-Rechnungen in Deutschland",
-            },
-            "Z": {
-                "name": "Nullsatz (Zero rated)",
-                "typical_rates": ["0.00"],
-                "usage": "Selten in DE — für spezielle EU-Regelungen",
-            },
-            "E": {
-                "name": "Steuerbefreit (Exempt)",
-                "typical_rates": ["0.00"],
-                "usage": "§19 UStG (Kleinunternehmer), §4 UStG (steuerbefreite Umsätze)",
-                "note": "BT-120 (ExemptionReason) ist Pflicht",
-            },
-            "AE": {
-                "name": "Reverse Charge (§13b UStG)",
-                "typical_rates": ["0.00"],
-                "usage": "Steuerschuldnerschaft des Leistungsempfängers",
-                "note": "BT-31 und BT-48 (USt-IdNr.) sind Pflicht",
-            },
-            "K": {
-                "name": "Innergemeinschaftliche Lieferung (§4 Nr. 1b UStG)",
-                "typical_rates": ["0.00"],
-                "usage": "Lieferung an Unternehmer in anderen EU-Ländern",
-                "note": "BT-48 (Käufer-USt-IdNr.) ist Pflicht",
-            },
-            "G": {
-                "name": "Ausfuhrlieferung / Export (§4 Nr. 1a UStG)",
-                "typical_rates": ["0.00"],
-                "usage": "Lieferung in Drittländer (außerhalb EU)",
-            },
-            "O": {
-                "name": "Nicht steuerbar (Not subject to VAT)",
-                "typical_rates": ["0.00"],
-                "usage": "Umsätze außerhalb des Steuergebiets",
-            },
-            "L": {
-                "name": "IGIC (Kanarische Inseln)",
-                "typical_rates": ["7.00"],
-                "usage": "Kanarische Inseln Steuer",
-            },
-            "M": {
-                "name": "IPSI (Ceuta und Melilla)",
-                "typical_rates": ["4.00"],
-                "usage": "Ceuta und Melilla Steuer",
-            },
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
-
-@mcp.resource("einvoice://reference/unit-codes")
-def reference_unit_codes() -> str:
-    """Häufige Mengeneinheiten-Codes (BT-130) gemäß UN/ECE Recommendation 20.
-
-    Die in deutschen Rechnungen am häufigsten verwendeten Einheiten.
-    """
-    return json.dumps(
-        {
-            "H87": "Stück (Piece)",
-            "HUR": "Stunde (Hour)",
-            "DAY": "Tag (Day)",
-            "MON": "Monat (Month)",
-            "ANN": "Jahr (Year)",
-            "KGM": "Kilogramm",
-            "GRM": "Gramm",
-            "TNE": "Tonne",
-            "MTR": "Meter",
-            "KTM": "Kilometer",
-            "MTK": "Quadratmeter",
-            "LTR": "Liter",
-            "MTQ": "Kubikmeter",
-            "SET": "Satz / Set",
-            "PR": "Paar (Pair)",
-            "BX": "Karton / Box",
-            "C62": "Einheit / one (generic unit)",
-            "XPK": "Paket (Package)",
-            "MIN": "Minute",
-            "SEC": "Sekunde",
-            "WEE": "Woche (Week)",
-            "KWH": "Kilowattstunde",
-            "MWH": "Megawattstunde",
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
-
-@mcp.resource("einvoice://reference/eas-codes")
-def reference_eas_codes() -> str:
-    """Electronic Address Scheme Codes (BT-34-1/BT-49-1).
-
-    Identifizierungsschema für elektronische Adressen in XRechnung.
-    """
-    return json.dumps(
-        {
-            "EM": "E-Mail-Adresse — STANDARD für deutsche Unternehmen",
-            "9930": "USt-IdNr. als elektronische Adresse (DE + Nummer)",
-            "0088": "EAN Location Number (GLN)",
-            "0204": "Leitweg-ID (deutsche öffentliche Verwaltung)",
-            "9906": "IT Codice Fiscale",
-            "9925": "IT Partita IVA",
-            "0007": "Organisationskennung (DUNS)",
-            "0060": "DUNS+4 Nummer",
-            "0190": "Dutch Originator's Identification Number",
-            "0191": "Centre of Registers and Information Systems, Estonia",
-            "0192": "Finnish OVT code",
-            "0195": "Singapore UEN",
-            "0196": "Icelandic kennitala",
-            "0198": "Danish CVR number",
-            "0199": "LEI (Legal Entity Identifier)",
-            "0200": "Lithuanian juridinio asmens kodas",
-            "0201": "LT KPV number for natural persons",
-            "0208": "Belgian enterprise number (KBO/BCE)",
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
+mcp.resource("einvoice://reference/e-rechnung-pflichten")(e_rechnung_pflichten)
+mcp.resource("einvoice://reference/br-de-rules")(br_de_rules)
+mcp.resource("einvoice://reference/skr04-mapping")(skr04_mapping)
+mcp.resource("einvoice://reference/credit-note-reasons")(credit_note_reasons)
 
 
 @mcp.resource("einvoice://system/kosit-status")
@@ -321,977 +138,39 @@ async def kosit_status(ctx: Context) -> str:
     )
 
 
-@mcp.resource("einvoice://reference/e-rechnung-pflichten")
-def e_rechnung_pflichten() -> str:
-    """Zeitplan der E-Rechnungspflichten in Deutschland.
+# ---------------------------------------------------------------------------
+# Prompts
+# ---------------------------------------------------------------------------
 
-    Enthält alle relevanten Stichtage von 2020 bis 2028 mit
-    Rechtsgrundlagen und betroffenen Unternehmen.
-    """
-    return json.dumps(
-        {
-            "title": "E-Rechnungspflichten — Zeitplan Deutschland",
-            "timeline": [
-                {
-                    "date": "2020-11-27",
-                    "obligation": "E-Rechnung an Bundesbehörden (Pflicht)",
-                    "basis": "E-Rechnungsverordnung (ERechV)",
-                    "affected": "Alle Lieferanten der Bundesverwaltung",
-                },
-                {
-                    "date": "2025-01-01",
-                    "obligation": "E-Rechnung empfangen (alle B2B)",
-                    "basis": "Wachstumschancengesetz / BMF 2024-11-15",
-                    "affected": "Alle inländischen Unternehmen",
-                },
-                {
-                    "date": "2027-01-01",
-                    "obligation": "E-Rechnung senden (Umsatz > 800.000€)",
-                    "basis": "Wachstumschancengesetz §14 UStG",
-                    "affected": "Unternehmen mit Vorjahresumsatz > 800.000€",
-                },
-                {
-                    "date": "2028-01-01",
-                    "obligation": "E-Rechnung senden (alle Unternehmen)",
-                    "basis": "Wachstumschancengesetz §14 UStG",
-                    "affected": "Alle inländischen Unternehmen (B2B)",
-                },
-            ],
-            "notes": [
-                "E-Rechnungen müssen der EN 16931 entsprechen (XRechnung oder ZUGFeRD)",
-                "Papierrechnungen und einfache PDF gelten ab 2025 nicht mehr als E-Rechnung",
-                "B2C-Rechnungen sind von der Pflicht ausgenommen",
-                "Kleinbetragsrechnungen (≤250€) sind ebenfalls ausgenommen",
-            ],
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
+mcp.prompt()(steuerprüfung_checkliste)
+mcp.prompt()(b2b_pflicht_2027)
+mcp.prompt()(gutschrift_erstellen)
+mcp.prompt()(reverse_charge_checkliste)
+mcp.prompt()(xrechnung_schnellstart)
+mcp.prompt()(korrekturrechnung_erstellen)
+mcp.prompt()(abschlagsrechnung_guide)
+mcp.prompt()(ratenzahlung_rechnung)
+mcp.prompt()(handwerkerrechnung_35a)
+mcp.prompt()(typecode_entscheidungshilfe)
 
 
-@mcp.resource("einvoice://reference/br-de-rules")
-def br_de_rules() -> str:
-    """Deutsche Geschäftsregeln (BR-DE) für XRechnung 3.0.
-
-    Referenz aller BR-DE-Regeln mit Beschreibung und Lösungshinweisen.
-    """
-    return json.dumps(
-        [
-            {
-                "code": "BR-DE-1",
-                "description": "Leitweg-ID (BT-10) muss vorhanden sein",
-                "field": "leitweg_id / buyer_reference",
-                "fix": "leitweg_id oder buyer_reference setzen",
-            },
-            {
-                "code": "BR-DE-2",
-                "description": "Käufer-Referenz (BT-10) Pflichtfeld",
-                "field": "buyer_reference",
-                "fix": "buyer_reference setzen",
-            },
-            {
-                "code": "BR-DE-5",
-                "description": "Ansprechpartner des Verkäufers Pflicht",
-                "field": "seller_contact_name",
-                "fix": "seller_contact_name setzen (BT-41)",
-            },
-            {
-                "code": "BR-DE-6",
-                "description": "Telefonnummer des Verkäufers Pflicht",
-                "field": "seller_contact_phone",
-                "fix": "seller_contact_phone setzen (BT-42)",
-            },
-            {
-                "code": "BR-DE-7",
-                "description": "E-Mail des Verkäufers Pflicht",
-                "field": "seller_contact_email",
-                "fix": "seller_contact_email setzen (BT-43)",
-            },
-            {
-                "code": "BR-DE-15",
-                "description": "Zahlungsbedingungen Pflicht",
-                "field": "payment_terms_text",
-                "fix": "payment_terms_text setzen (BT-20)",
-            },
-            {
-                "code": "BR-DE-17",
-                "description": "Lieferdatum oder Leistungszeitraum Pflicht",
-                "field": "delivery_date / service_period_start+end",
-                "fix": "delivery_date ODER service_period_start/end setzen",
-            },
-            {
-                "code": "BR-DE-23",
-                "description": "IBAN Pflicht bei SEPA-Überweisung (Code 58)",
-                "field": "seller_iban",
-                "fix": "seller_iban setzen (BT-84)",
-            },
-            {
-                "code": "BR-DE-24",
-                "description": "Mandatsreferenz + Käufer-IBAN bei SEPA-Lastschrift (Code 59)",
-                "field": "mandate_reference_id + buyer_iban",
-                "fix": "mandate_reference_id (BT-89) und buyer_iban (BT-91) setzen",
-            },
-        ],
-        ensure_ascii=False,
-        indent=2,
-    )
+# ---------------------------------------------------------------------------
+# Helper: collect generate-tool params for build_invoice_data
+# ---------------------------------------------------------------------------
 
 
-@mcp.resource("einvoice://reference/skr04-mapping")
-def skr04_mapping() -> str:
-    """SKR04-Kontenzuordnung für häufige Rechnungsarten.
-
-    Mapping von typischen Eingangsrechnungs-Kategorien zu
-    SKR04-Konten (Standardkontenrahmen 04, DATEV).
-    """
-    return json.dumps(
-        {
-            "title": "SKR04 — Typische Kontenzuordnung für Eingangsrechnungen",
-            "chart": "SKR04 (DATEV)",
-            "note": "Nur als Orientierung — die exakte Zuordnung hängt vom "
-            "individuellen Kontenplan des Unternehmens ab.",
-            "mappings": [
-                {
-                    "category": "Büromaterial / Bürobedarf",
-                    "account": "6815",
-                    "description": "Bürobedarf",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "IT-Dienstleistung / Software",
-                    "account": "6570",
-                    "description": "Fremdleistungen / IT-Dienstleistungen",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Beratung / Consulting",
-                    "account": "6825",
-                    "description": "Rechts- und Beratungskosten",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Miete / Büromiete",
-                    "account": "6310",
-                    "description": "Miete (unbewegliche Wirtschaftsgüter)",
-                    "tax_rate": "19% oder 0%",
-                },
-                {
-                    "category": "Telefon / Internet",
-                    "account": "6805",
-                    "description": "Telefon",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Reisekosten",
-                    "account": "6670",
-                    "description": "Reisekosten Arbeitnehmer",
-                    "tax_rate": "19% / 7% / 0%",
-                },
-                {
-                    "category": "Werbung / Marketing",
-                    "account": "6600",
-                    "description": "Werbekosten",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Porto / Versand",
-                    "account": "6810",
-                    "description": "Porto",
-                    "tax_rate": "19% oder 0%",
-                },
-                {
-                    "category": "Reparatur / Instandhaltung",
-                    "account": "6470",
-                    "description": "Reparaturen und Instandhaltung",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Versicherung",
-                    "account": "6400",
-                    "description": "Versicherungen",
-                    "tax_rate": "0% (steuerbefreit)",
-                },
-                {
-                    "category": "Strom / Gas / Wasser",
-                    "account": "6325",
-                    "description": "Gas, Strom, Wasser",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Wareneinkauf",
-                    "account": "5000",
-                    "description": "Einkauf Roh-, Hilfs- und Betriebsstoffe",
-                    "tax_rate": "19% oder 7%",
-                },
-                {
-                    "category": "Kfz-Kosten",
-                    "account": "6520",
-                    "description": "Kfz-Kosten",
-                    "tax_rate": "19%",
-                },
-                {
-                    "category": "Fortbildung / Schulung",
-                    "account": "6830",
-                    "description": "Fortbildungskosten",
-                    "tax_rate": "19% oder 0%",
-                },
-            ],
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
+def _collect_generate_params(local_vars: dict[str, Any]) -> dict[str, Any]:
+    """Rename MCP tool param names to build_invoice_data kwarg names."""
+    params = {k: v for k, v in local_vars.items() if k != "ctx"}
+    params["items_json"] = params.pop("items")
+    params["allowances_charges_json"] = params.pop("allowances_charges")
+    params["supporting_documents_json"] = params.pop("supporting_documents")
+    return params
 
 
-@mcp.resource("einvoice://reference/credit-note-reasons")
-def credit_note_reasons() -> str:
-    """Gutschrift-Gründe (Credit Note Reason Codes) nach EN 16931.
-
-    Standardisierte Gründe für Gutschriften und Korrekturrechnungen
-    mit deutschen Beschreibungen und Empfehlungen.
-    """
-    return json.dumps(
-        {
-            "title": "Gutschrift- und Korrektur-Gründe",
-            "type_codes": {
-                "381": "Gutschrift (Credit Note)",
-                "384": "Korrekturrechnung (Corrected Invoice)",
-            },
-            "reasons": [
-                {
-                    "code": "1",
-                    "reason_de": "Retoure / Rückgabe",
-                    "reason_en": "Return of goods",
-                    "type_code": "381",
-                    "note": "Gesamte oder teilweise Rückgabe der Ware",
-                },
-                {
-                    "code": "2",
-                    "reason_de": "Preisänderung / Rabatt nachträglich",
-                    "reason_en": "Price correction",
-                    "type_code": "381",
-                    "note": "Nachträglicher Rabatt oder Preisanpassung",
-                },
-                {
-                    "code": "3",
-                    "reason_de": "Mengenabweichung",
-                    "reason_en": "Quantity difference",
-                    "type_code": "381",
-                    "note": "Liefermenge weicht von Rechnungsmenge ab",
-                },
-                {
-                    "code": "4",
-                    "reason_de": "Fehlerhafte Rechnungsdaten",
-                    "reason_en": "Invoice data error",
-                    "type_code": "384",
-                    "note": "Falsche Adresse, USt-IdNr., oder andere Stammdaten",
-                },
-                {
-                    "code": "5",
-                    "reason_de": "Umsatzsteuer-Korrektur",
-                    "reason_en": "Tax correction",
-                    "type_code": "384",
-                    "note": "Falscher Steuersatz oder -kategorie auf Originalrechnung",
-                },
-                {
-                    "code": "6",
-                    "reason_de": "Mängelrüge / Qualitätsmangel",
-                    "reason_en": "Quality deficiency",
-                    "type_code": "381",
-                    "note": "Minderung wegen mangelhafter Leistung (§437 BGB)",
-                },
-                {
-                    "code": "7",
-                    "reason_de": "Doppelte Rechnungsstellung",
-                    "reason_en": "Duplicate invoice",
-                    "type_code": "381",
-                    "note": "Vollständige Gutschrift der doppelt gestellten Rechnung",
-                },
-                {
-                    "code": "8",
-                    "reason_de": "Kulanz / Goodwill",
-                    "reason_en": "Goodwill gesture",
-                    "type_code": "381",
-                    "note": "Freiwillige Gutschrift ohne rechtliche Verpflichtung",
-                },
-            ],
-            "wichtig": [
-                "Gutschrift (381) muss IMMER die Originalrechnungsnummer referenzieren (BT-25)",
-                "Korrekturrechnung (384) ersetzt die fehlerhafte Rechnung vollständig",
-                "Teilkorrekturen: Gutschrift (381) + neue Rechnung (380) ausstellen",
-                "§14 Abs. 2 Satz 3 UStG: Berichtigung nur durch neues Dokument möglich",
-            ],
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-
-
-@mcp.prompt()
-def steuerprüfung_checkliste() -> str:
-    """Checkliste: E-Rechnungen für die Steuerprüfung vorbereiten.
-
-    Leitfaden zur Vorbereitung auf eine Betriebsprüfung mit
-    Fokus auf E-Rechnungs-Compliance und GoBD-Archivierung.
-    """
-    return (
-        "# Steuerprüfung — E-Rechnungs-Checkliste\n\n"
-        "## 1. Archivierung (GoBD-konform)\n"
-        "- [ ] E-Rechnungen im **Originalformat** archiviert (XML, nicht nur PDF)\n"
-        "- [ ] **10 Jahre** Aufbewahrungsfrist (§147 AO, §14b UStG)\n"
-        "- [ ] **Unveränderbarkeit** sichergestellt (kein nachträgliches Editieren)\n"
-        "- [ ] **Maschinelle Auswertbarkeit** gewährleistet (GoBD Tz. 128)\n"
-        "- [ ] Verfahrensdokumentation vorhanden\n\n"
-        "## 2. Pflichtangaben prüfen (§14 UStG)\n"
-        "- [ ] BT-1: Rechnungsnummer (fortlaufend, eindeutig)\n"
-        "- [ ] BT-2: Rechnungsdatum\n"
-        "- [ ] BT-27..40: Vollständige Verkäufer-Angaben (Name, Anschrift, USt-IdNr.)\n"
-        "- [ ] BT-44..55: Vollständige Käufer-Angaben\n"
-        "- [ ] Positionen: Menge, Art, Entgelt, Steuersatz, Steuerbetrag\n"
-        "- [ ] BT-81: Zahlungsart angegeben\n"
-        "- [ ] BT-20: Zahlungsbedingungen\n\n"
-        "## 3. Umsatzsteuer-Prüfung\n"
-        "- [ ] Steuersätze korrekt (19%, 7%, 0% mit Begründung)\n"
-        "- [ ] Reverse Charge (§13b): Hinweis vorhanden, 0% Steuer\n"
-        "- [ ] Innergemeinschaftliche Lieferungen: USt-IdNr. beider Parteien\n"
-        "- [ ] Steuerbefreiungen: Befreiungsgrund (BT-120) und Code (BT-121)\n"
-        "- [ ] Vorsteuerabzug: Alle Voraussetzungen erfüllt?\n\n"
-        "## 4. Gutschriften und Korrekturen\n"
-        "- [ ] Gutschriften (381) referenzieren Originalrechnung (BT-25)\n"
-        "- [ ] Korrekturrechnungen (384) referenzieren Originalrechnung (BT-25)\n"
-        "- [ ] Keine 'informellen' Korrekturen per E-Mail oder PDF\n"
-        "- [ ] Stornierungen vollständig dokumentiert\n\n"
-        "## 5. Validierung\n"
-        "- [ ] Alle E-Rechnungen gegen **KoSIT-Validator** geprüft\n"
-        "- [ ] XRechnung: BR-DE-Regeln erfüllt\n"
-        "- [ ] ZUGFeRD: PDF/A-3 Konformität sichergestellt\n"
-        "- [ ] IBAN/BIC-Formate korrekt\n\n"
-        "## 6. B2B-Pflicht (ab 2025/2027/2028)\n"
-        "- [ ] Empfang von E-Rechnungen sichergestellt (seit 01.01.2025)\n"
-        "- [ ] Versand vorbereitet (ab 2027 für Umsatz > 800K€, ab 2028 für alle)\n"
-        "- [ ] Format: EN 16931 (XRechnung oder ZUGFeRD)\n\n"
-        "## Typische Prüfungsschwerpunkte:\n"
-        "1. **Rechnungsnummern-Lücken** — fehlende Nummern im Kreis\n"
-        "2. **Vorsteuerabzug** — alle formellen Voraussetzungen erfüllt?\n"
-        "3. **Reverse Charge** — §13b korrekt angewendet?\n"
-        "4. **Innergemeinschaftliche Lieferungen** — ZM abgegeben?\n"
-        "5. **Archivierung** — GoBD-Konformität nachweisbar?"
-    )
-
-
-@mcp.prompt()
-def b2b_pflicht_2027() -> str:
-    """Checkliste: B2B E-Rechnungspflicht ab 2027 vorbereiten.
-
-    Schritt-für-Schritt-Anleitung für die Umstellung auf E-Rechnung.
-    """
-    return (
-        "# B2B E-Rechnungspflicht — Checkliste zur Vorbereitung\n\n"
-        "## Zeitplan:\n"
-        "- **01.01.2025**: Alle Unternehmen müssen E-Rechnungen **empfangen** können\n"
-        "- **01.01.2027**: Unternehmen mit Umsatz > 800.000€ müssen E-Rechnungen **senden**\n"
-        "- **01.01.2028**: **Alle** Unternehmen müssen E-Rechnungen senden\n\n"
-        "## Was ist eine E-Rechnung?\n"
-        "- Maschinenlesbares XML nach **EN 16931** (nicht PDF!)\n"
-        "- Erlaubte Formate: **XRechnung** (CII-XML) oder **ZUGFeRD** (PDF/A-3 + XML)\n"
-        "- Papierrechnungen und einfache PDF gelten NICHT als E-Rechnung\n\n"
-        "## Checkliste:\n"
-        "1. [ ] **Empfang sicherstellen** — E-Mail-Postfach für E-Rechnungen einrichten\n"
-        "2. [ ] **Format wählen** — XRechnung (B2G) oder ZUGFeRD (B2B empfohlen)\n"
-        "3. [ ] **Software testen** — Mit diesem MCP-Server Testrechnungen erstellen\n"
-        "4. [ ] **Stammdaten pflegen** — USt-IdNr., IBAN, Kontaktdaten aktuell halten\n"
-        "5. [ ] **Mitarbeiter schulen** — Rechnungswesen auf neue Formate vorbereiten\n"
-        "6. [ ] **Archivierung** — GoBD-konforme Archivierung sicherstellen (10 Jahre)\n"
-        "7. [ ] **Testlauf** — Echte Rechnung erstellen und mit KoSIT validieren\n\n"
-        "## Beispiel-Prompt:\n"
-        "```\n"
-        "Erstelle eine ZUGFeRD-Rechnung:\n"
-        "- Rechnungsnr.: RE-2026-001\n"
-        "- Verkäufer: [Ihre Firma], [Adresse], USt-IdNr. DE...\n"
-        "- Käufer: [Kunde], [Adresse]\n"
-        "- Position: [Beschreibung], [Menge], [Preis], 19% USt\n"
-        "- SEPA-Überweisung, IBAN: DE...\n"
-        "- Zahlungsziel: 30 Tage netto\n"
-        "```\n\n"
-        "## Ausnahmen:\n"
-        "- B2C-Rechnungen (an Privatpersonen) → keine Pflicht\n"
-        "- Kleinbetragsrechnungen ≤ 250€ → keine Pflicht\n"
-        "- Fahrausweise → keine Pflicht\n\n"
-        "## Rechtsgrundlage:\n"
-        "- Wachstumschancengesetz (BGBl. 2024 I Nr. 108)\n"
-        "- §14 UStG (neue Fassung ab 2025)\n"
-        "- BMF-Schreiben vom 15.11.2024"
-    )
-
-
-@mcp.prompt()
-def gutschrift_erstellen() -> str:
-    """Anleitung: Gutschrift / Credit Note (TypeCode 381) erstellen.
-
-    Schritt-für-Schritt-Anleitung für die korrekte Erstellung einer Gutschrift
-    nach deutschem Steuerrecht (§14 Abs. 4 UStG).
-    """
-    return (
-        "# Gutschrift (Credit Note) erstellen — Checkliste\n\n"
-        "Eine Gutschrift korrigiert eine bereits gestellte Rechnung.\n\n"
-        "## Pflichtparameter:\n"
-        "- `type_code`: **381** (Gutschrift)\n"
-        "- `preceding_invoice_number`: Nummer der Originalrechnung (BT-25, PFLICHT)\n"
-        "- Alle Standardfelder wie bei einer normalen Rechnung\n\n"
-        "## Beträge:\n"
-        "- Positionen mit **positiven** Beträgen eintragen\n"
-        "- Die Gutschrift reduziert die offene Forderung\n\n"
-        "## Beispiel:\n"
-        "```\n"
-        "type_code: '381'\n"
-        "preceding_invoice_number: 'RE-2026-001'\n"
-        "invoice_note: 'Gutschrift zu Rechnung RE-2026-001 wegen Retoure'\n"
-        "```\n\n"
-        "## Häufige Fehler:\n"
-        "- BT-25 vergessen → KoSIT-Validierung schlägt fehl\n"
-        "- Falscher TypeCode (380 statt 381)\n"
-        "- Negative Beträge (nicht nötig — Gutschrift-Semantik ist implizit)"
-    )
-
-
-@mcp.prompt()
-def reverse_charge_checkliste() -> str:
-    """Checkliste für Reverse Charge (§13b UStG) — Kategorie AE.
-
-    Alle Pflichtangaben und Prüfschritte für Rechnungen mit
-    Steuerschuldnerschaft des Leistungsempfängers.
-    """
-    return (
-        "# Reverse Charge (§13b UStG) — Checkliste\n\n"
-        "## Voraussetzungen:\n"
-        "- Leistender Unternehmer im Ausland ODER\n"
-        "- Bauleistungen (§13b Abs. 2 Nr. 4 UStG) ODER\n"
-        "- Andere §13b-Tatbestände\n\n"
-        "## Pflichtangaben:\n"
-        "1. **tax_category**: `AE` für alle Positionen\n"
-        "2. **tax_rate**: `0.00` (muss 0% sein)\n"
-        "3. **seller_tax_id**: USt-IdNr. des Verkäufers (BT-31, PFLICHT)\n"
-        "4. **buyer_tax_id**: USt-IdNr. des Käufers (BT-48, PFLICHT)\n"
-        "5. **tax_exemption_reason**: z.B. 'Reverse Charge — "
-        "Steuerschuldnerschaft des Leistungsempfängers gemäß §13b UStG'\n"
-        "6. **tax_exemption_reason_code**: `vatex-eu-ae`\n\n"
-        "## Hinweis auf der Rechnung:\n"
-        "Pflichthinweis nach §14a Abs. 5 UStG: "
-        "'Steuerschuldnerschaft des Leistungsempfängers'\n\n"
-        "## Beispiel:\n"
-        "```json\n"
-        '{"description": "IT-Beratung", "quantity": 10, "unit_code": "HUR",\n'
-        ' "unit_price": 150.00, "tax_rate": 0.00, "tax_category": "AE"}\n'
-        "```"
-    )
-
-
-@mcp.prompt()
-def xrechnung_schnellstart() -> str:
-    """Schnellstart: XRechnung für öffentliche Auftraggeber erstellen.
-
-    Minimale Pflichtangaben für eine gültige XRechnung 3.0.
-    """
-    return (
-        "# XRechnung — Schnellstart\n\n"
-        "## Mindestangaben für eine gültige XRechnung:\n\n"
-        "### Pflicht:\n"
-        "- `invoice_id`: Eindeutige Rechnungsnummer\n"
-        "- `issue_date`: Rechnungsdatum (YYYY-MM-DD)\n"
-        "- `seller_name`, `seller_street`, `seller_city`, `seller_postal_code`, "
-        "`seller_country_code`\n"
-        "- `seller_tax_id`: USt-IdNr. (DE...)\n"
-        "- `buyer_name`, `buyer_street`, `buyer_city`, `buyer_postal_code`, "
-        "`buyer_country_code`\n"
-        "- `items`: Mindestens eine Position\n"
-        "- `leitweg_id` ODER `buyer_reference`: Leitweg-ID des Auftraggebers\n\n"
-        "### XRechnung-spezifisch (BR-DE-Regeln):\n"
-        "- `seller_electronic_address`: E-Mail des Verkäufers (BT-34)\n"
-        "- `buyer_electronic_address`: E-Mail des Käufers (BT-49)\n"
-        "- `seller_contact_name`: Ansprechpartner (BT-41, BR-DE-5)\n"
-        "- `seller_contact_phone`: Telefon (BT-42, BR-DE-6)\n"
-        "- `seller_contact_email`: E-Mail (BT-43, BR-DE-7)\n"
-        "- `payment_terms_text`: Zahlungsbedingungen (BT-20, BR-DE-15)\n"
-        "- `delivery_date` ODER `service_period_start`/`service_period_end`\n\n"
-        "### Leitweg-ID Format:\n"
-        "Typisch: `04011000-12345-67` (Grobadresse-Feinadresse-Prüfziffer)\n"
-        "Fragen Sie den Auftraggeber nach seiner Leitweg-ID.\n\n"
-        "### Empfohlene Zahlungsart:\n"
-        "- `payment_means_type_code`: `58` (SEPA-Überweisung)\n"
-        "- `seller_iban`: IBAN des Verkäufers"
-    )
-
-
-@mcp.prompt()
-def korrekturrechnung_erstellen() -> str:
-    """Anleitung: Korrekturrechnung (TypeCode 384) erstellen.
-
-    Unterschiede zur Gutschrift und korrekte Vorgehensweise
-    nach §14 Abs. 4 UStG.
-    """
-    return (
-        "# Korrekturrechnung (TypeCode 384) erstellen\n\n"
-        "## Unterschied zur Gutschrift (381):\n"
-        "- **381 Gutschrift**: Reduziert eine Forderung (z.B. Retoure, Rabatt)\n"
-        "- **384 Korrekturrechnung**: Ersetzt/korrigiert eine fehlerhafte Rechnung\n\n"
-        "## Pflichtparameter:\n"
-        "- `type_code`: **384**\n"
-        "- `preceding_invoice_number`: Nummer der fehlerhaften Originalrechnung (BT-25)\n"
-        "- `invoice_note`: Grund der Korrektur angeben\n"
-        "- Alle korrekten Daten der neuen Rechnung\n\n"
-        "## Beispiel:\n"
-        "```\n"
-        "type_code: '384'\n"
-        "preceding_invoice_number: 'RE-2026-001'\n"
-        "invoice_note: 'Korrektur der Rechnung RE-2026-001 — "
-        "falscher Steuersatz korrigiert'\n"
-        "```\n\n"
-        "## Steuerliche Wirkung:\n"
-        "- Die Korrekturrechnung ERSETZT die Originalrechnung\n"
-        "- Der Käufer muss den Vorsteuerabzug der Originalrechnung korrigieren\n"
-        "- Zeitpunkt: Die Korrektur wirkt für den Besteuerungszeitraum "
-        "der Originalrechnung"
-    )
-
-
-@mcp.prompt()
-def abschlagsrechnung_guide() -> str:
-    """Anleitung: Abschlagsrechnung / Teilrechnung (TypeCode 875/876/877).
-
-    Erklärung der Rechnungstypen für Teilleistungen und Schlussrechnungen
-    nach §632a BGB und §14 Abs. 1 UStG.
-    """
-    return (
-        "# Abschlagsrechnung & Teilrechnung — TypeCode 875/876/877\n\n"
-        "## TypeCode-Auswahl:\n"
-        "- **875 — Teilrechnung (Partial Invoice)**: Rechnung über eine "
-        "Teilleistung innerhalb eines Gesamtauftrags\n"
-        "- **876 — Vorauszahlungsrechnung (Prepayment Invoice)**: "
-        "Abschlagsrechnung VOR Leistungserbringung\n"
-        "- **877 — Schlussrechnung (Final Invoice)**: Abschluss nach "
-        "vorherigen Teil-/Vorauszahlungen\n\n"
-        "## Pflichtangaben:\n"
-        "- `type_code`: **875**, **876** oder **877**\n"
-        "- `contract_reference`: Vertragsnummer / Auftragsnummer (BT-12)\n"
-        "- `invoice_note`: Bezug auf Gesamtauftrag und bisherige Zahlungen\n"
-        "- `project_reference`: Projektnummer, falls vorhanden (BT-11)\n\n"
-        "## Beispiel Abschlagsrechnung:\n"
-        "```\n"
-        "type_code: '876'\n"
-        "contract_reference: 'V-2026-100'\n"
-        "invoice_note: '2. Abschlag für Auftrag V-2026-100 "
-        "(Gesamtauftrag: 50.000€, bisherige Abschläge: 15.000€)'\n"
-        "```\n\n"
-        "## Schlussrechnung:\n"
-        "```\n"
-        "type_code: '877'\n"
-        "contract_reference: 'V-2026-100'\n"
-        "invoice_note: 'Schlussrechnung V-2026-100. "
-        "Gesamtleistung: 50.000€, abzgl. Abschläge: 30.000€'\n"
-        "```\n\n"
-        "## Steuerrecht:\n"
-        "- Abschläge sind umsatzsteuerpflichtig bei Vereinnahmung "
-        "(§13 Abs. 1 Nr. 1a Satz 4 UStG)\n"
-        "- Schlussrechnung korrigiert Vorsteuerabzug der Abschläge"
-    )
-
-
-@mcp.prompt()
-def ratenzahlung_rechnung() -> str:
-    """Anleitung: Rechnung mit Ratenzahlung erstellen.
-
-    Korrekte Darstellung von Ratenzahlungsvereinbarungen
-    in XRechnung/ZUGFeRD.
-    """
-    return (
-        "# Rechnung mit Ratenzahlung\n\n"
-        "## Darstellung in XRechnung:\n"
-        "Ratenzahlung wird über `payment_terms_text` (BT-20) abgebildet.\n\n"
-        "## Beispiel:\n"
-        "```\n"
-        "payment_terms_text: '3 Raten: "
-        "1. Rate 1.000€ fällig 01.04.2026, "
-        "2. Rate 1.000€ fällig 01.05.2026, "
-        "3. Rate 1.000€ fällig 01.06.2026'\n"
-        "due_date: '2026-04-01'  # Erste Fälligkeit\n"
-        "```\n\n"
-        "## Hinweise:\n"
-        "- `due_date` (BT-9): Datum der **ersten** Rate\n"
-        "- `payment_terms_text` (BT-20): Gesamten Ratenplan textlich beschreiben\n"
-        "- Optional: Skonto-Bedingungen pro Rate möglich\n\n"
-        "## Mit Skonto:\n"
-        "```\n"
-        "payment_terms_text: '3 Raten à 1.000€, "
-        "2% Skonto bei Zahlung innerhalb von 10 Tagen'\n"
-        "skonto_percent: 2.0\n"
-        "skonto_days: 10\n"
-        "```\n\n"
-        "## Rechtlicher Hintergrund:\n"
-        "- §271 BGB: Fälligkeit nach Vereinbarung\n"
-        "- Ratenvereinbarungen sollten schriftlich fixiert sein"
-    )
-
-
-@mcp.prompt()
-def handwerkerrechnung_35a() -> str:
-    """Anleitung: Handwerkerrechnung nach §35a EStG.
-
-    Rechnungsstellung für haushaltsnahe Handwerkerleistungen mit
-    Ausweisung der Arbeitskosten für den Steuerabzug des Kunden.
-    """
-    return (
-        "# Handwerkerrechnung für §35a EStG\n\n"
-        "## Hintergrund:\n"
-        "Kunden können 20% der Arbeitskosten (max. 1.200€/Jahr) als "
-        "Steuerermäßigung geltend machen (§35a Abs. 3 EStG).\n\n"
-        "## Pflicht auf der Rechnung:\n"
-        "1. **Getrennte Ausweisung** von Arbeitskosten und Materialkosten\n"
-        "2. **Adresse der Leistungserbringung** (Haushalt des Kunden)\n"
-        "3. **Banküberweisung** als Zahlungsart (§35a Abs. 5 Satz 3: "
-        "keine Barzahlung!)\n\n"
-        "## Umsetzung in XRechnung:\n"
-        "```\n"
-        "items:\n"
-        "  - description: 'Arbeitsleistung: Bad sanieren (30 Std)'\n"
-        "    quantity: 30\n"
-        "    unit_code: 'HUR'\n"
-        "    unit_price: 55.00\n"
-        "    tax_rate: 19.00\n"
-        "  - description: 'Material: Fliesen, Kleber, Silikon'\n"
-        "    quantity: 1\n"
-        "    unit_code: 'C62'\n"
-        "    unit_price: 800.00\n"
-        "    tax_rate: 19.00\n"
-        "delivery_location_name: 'Privathaushalt Meier'\n"
-        "delivery_street: 'Musterstraße 42'\n"
-        "delivery_city: 'München'\n"
-        "delivery_postal_code: '80331'\n"
-        "delivery_country_code: 'DE'\n"
-        "payment_means_type_code: '58'  # SEPA-Überweisung — PFLICHT!\n"
-        "invoice_note: 'Arbeitskosten: 1.650€ netto "
-        "(§35a EStG steuerlich absetzbar)'\n"
-        "```\n\n"
-        "## Häufige Fehler:\n"
-        "- Keine Trennung von Material/Arbeit → Finanzamt lehnt ab\n"
-        "- Barzahlung → §35a nicht anwendbar\n"
-        "- Lieferort fehlt → Nachweis des Haushalts nicht erbracht"
-    )
-
-
-@mcp.prompt()
-def typecode_entscheidungshilfe() -> str:
-    """Entscheidungshilfe: Welcher TypeCode für welchen Anlass?
-
-    Übersicht aller unterstützten Rechnungstypen nach EN 16931
-    mit deutschen Erklärungen und Anwendungsfällen.
-    """
-    return (
-        "# TypeCode — Welcher Rechnungstyp?\n\n"
-        "| Code | Typ | Wann verwenden? |\n"
-        "|------|-----|------------------|\n"
-        "| **380** | Handelsrechnung | Standardrechnung für Lieferungen/Leistungen |\n"
-        "| **381** | Gutschrift | Korrektur zugunsten des Käufers "
-        "(Retoure, Rabatt) |\n"
-        "| **384** | Korrekturrechnung | Fehlerhafte Rechnung ersetzen |\n"
-        "| **389** | Selbstfakturierte Rechnung | Käufer stellt Rechnung "
-        "im Namen des Verkäufers |\n"
-        "| **875** | Teilrechnung | Rechnung über Teilleistung |\n"
-        "| **876** | Vorauszahlungsrechnung | Abschlag vor Leistung |\n"
-        "| **877** | Schlussrechnung | Endabrechnung nach Abschlägen |\n\n"
-        "## Entscheidungsbaum:\n\n"
-        "1. **Neue Lieferung/Leistung?** → **380**\n"
-        "2. **Korrektur einer Rechnung?**\n"
-        "   - Zugunsten des Käufers → **381** (Gutschrift)\n"
-        "   - Fehlerhafte Daten korrigieren → **384** (Korrekturrechnung)\n"
-        "3. **Teilweise Leistungserbringung?**\n"
-        "   - Abschlag vorab → **876**\n"
-        "   - Teilleistung erbracht → **875**\n"
-        "   - Letzte Rechnung nach Abschlägen → **877**\n"
-        "4. **Käufer stellt Rechnung?** → **389** (Gutschriftverfahren)\n\n"
-        "## Pflichtfelder je nach TypeCode:\n"
-        "- **381/384**: `preceding_invoice_number` (BT-25) PFLICHT\n"
-        "- **875/876/877**: `contract_reference` (BT-12) empfohlen\n"
-        "- **389**: Vereinbarung zwischen den Parteien erforderlich"
-    )
-
-
-# Map Pydantic field paths to German BT descriptions for user-friendly errors
-_FIELD_TO_BT: dict[str, str] = {
-    "invoice_id": "BT-1 (Rechnungsnummer)",
-    "issue_date": "BT-2 (Rechnungsdatum)",
-    "type_code": "BT-3 (Rechnungsart)",
-    "currency": "BT-5 (Währung)",
-    "seller": "BG-4 (Verkäufer)",
-    "seller.name": "BT-27 (Verkäufername)",
-    "seller.address": "BG-5 (Verkäuferadresse)",
-    "seller.address.street": "BT-35 (Straße Verkäufer)",
-    "seller.address.city": "BT-37 (Ort Verkäufer)",
-    "seller.address.postal_code": "BT-38 (PLZ Verkäufer)",
-    "seller.address.country_code": "BT-40 (Land Verkäufer)",
-    "seller.tax_id": "BT-31 (USt-IdNr. Verkäufer)",
-    "seller.electronic_address": "BT-34 (Elektr. Adresse Verkäufer)",
-    "buyer": "BG-7 (Käufer)",
-    "buyer.name": "BT-44 (Käufername)",
-    "buyer.address": "BG-8 (Käuferadresse)",
-    "buyer.address.street": "BT-50 (Straße Käufer)",
-    "buyer.address.city": "BT-52 (Ort Käufer)",
-    "buyer.address.postal_code": "BT-53 (PLZ Käufer)",
-    "buyer.address.country_code": "BT-55 (Land Käufer)",
-    "items": "BG-25 (Rechnungsposition)",
-    "seller_iban": "BT-84 (IBAN)",
-    "seller_bic": "BT-86 (BIC)",
-    "leitweg_id": "BT-10 (Leitweg-ID)",
-}
-
-
-def _format_pydantic_errors(exc: PydanticValidationError) -> str:
-    """Format Pydantic validation errors with BT number references."""
-    parts: list[str] = []
-    for err in exc.errors()[:5]:
-        loc = ".".join(str(p) for p in err["loc"])
-        bt_ref = _FIELD_TO_BT.get(loc, loc)
-        parts.append(f"{bt_ref}: {err['msg']}")
-    return "Fehler: Ungültige Rechnungsdaten:\n" + "\n".join(f"  - {p}" for p in parts)
-
-
-def _build_invoice_data(
-    *,
-    invoice_id: str,
-    issue_date: str,
-    seller_name: str,
-    seller_street: str,
-    seller_city: str,
-    seller_postal_code: str,
-    seller_country_code: str,
-    seller_tax_id: str,
-    buyer_name: str,
-    buyer_street: str,
-    buyer_city: str,
-    buyer_postal_code: str,
-    buyer_country_code: str,
-    items_json: str,
-    seller_street_2: str = "",
-    seller_street_3: str = "",
-    seller_country_subdivision: str = "",
-    buyer_street_2: str = "",
-    buyer_street_3: str = "",
-    buyer_country_subdivision: str = "",
-    buyer_tax_id: str = "",
-    currency: str = "EUR",
-    payment_terms_days: int | None = None,
-    leitweg_id: str = "",
-    buyer_reference: str = "",
-    profile: str = "XRECHNUNG",
-    seller_electronic_address: str = "",
-    seller_electronic_address_scheme: str = "EM",
-    buyer_electronic_address: str = "",
-    buyer_electronic_address_scheme: str = "EM",
-    seller_contact_name: str = "",
-    seller_contact_email: str = "",
-    seller_contact_phone: str = "",
-    buyer_contact_name: str = "",
-    buyer_contact_email: str = "",
-    buyer_contact_phone: str = "",
-    seller_iban: str = "",
-    seller_bic: str = "",
-    seller_bank_name: str = "",
-    type_code: str = "380",
-    seller_tax_number: str = "",
-    seller_registration_id: str = "",
-    buyer_registration_id: str = "",
-    delivery_party_name: str = "",
-    delivery_street: str = "",
-    delivery_city: str = "",
-    delivery_postal_code: str = "",
-    delivery_country_code: str = "",
-    delivery_date: str = "",
-    service_period_start: str = "",
-    service_period_end: str = "",
-    due_date: str = "",
-    invoice_note: str = "",
-    payment_terms_text: str = "",
-    purchase_order_reference: str = "",
-    sales_order_reference: str = "",
-    contract_reference: str = "",
-    project_reference: str = "",
-    preceding_invoice_number: str = "",
-    despatch_advice_reference: str = "",
-    invoiced_object_identifier: str = "",
-    business_process_type: str = "",
-    buyer_iban: str = "",
-    mandate_reference_id: str = "",
-    skonto_percent: str = "",
-    skonto_days: int | None = None,
-    skonto_base_amount: str = "",
-    payment_means_type_code: str = "58",
-    remittance_information: str = "",
-    allowances_charges_json: str = "",
-    tax_exemption_reason: str = "",
-    tax_exemption_reason_code: str = "",
-    tender_or_lot_reference: str = "",
-    seller_trading_name: str = "",
-    buyer_trading_name: str = "",
-    payee_name: str = "",
-    payee_id: str = "",
-    payee_legal_registration_id: str = "",
-    payment_card_pan: str = "",
-    payment_card_holder: str = "",
-    seller_tax_rep_name: str = "",
-    seller_tax_rep_street: str = "",
-    seller_tax_rep_city: str = "",
-    seller_tax_rep_postal_code: str = "",
-    seller_tax_rep_country_code: str = "",
-    seller_tax_rep_tax_id: str = "",
-    receiving_advice_reference: str = "",
-    delivery_location_id: str = "",
-    payment_means_text: str = "",
-    supporting_documents_json: str = "",
-) -> InvoiceData | str:
-    """Build InvoiceData from flat MCP tool parameters.
-
-    Returns InvoiceData on success, or a German error string on failure.
-    """
-    try:
-        items_list = json.loads(items_json)
-    except json.JSONDecodeError:
-        return "Fehler: 'items' muss ein gültiges JSON-Array sein."
-
-    ac_list: list[dict[str, object]] = []
-    if allowances_charges_json:
-        try:
-            ac_list = json.loads(allowances_charges_json)
-        except json.JSONDecodeError:
-            return "Fehler: 'allowances_charges' muss ein gültiges JSON-Array sein."
-
-    sd_list: list[dict[str, object]] = []
-    if supporting_documents_json:
-        try:
-            sd_list = json.loads(supporting_documents_json)
-        except json.JSONDecodeError:
-            return "Fehler: 'supporting_documents' muss ein gültiges JSON-Array sein."
-
-    try:
-        invoice_profile = InvoiceProfile(profile)
-    except ValueError:
-        return f"Fehler: Ungültiges Profil. Erlaubt: {_VALID_PROFILES}."
-
-    try:
-        return InvoiceData.model_validate(
-            {
-                "invoice_id": invoice_id,
-                "issue_date": issue_date,
-                "type_code": type_code,
-                "seller": {
-                    "name": seller_name,
-                    "address": {
-                        "street": seller_street,
-                        "street_2": seller_street_2 or None,
-                        "street_3": seller_street_3 or None,
-                        "city": seller_city,
-                        "postal_code": seller_postal_code,
-                        "country_code": seller_country_code,
-                        "country_subdivision": seller_country_subdivision or None,
-                    },
-                    "tax_id": seller_tax_id or None,
-                    "tax_number": seller_tax_number or None,
-                    "registration_id": seller_registration_id or None,
-                    "electronic_address": seller_electronic_address or None,
-                    "electronic_address_scheme": seller_electronic_address_scheme,
-                    "trading_name": seller_trading_name or None,
-                },
-                "buyer": {
-                    "name": buyer_name,
-                    "address": {
-                        "street": buyer_street,
-                        "street_2": buyer_street_2 or None,
-                        "street_3": buyer_street_3 or None,
-                        "city": buyer_city,
-                        "postal_code": buyer_postal_code,
-                        "country_code": buyer_country_code,
-                        "country_subdivision": buyer_country_subdivision or None,
-                    },
-                    "tax_id": buyer_tax_id or None,
-                    "registration_id": buyer_registration_id or None,
-                    "electronic_address": buyer_electronic_address or None,
-                    "electronic_address_scheme": buyer_electronic_address_scheme,
-                    "trading_name": buyer_trading_name or None,
-                },
-                "items": items_list,
-                "allowances_charges": ac_list,
-                "currency": currency,
-                "payment_terms_days": payment_terms_days,
-                "leitweg_id": leitweg_id or None,
-                "buyer_reference": buyer_reference or None,
-                "profile": invoice_profile,
-                "seller_contact_name": seller_contact_name or None,
-                "seller_contact_email": seller_contact_email or None,
-                "seller_contact_phone": seller_contact_phone or None,
-                "buyer_contact_name": buyer_contact_name or None,
-                "buyer_contact_email": buyer_contact_email or None,
-                "buyer_contact_phone": buyer_contact_phone or None,
-                "seller_iban": seller_iban or None,
-                "seller_bic": seller_bic or None,
-                "seller_bank_name": seller_bank_name or None,
-                "delivery_party_name": delivery_party_name or None,
-                "delivery_street": delivery_street or None,
-                "delivery_city": delivery_city or None,
-                "delivery_postal_code": delivery_postal_code or None,
-                "delivery_country_code": delivery_country_code or None,
-                "delivery_date": delivery_date or None,
-                "service_period_start": service_period_start or None,
-                "service_period_end": service_period_end or None,
-                "due_date": due_date or None,
-                "invoice_note": invoice_note or None,
-                "payment_terms_text": payment_terms_text or None,
-                "purchase_order_reference": purchase_order_reference or None,
-                "sales_order_reference": sales_order_reference or None,
-                "contract_reference": contract_reference or None,
-                "project_reference": project_reference or None,
-                "preceding_invoice_number": preceding_invoice_number or None,
-                "despatch_advice_reference": despatch_advice_reference or None,
-                "invoiced_object_identifier": invoiced_object_identifier or None,
-                "business_process_type": business_process_type or None,
-                "buyer_iban": buyer_iban or None,
-                "mandate_reference_id": mandate_reference_id or None,
-                "skonto_percent": skonto_percent or None,
-                "skonto_days": skonto_days,
-                "skonto_base_amount": skonto_base_amount or None,
-                "payment_means_type_code": payment_means_type_code,
-                "remittance_information": remittance_information or None,
-                "tax_exemption_reason": tax_exemption_reason or None,
-                "tax_exemption_reason_code": tax_exemption_reason_code or None,
-                "tender_or_lot_reference": tender_or_lot_reference or None,
-                "payee_name": payee_name or None,
-                "payee_id": payee_id or None,
-                "payee_legal_registration_id": payee_legal_registration_id or None,
-                "payment_card_pan": payment_card_pan or None,
-                "payment_card_holder": payment_card_holder or None,
-                "receiving_advice_reference": receiving_advice_reference or None,
-                "delivery_location_id": delivery_location_id or None,
-                "payment_means_text": payment_means_text or None,
-                "supporting_documents": sd_list,
-                **(
-                    {
-                        "seller_tax_representative": {
-                            "name": seller_tax_rep_name,
-                            "address": {
-                                "street": seller_tax_rep_street,
-                                "city": seller_tax_rep_city,
-                                "postal_code": seller_tax_rep_postal_code,
-                                "country_code": seller_tax_rep_country_code or "DE",
-                            },
-                            "tax_id": seller_tax_rep_tax_id or None,
-                        }
-                    }
-                    if seller_tax_rep_name
-                    else {}
-                ),
-            }
-        )
-    except PydanticValidationError as exc:
-        return _format_pydantic_errors(exc)
-
-
-# --- Tool 1: Validate XRechnung ---
+# ---------------------------------------------------------------------------
+# Tool 1: Validate XRechnung
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1315,7 +194,9 @@ async def einvoice_validate_xrechnung(xml_content: str, ctx: Context) -> str:
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Tool 2: Validate ZUGFeRD ---
+# ---------------------------------------------------------------------------
+# Tool 2: Validate ZUGFeRD
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1337,7 +218,9 @@ async def einvoice_validate_zugferd(pdf_base64: str, ctx: Context) -> str:
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Tool 3: Generate XRechnung ---
+# ---------------------------------------------------------------------------
+# Tool 3: Generate XRechnung
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1537,98 +420,7 @@ async def einvoice_generate_xrechnung(
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
     """
-    data = _build_invoice_data(
-        invoice_id=invoice_id,
-        issue_date=issue_date,
-        seller_name=seller_name,
-        seller_street=seller_street,
-        seller_street_2=seller_street_2,
-        seller_street_3=seller_street_3,
-        seller_country_subdivision=seller_country_subdivision,
-        seller_city=seller_city,
-        seller_postal_code=seller_postal_code,
-        seller_country_code=seller_country_code,
-        seller_tax_id=seller_tax_id,
-        buyer_name=buyer_name,
-        buyer_street=buyer_street,
-        buyer_street_2=buyer_street_2,
-        buyer_street_3=buyer_street_3,
-        buyer_country_subdivision=buyer_country_subdivision,
-        buyer_city=buyer_city,
-        buyer_postal_code=buyer_postal_code,
-        buyer_country_code=buyer_country_code,
-        items_json=items,
-        buyer_tax_id=buyer_tax_id,
-        currency=currency,
-        payment_terms_days=payment_terms_days,
-        leitweg_id=leitweg_id,
-        buyer_reference=buyer_reference,
-        profile=profile,
-        seller_electronic_address=seller_electronic_address,
-        seller_electronic_address_scheme=seller_electronic_address_scheme,
-        buyer_electronic_address=buyer_electronic_address,
-        buyer_electronic_address_scheme=buyer_electronic_address_scheme,
-        seller_contact_name=seller_contact_name,
-        seller_contact_email=seller_contact_email,
-        seller_contact_phone=seller_contact_phone,
-        buyer_contact_name=buyer_contact_name,
-        buyer_contact_email=buyer_contact_email,
-        buyer_contact_phone=buyer_contact_phone,
-        seller_iban=seller_iban,
-        seller_bic=seller_bic,
-        seller_bank_name=seller_bank_name,
-        type_code=type_code,
-        seller_tax_number=seller_tax_number,
-        delivery_party_name=delivery_party_name,
-        delivery_street=delivery_street,
-        delivery_city=delivery_city,
-        delivery_postal_code=delivery_postal_code,
-        delivery_country_code=delivery_country_code,
-        delivery_date=delivery_date,
-        service_period_start=service_period_start,
-        service_period_end=service_period_end,
-        due_date=due_date,
-        invoice_note=invoice_note,
-        payment_terms_text=payment_terms_text,
-        purchase_order_reference=purchase_order_reference,
-        sales_order_reference=sales_order_reference,
-        contract_reference=contract_reference,
-        project_reference=project_reference,
-        preceding_invoice_number=preceding_invoice_number,
-        despatch_advice_reference=despatch_advice_reference,
-        invoiced_object_identifier=invoiced_object_identifier,
-        business_process_type=business_process_type,
-        seller_registration_id=seller_registration_id,
-        buyer_registration_id=buyer_registration_id,
-        buyer_iban=buyer_iban,
-        mandate_reference_id=mandate_reference_id,
-        skonto_percent=skonto_percent,
-        skonto_days=skonto_days,
-        skonto_base_amount=skonto_base_amount,
-        payment_means_type_code=payment_means_type_code,
-        remittance_information=remittance_information,
-        allowances_charges_json=allowances_charges,
-        tax_exemption_reason=tax_exemption_reason,
-        tax_exemption_reason_code=tax_exemption_reason_code,
-        tender_or_lot_reference=tender_or_lot_reference,
-        seller_trading_name=seller_trading_name,
-        buyer_trading_name=buyer_trading_name,
-        payee_name=payee_name,
-        payee_id=payee_id,
-        payee_legal_registration_id=payee_legal_registration_id,
-        payment_card_pan=payment_card_pan,
-        payment_card_holder=payment_card_holder,
-        seller_tax_rep_name=seller_tax_rep_name,
-        seller_tax_rep_street=seller_tax_rep_street,
-        seller_tax_rep_city=seller_tax_rep_city,
-        seller_tax_rep_postal_code=seller_tax_rep_postal_code,
-        seller_tax_rep_country_code=seller_tax_rep_country_code,
-        seller_tax_rep_tax_id=seller_tax_rep_tax_id,
-        receiving_advice_reference=receiving_advice_reference,
-        delivery_location_id=delivery_location_id,
-        payment_means_text=payment_means_text,
-        supporting_documents_json=supporting_documents,
-    )
+    data = build_invoice_data(**_collect_generate_params(locals()))
 
     if isinstance(data, str):
         return json.dumps({"success": False, "error": data}, ensure_ascii=False)
@@ -1638,7 +430,9 @@ async def einvoice_generate_xrechnung(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Tool 4: Generate ZUGFeRD ---
+# ---------------------------------------------------------------------------
+# Tool 4: Generate ZUGFeRD
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1836,98 +630,7 @@ async def einvoice_generate_zugferd(
         payment_means_text: Zahlungsart Freitext (BT-82).
         supporting_documents: JSON-Array Belegdokumente (BG-24).
     """
-    data = _build_invoice_data(
-        invoice_id=invoice_id,
-        issue_date=issue_date,
-        seller_name=seller_name,
-        seller_street=seller_street,
-        seller_street_2=seller_street_2,
-        seller_street_3=seller_street_3,
-        seller_country_subdivision=seller_country_subdivision,
-        seller_city=seller_city,
-        seller_postal_code=seller_postal_code,
-        seller_country_code=seller_country_code,
-        seller_tax_id=seller_tax_id,
-        buyer_name=buyer_name,
-        buyer_street=buyer_street,
-        buyer_street_2=buyer_street_2,
-        buyer_street_3=buyer_street_3,
-        buyer_country_subdivision=buyer_country_subdivision,
-        buyer_city=buyer_city,
-        buyer_postal_code=buyer_postal_code,
-        buyer_country_code=buyer_country_code,
-        items_json=items,
-        buyer_tax_id=buyer_tax_id,
-        currency=currency,
-        payment_terms_days=payment_terms_days,
-        leitweg_id=leitweg_id,
-        buyer_reference=buyer_reference,
-        profile=profile,
-        seller_electronic_address=seller_electronic_address,
-        seller_electronic_address_scheme=seller_electronic_address_scheme,
-        buyer_electronic_address=buyer_electronic_address,
-        buyer_electronic_address_scheme=buyer_electronic_address_scheme,
-        seller_contact_name=seller_contact_name,
-        seller_contact_email=seller_contact_email,
-        seller_contact_phone=seller_contact_phone,
-        buyer_contact_name=buyer_contact_name,
-        buyer_contact_email=buyer_contact_email,
-        buyer_contact_phone=buyer_contact_phone,
-        seller_iban=seller_iban,
-        seller_bic=seller_bic,
-        seller_bank_name=seller_bank_name,
-        type_code=type_code,
-        seller_tax_number=seller_tax_number,
-        delivery_party_name=delivery_party_name,
-        delivery_street=delivery_street,
-        delivery_city=delivery_city,
-        delivery_postal_code=delivery_postal_code,
-        delivery_country_code=delivery_country_code,
-        delivery_date=delivery_date,
-        service_period_start=service_period_start,
-        service_period_end=service_period_end,
-        due_date=due_date,
-        invoice_note=invoice_note,
-        payment_terms_text=payment_terms_text,
-        purchase_order_reference=purchase_order_reference,
-        sales_order_reference=sales_order_reference,
-        contract_reference=contract_reference,
-        project_reference=project_reference,
-        preceding_invoice_number=preceding_invoice_number,
-        despatch_advice_reference=despatch_advice_reference,
-        invoiced_object_identifier=invoiced_object_identifier,
-        business_process_type=business_process_type,
-        seller_registration_id=seller_registration_id,
-        buyer_registration_id=buyer_registration_id,
-        buyer_iban=buyer_iban,
-        mandate_reference_id=mandate_reference_id,
-        skonto_percent=skonto_percent,
-        skonto_days=skonto_days,
-        skonto_base_amount=skonto_base_amount,
-        payment_means_type_code=payment_means_type_code,
-        remittance_information=remittance_information,
-        allowances_charges_json=allowances_charges,
-        tax_exemption_reason=tax_exemption_reason,
-        tax_exemption_reason_code=tax_exemption_reason_code,
-        tender_or_lot_reference=tender_or_lot_reference,
-        seller_trading_name=seller_trading_name,
-        buyer_trading_name=buyer_trading_name,
-        payee_name=payee_name,
-        payee_id=payee_id,
-        payee_legal_registration_id=payee_legal_registration_id,
-        payment_card_pan=payment_card_pan,
-        payment_card_holder=payment_card_holder,
-        seller_tax_rep_name=seller_tax_rep_name,
-        seller_tax_rep_street=seller_tax_rep_street,
-        seller_tax_rep_city=seller_tax_rep_city,
-        seller_tax_rep_postal_code=seller_tax_rep_postal_code,
-        seller_tax_rep_country_code=seller_tax_rep_country_code,
-        seller_tax_rep_tax_id=seller_tax_rep_tax_id,
-        receiving_advice_reference=receiving_advice_reference,
-        delivery_location_id=delivery_location_id,
-        payment_means_text=payment_means_text,
-        supporting_documents_json=supporting_documents,
-    )
+    data = build_invoice_data(**_collect_generate_params(locals()))
 
     if isinstance(data, str):
         return json.dumps({"success": False, "error": data}, ensure_ascii=False)
@@ -1937,7 +640,9 @@ async def einvoice_generate_zugferd(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Tool 5: Parse E-Invoice ---
+# ---------------------------------------------------------------------------
+# Tool 5: Parse E-Invoice
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1959,7 +664,9 @@ async def einvoice_parse(file_content: str, file_type: str = "xml") -> str:
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Tool 6: Check Compliance ---
+# ---------------------------------------------------------------------------
+# Tool 6: Check Compliance
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -1989,7 +696,9 @@ async def einvoice_check_compliance(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-# --- Entry point ---
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 
 def main() -> None:

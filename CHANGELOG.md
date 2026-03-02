@@ -121,4 +121,6 @@ All notable changes to the einvoice-mcp project.
 - Deployment guide (docs/DEPLOYMENT.md)
 - UBL format detection (rejects UBL with clear German error)
 - Pydantic validation errors with BT number references
-- 537 tests, 100% coverage (2011 stmts), ruff + mypy strict clean
+- Modular architecture: resources/, prompts/, services/ packages
+- server.py reduced from 2001 → 710 lines (65% reduction)
+- 543 tests, 100% coverage (2106 stmts), ruff + mypy strict clean

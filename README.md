@@ -3,7 +3,7 @@
 [![CI](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Mavengence/einvoice-mcp/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-537%20passed-brightgreen.svg)](#compliance-proof)
+[![Tests](https://img.shields.io/badge/tests-543%20passed-brightgreen.svg)](#compliance-proof)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#module-coverage)
 
 **MCP-Server for German e-invoice compliance — XRechnung 3.0 & ZUGFeRD 2.x**
@@ -20,7 +20,7 @@ Germany mandated e-invoice reception for B2B as of January 2025 (BMF 2024-11-15)
 
 ## Compliance Proof
 
-**537 tests | 100% coverage (2011 stmts) | 0 failures | lint clean (ruff + mypy strict)**
+**543 tests | 100% coverage (2106 stmts) | 0 failures | lint clean (ruff + mypy strict)**
 
 *Run `make test` to verify.*
 
@@ -259,7 +259,12 @@ Every mandatory Business Term is tested in generated XML output:
 | `config.py` | 16 | 0 | **100%** |
 | `errors.py` | 36 | 0 | **100%** |
 | `models.py` | 314 | 0 | **100%** |
+| `prompts/guides.py` | 20 | 0 | **100%** |
+| `resources/schemas.py` | 12 | 0 | **100%** |
+| `resources/reference_data.py` | 11 | 0 | **100%** |
+| `resources/compliance_data.py` | 9 | 0 | **100%** |
 | `services/invoice_builder.py` | 335 | 0 | **100%** |
+| `services/invoice_data_builder.py` | 37 | 0 | **100%** |
 | `services/kosit.py` | 80 | 0 | **100%** |
 | `services/pdf_generator.py` | 182 | 0 | **100%** |
 | `services/xml_parser.py` | 709 | 0 | **100%** |
@@ -267,9 +272,9 @@ Every mandatory Business Term is tested in generated XML output:
 | `tools/generate.py` | 50 | 0 | **100%** |
 | `tools/parse.py` | 39 | 0 | **100%** |
 | `tools/validate.py` | 33 | 0 | **100%** |
-| **TOTAL** | **2011** | **0** | **100%** |
+| **TOTAL** | **2106** | **0** | **100%** |
 
-*`server.py` excluded — FastMCP Context cannot be unit-tested; helper functions tested in `test_server_helpers.py`.*
+*`server.py` excluded — FastMCP Context cannot be unit-tested; helpers tested in `test_server_helpers.py`.*
 
 ---
 

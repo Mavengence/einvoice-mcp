@@ -1,5 +1,15 @@
 # Smithery configuration: https://smithery.ai/docs/config#smitheryyaml
 
+name: einvoice-mcp
+version: "0.1.0"
+description: >
+  MCP server for German e-invoice compliance (XRechnung 3.0 / ZUGFeRD 2.x).
+  Validate, generate, parse, and check compliance of electronic invoices
+  per EN 16931 with full German business rule support.
+author: Tim Löhr
+repository: https://github.com/Mavengence/einvoice-mcp
+license: MIT
+
 build:
   dockerBuildPath: docker/
 

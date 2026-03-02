@@ -1437,9 +1437,9 @@ class TestBT31BT32AlternativeCompliance:
 
 class TestBuildInvoiceDataNewParams:
     def test_type_code_parameter(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="TC-001",
             issue_date="2026-01-01",
             seller_name="S",
@@ -1460,9 +1460,9 @@ class TestBuildInvoiceDataNewParams:
         assert data.type_code == "381"
 
     def test_seller_tax_number_parameter(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="TN-001",
             issue_date="2026-01-01",
             seller_name="S",
@@ -1483,9 +1483,9 @@ class TestBuildInvoiceDataNewParams:
         assert data.seller.tax_number == "123/456/78901"
 
     def test_delivery_date_parameter(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="DD-001",
             issue_date="2026-01-01",
             seller_name="S",
@@ -1506,9 +1506,9 @@ class TestBuildInvoiceDataNewParams:
         assert str(data.delivery_date) == "2026-01-15"
 
     def test_service_period_parameters(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="SP-001",
             issue_date="2026-01-01",
             seller_name="S",
@@ -1531,9 +1531,9 @@ class TestBuildInvoiceDataNewParams:
         assert str(data.service_period_end) == "2026-01-31"
 
     def test_electronic_address_scheme_parameters(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="EAS-001",
             issue_date="2026-01-01",
             seller_name="S",
@@ -1625,9 +1625,9 @@ class TestTypeCodeValidation:
 
     def test_invalid_type_code_via_server(self) -> None:
         """_build_invoice_data returns error string for invalid type code."""
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        result = _build_invoice_data(
+        result = build_invoice_data(
             invoice_id="T",
             issue_date="2026-01-01",
             seller_name="S",
@@ -2011,9 +2011,9 @@ class TestParserExceptionHandlers:
 
 class TestBuildInvoiceDataErrors:
     def test_invalid_json_items(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        result = _build_invoice_data(
+        result = build_invoice_data(
             invoice_id="T",
             issue_date="2026-01-01",
             seller_name="S",
@@ -2033,9 +2033,9 @@ class TestBuildInvoiceDataErrors:
         assert "JSON" in result
 
     def test_invalid_profile(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        result = _build_invoice_data(
+        result = build_invoice_data(
             invoice_id="T",
             issue_date="2026-01-01",
             seller_name="S",
@@ -2056,9 +2056,9 @@ class TestBuildInvoiceDataErrors:
         assert "Ungültiges Profil" in result
 
     def test_pydantic_validation_error(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        result = _build_invoice_data(
+        result = build_invoice_data(
             invoice_id="",  # empty → validation error
             issue_date="2026-01-01",
             seller_name="S",
@@ -2078,9 +2078,9 @@ class TestBuildInvoiceDataErrors:
         assert "Ungültige Rechnungsdaten" in result
 
     def test_invalid_date_format(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        result = _build_invoice_data(
+        result = build_invoice_data(
             invoice_id="T",
             issue_date="not-a-date",
             seller_name="S",
@@ -2184,9 +2184,9 @@ class TestInvoiceNoteAndPaymentTerms:
 
     def test_build_invoice_data_with_note_and_terms(self) -> None:
         """Server _build_invoice_data correctly passes BT-22 / BT-20."""
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="NOTE-001",
             issue_date="2026-03-01",
             seller_name="S",
@@ -2341,9 +2341,9 @@ class TestPaymentMeansAndRemittance:
 
     def test_build_invoice_data_with_references(self) -> None:
         """Server _build_invoice_data passes all new reference fields."""
-        from einvoice_mcp.server import _build_invoice_data
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
 
-        data = _build_invoice_data(
+        data = build_invoice_data(
             invoice_id="REF-001",
             issue_date="2026-03-01",
             seller_name="S",
@@ -6585,7 +6585,7 @@ class TestMCPReferenceResources:
     def test_type_codes_resource(self) -> None:
         import json
 
-        from einvoice_mcp.server import reference_type_codes
+        from einvoice_mcp.resources import reference_type_codes
 
         data = json.loads(reference_type_codes())
         assert "380" in data
@@ -6596,7 +6596,7 @@ class TestMCPReferenceResources:
     def test_payment_means_codes_resource(self) -> None:
         import json
 
-        from einvoice_mcp.server import reference_payment_means_codes
+        from einvoice_mcp.resources import reference_payment_means_codes
 
         data = json.loads(reference_payment_means_codes())
         assert "58" in data
@@ -6607,7 +6607,7 @@ class TestMCPReferenceResources:
     def test_tax_categories_resource(self) -> None:
         import json
 
-        from einvoice_mcp.server import reference_tax_categories
+        from einvoice_mcp.resources import reference_tax_categories
 
         data = json.loads(reference_tax_categories())
         assert "S" in data
@@ -6620,7 +6620,7 @@ class TestMCPReferenceResources:
     def test_unit_codes_resource(self) -> None:
         import json
 
-        from einvoice_mcp.server import reference_unit_codes
+        from einvoice_mcp.resources import reference_unit_codes
 
         data = json.loads(reference_unit_codes())
         assert "H87" in data
@@ -6631,7 +6631,7 @@ class TestMCPReferenceResources:
     def test_eas_codes_resource(self) -> None:
         import json
 
-        from einvoice_mcp.server import reference_eas_codes
+        from einvoice_mcp.resources import reference_eas_codes
 
         data = json.loads(reference_eas_codes())
         assert "EM" in data
@@ -6647,7 +6647,7 @@ class TestMCPPrompts:
     """Test MCP prompts return valid content."""
 
     def test_gutschrift_prompt(self) -> None:
-        from einvoice_mcp.server import gutschrift_erstellen
+        from einvoice_mcp.prompts import gutschrift_erstellen
 
         content = gutschrift_erstellen()
         assert "381" in content
@@ -6655,7 +6655,7 @@ class TestMCPPrompts:
         assert "BT-25" in content
 
     def test_reverse_charge_prompt(self) -> None:
-        from einvoice_mcp.server import reverse_charge_checkliste
+        from einvoice_mcp.prompts import reverse_charge_checkliste
 
         content = reverse_charge_checkliste()
         assert "§13b" in content
@@ -6663,7 +6663,7 @@ class TestMCPPrompts:
         assert "BT-31" in content
 
     def test_xrechnung_schnellstart_prompt(self) -> None:
-        from einvoice_mcp.server import xrechnung_schnellstart
+        from einvoice_mcp.prompts import xrechnung_schnellstart
 
         content = xrechnung_schnellstart()
         assert "Leitweg" in content
@@ -6671,7 +6671,7 @@ class TestMCPPrompts:
         assert "BR-DE" in content
 
     def test_korrekturrechnung_prompt(self) -> None:
-        from einvoice_mcp.server import korrekturrechnung_erstellen
+        from einvoice_mcp.prompts import korrekturrechnung_erstellen
 
         content = korrekturrechnung_erstellen()
         assert "384" in content
@@ -6946,6 +6946,74 @@ class TestSmallAmountInvoice:
 
 
 # ---------------------------------------------------------------------------
+# Schema resources (extracted to resources/schemas.py)
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaResources:
+    """Test the JSON schema resource functions return valid JSON schemas."""
+
+    def test_schema_line_item(self) -> None:
+        from einvoice_mcp.resources import schema_line_item
+
+        schema = json.loads(schema_line_item())
+        assert schema["type"] == "object"
+
+    def test_schema_allowance_charge(self) -> None:
+        from einvoice_mcp.resources import schema_allowance_charge
+
+        schema = json.loads(schema_allowance_charge())
+        assert schema["type"] == "object"
+
+    def test_schema_item_attribute(self) -> None:
+        from einvoice_mcp.resources import schema_item_attribute
+
+        schema = json.loads(schema_item_attribute())
+        assert schema["type"] == "object"
+
+    def test_schema_supporting_document(self) -> None:
+        from einvoice_mcp.resources import schema_supporting_document
+
+        schema = json.loads(schema_supporting_document())
+        assert schema["type"] == "object"
+
+    def test_schema_invoice_data(self) -> None:
+        from einvoice_mcp.resources import schema_invoice_data
+
+        schema = json.loads(schema_invoice_data())
+        assert schema["type"] == "object"
+        assert "properties" in schema
+
+
+class TestBuildInvoiceDataSupportingDocsError:
+    """Test invalid supporting_documents_json returns German error."""
+
+    def test_invalid_supporting_documents_json(self) -> None:
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
+
+        items = json.dumps([{"description": "Test", "quantity": 1, "unit_price": 100}])
+        result = build_invoice_data(
+            invoice_id="RE-001",
+            issue_date="2026-01-01",
+            seller_name="S",
+            seller_street="S",
+            seller_city="S",
+            seller_postal_code="00000",
+            seller_country_code="DE",
+            seller_tax_id="",
+            buyer_name="B",
+            buyer_street="B",
+            buyer_city="B",
+            buyer_postal_code="00000",
+            buyer_country_code="DE",
+            items_json=items,
+            supporting_documents_json="not-valid-json",
+        )
+        assert isinstance(result, str)
+        assert "supporting_documents" in result
+
+
+# ---------------------------------------------------------------------------
 # New MCP Prompts (Abschlagsrechnung, Ratenzahlung, §35a, TypeCode guide)
 # ---------------------------------------------------------------------------
 
@@ -6954,7 +7022,7 @@ class TestNewMCPResources:
     """Test the new reference resources added to the server."""
 
     def test_e_rechnung_pflichten_resource(self) -> None:
-        from einvoice_mcp.server import e_rechnung_pflichten
+        from einvoice_mcp.resources import e_rechnung_pflichten
 
         text = e_rechnung_pflichten()
         data = json.loads(text)
@@ -6967,7 +7035,7 @@ class TestNewMCPResources:
         assert len(data["notes"]) >= 3
 
     def test_br_de_rules_resource(self) -> None:
-        from einvoice_mcp.server import br_de_rules
+        from einvoice_mcp.resources import br_de_rules
 
         text = br_de_rules()
         data = json.loads(text)
@@ -6986,7 +7054,7 @@ class TestNewMCPResources:
 
 
     def test_skr04_mapping_resource(self) -> None:
-        from einvoice_mcp.server import skr04_mapping
+        from einvoice_mcp.resources import skr04_mapping
 
         text = skr04_mapping()
         data = json.loads(text)
@@ -7002,7 +7070,7 @@ class TestNewMCPResources:
             assert "tax_rate" in m
 
     def test_credit_note_reasons_resource(self) -> None:
-        from einvoice_mcp.server import credit_note_reasons
+        from einvoice_mcp.resources import credit_note_reasons
 
         text = credit_note_reasons()
         data = json.loads(text)
@@ -7021,7 +7089,7 @@ class TestSteuerprüfungPrompt:
     """Test the audit readiness prompt."""
 
     def test_steuerprüfung_checkliste(self) -> None:
-        from einvoice_mcp.server import steuerprüfung_checkliste
+        from einvoice_mcp.prompts import steuerprüfung_checkliste
 
         text = steuerprüfung_checkliste()
         assert "GoBD" in text
@@ -7036,7 +7104,7 @@ class TestB2BPflichtPrompt:
     """Test the B2B mandate prompt."""
 
     def test_b2b_pflicht_2027_prompt(self) -> None:
-        from einvoice_mcp.server import b2b_pflicht_2027
+        from einvoice_mcp.prompts import b2b_pflicht_2027
 
         text = b2b_pflicht_2027()
         assert "2025" in text
@@ -7051,7 +7119,7 @@ class TestNewMCPPrompts:
     """Test the 4 new German business scenario prompts."""
 
     def test_abschlagsrechnung_prompt(self) -> None:
-        from einvoice_mcp.server import abschlagsrechnung_guide
+        from einvoice_mcp.prompts import abschlagsrechnung_guide
 
         text = abschlagsrechnung_guide()
         assert "875" in text
@@ -7061,7 +7129,7 @@ class TestNewMCPPrompts:
         assert "§632a" in text or "§13" in text
 
     def test_ratenzahlung_prompt(self) -> None:
-        from einvoice_mcp.server import ratenzahlung_rechnung
+        from einvoice_mcp.prompts import ratenzahlung_rechnung
 
         text = ratenzahlung_rechnung()
         assert "Ratenzahlung" in text or "Raten" in text
@@ -7069,7 +7137,7 @@ class TestNewMCPPrompts:
         assert "§271" in text or "Fälligkeit" in text
 
     def test_handwerkerrechnung_prompt(self) -> None:
-        from einvoice_mcp.server import handwerkerrechnung_35a
+        from einvoice_mcp.prompts import handwerkerrechnung_35a
 
         text = handwerkerrechnung_35a()
         assert "§35a" in text
@@ -7078,7 +7146,7 @@ class TestNewMCPPrompts:
         assert "Haushalt" in text
 
     def test_typecode_entscheidungshilfe_prompt(self) -> None:
-        from einvoice_mcp.server import typecode_entscheidungshilfe
+        from einvoice_mcp.prompts import typecode_entscheidungshilfe
 
         text = typecode_entscheidungshilfe()
         assert "380" in text
@@ -7521,8 +7589,8 @@ class TestPydanticErrorFormatting:
     """Verify that Pydantic validation errors include BT references."""
 
     def test_missing_seller_name_shows_bt27(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
-        result = _build_invoice_data(
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
+        result = build_invoice_data(
             invoice_id="X-001",
             issue_date="2026-01-01",
             seller_name="",  # empty = invalid
@@ -7542,8 +7610,8 @@ class TestPydanticErrorFormatting:
         assert "Fehler: Ungültige Rechnungsdaten" in result
 
     def test_invalid_iban_shows_bt84(self) -> None:
-        from einvoice_mcp.server import _build_invoice_data
-        result = _build_invoice_data(
+        from einvoice_mcp.services.invoice_data_builder import build_invoice_data
+        result = build_invoice_data(
             invoice_id="X-001",
             issue_date="2026-01-01",
             seller_name="S",

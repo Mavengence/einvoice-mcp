@@ -18,7 +18,7 @@ docker-push:
 	docker push $(REGISTRY)/einvoice-mcp:$(VERSION)
 
 test:
-	pytest --cov=einvoice_mcp --cov-report=term-missing -x -q
+	pytest --cov=einvoice_mcp --cov-report=term-missing --cov-fail-under=80 -x -q
 
 test-unit:
 	pytest tests/unit --cov=einvoice_mcp --cov-report=term-missing -x -q
@@ -43,4 +43,4 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 type-check:
-	mypy src/einvoice_mcp --ignore-missing-imports
+	mypy src/ --strict

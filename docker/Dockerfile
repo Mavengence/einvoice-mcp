@@ -11,15 +11,16 @@ WORKDIR /app
 COPY pyproject.toml .
 COPY src/ src/
 
-RUN pip install --no-cache-dir .
+# Install to a fixed prefix — works with any Python version
+RUN pip install --no-cache-dir --prefix=/install .
 
 FROM ${PYTHON_IMAGE}
 
 RUN groupadd -r mcp && useradd -r -g mcp mcp
 WORKDIR /app
 
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy installed packages from builder (version-independent path)
+COPY --from=builder /install /usr/local
 
 USER mcp
 
