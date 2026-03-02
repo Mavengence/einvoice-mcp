@@ -434,6 +434,17 @@ def _extract_items(doc: Document) -> list[LineItem]:
                 if cat in TaxCategory.__members__:
                     tax_category = TaxCategory(cat)
 
+            # Line item note (BT-127)
+            item_note = None
+            line_notes = getattr(li.document, "notes", None)
+            if line_notes and hasattr(line_notes, "children"):
+                for note in line_notes.children:
+                    content = getattr(note, "content", None)
+                    text = _str_element(content) if content else _str_element(note)
+                    if text:
+                        item_note = text
+                        break
+
             # Product identifiers (BT-155, BT-156, BT-157)
             seller_item_id = _str_element(
                 getattr(li.product, "seller_assigned_id", "")
@@ -476,6 +487,7 @@ def _extract_items(doc: Document) -> list[LineItem]:
                     buyer_item_id=buyer_item_id,
                     standard_item_id=standard_item_id,
                     standard_item_scheme=standard_item_scheme,
+                    item_note=item_note,
                 )
             )
         except Exception:

@@ -3026,6 +3026,32 @@ class TestRegistrationIdRoundtrip:
         assert parsed.buyer.registration_id == "9876543210123"
 
 
+class TestLineItemNoteRoundtrip:
+    """Roundtrip tests for line-item note (BT-127)."""
+
+    def test_item_note_roundtrip(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """Line item note roundtrips through XML."""
+        items = [
+            sample_invoice_data.items[0].model_copy(
+                update={"item_note": "Lieferung per Express"}
+            )
+        ]
+        data = sample_invoice_data.model_copy(update={"items": items})
+        xml_bytes = build_xml(data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].item_note == "Lieferung per Express"
+
+    def test_no_item_note(
+        self, sample_invoice_data: InvoiceData
+    ) -> None:
+        """No item note → None in parsed output."""
+        xml_bytes = build_xml(sample_invoice_data)
+        parsed = parse_xml(xml_bytes)
+        assert parsed.items[0].item_note is None
+
+
 class TestLineItemIdentifiersRoundtrip:
     """Roundtrip tests for line-item identifiers (BT-155/156/157)."""
 

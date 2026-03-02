@@ -195,6 +195,12 @@ def _build_document(data: InvoiceData) -> bytes:
     for idx, item in enumerate(data.items, 1):
         li = DHLineItem()
         li.document.line_id = str(idx)
+        # Line item note (BT-127)
+        if item.item_note:
+            line_note = IncludedNote()
+            line_note.content = item.item_note
+            li.document.notes.add(line_note)
+
         li.product.name = item.description
         if item.seller_item_id:
             li.product.seller_assigned_id = item.seller_item_id

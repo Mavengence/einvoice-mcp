@@ -107,6 +107,9 @@ class LineItem(BaseModel):
     standard_item_scheme: str = Field(
         default="0160", max_length=10, description="Schema der Standard-Artikelnr. (0160=GTIN)"
     )
+    item_note: str | None = Field(
+        default=None, max_length=1000, description="Positionshinweis (BT-127)"
+    )
 
 
 class AllowanceCharge(BaseModel):
